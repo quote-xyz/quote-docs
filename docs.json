@@ -59,12 +59,6 @@
               "guides/templates",
               "guides/analytics"
             ]
-          },
-          {
-            "group": "Real-Time",
-            "pages": [
-              "websockets/algo-status"
-            ]
           }
         ]
       },
@@ -80,6 +74,12 @@
           {
             "group": "Endpoints",
             "openapi": "api-reference/openapi.yaml"
+          },
+          {
+            "group": "WebSockets",
+            "pages": [
+              "websockets/algo-status"
+            ]
           }
         ]
       },

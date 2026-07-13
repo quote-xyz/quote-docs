@@ -15,7 +15,7 @@ wss://api.quotemarkets.xyz/api/ws/algos
 
 ## Connecting and authenticating
 
-The upgrade itself is unauthenticated. The **first client frame** must be an auth handshake with a Privy identity token, sent within a few seconds of connecting:
+The upgrade itself is unauthenticated. The **first client frame** must be an auth handshake with a terminal session token, sent within a few seconds of connecting:
 
 ```json
 { "type": "auth", "identity_token": "<privy-jwt>" }
