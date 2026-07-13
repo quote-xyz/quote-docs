@@ -1,0 +1,60 @@
+---
+title: "Iceberg"
+description: "Clip-based, pure-passive execution that hides your size — with built-in anti-detection: randomized reposting, jittered timing, and log-normal clip sizing."
+---
+
+`iceberg` shows the market only a small clip at a time. When a clip fills, the next one is posted; the market never sees your full size on the book. It is **pure passive** — clips are post-only orders that never cross the spread — and it has **no time constraint**: it works until filled or cancelled (optionally bounded by `maxDurationSecs`).
+
+Because a naive iceberg is trivially detectable (same size reappearing at the same level), Quote's implementation actively defeats pattern detection:
+
+- **Fresh order identities per clip** — no reusable venue-visible linkage between clips.
+- **Exponentially-jittered repost timing** — the delay between a fill and the next clip is randomized, killing the constant-latency fingerprint.
+- **Log-normal clip sizing** (with `randomize`) — clip sizes vary organically instead of repeating one number.
+- **Reprice confirmation** — the clip follows the BBO only after the move persists for `repriceConfirmTicks` ticks, avoiding a nervous, trackable dance at the touch.
+
+## Example
+
+```json
+POST /api/orders
+{
+  "symbol": "HYPE",
+  "side": "buy",
+  "size": "5000",
+  "orderType": "limit",
+  "strategy": "iceberg",
+  "params": {
+    "clipSize": "150",
+    "randomize": true,
+    "maxSpreadBps": "20"
+  }
+}
+```
+
+## Parameters
+
+| Parameter | Type | Default | Description |
+|---|---|---|---|
+| `clipSize` | decimal string | `1` | Visible clip size in base asset. Set this to a size that blends with typical book depth |
+| `clipPct` | number | — | Alternative to `clipSize`: clip as a percent of total order size |
+| `participationRate` | decimal | `0` (off) | Cap execution at a fraction of observed market volume over `volWindowSecs` |
+| `volWindowSecs` | integer | `60` | Volume observation window for the participation cap |
+| `priceOffsetBps` | decimal | `0` | Rest this far behind the touch (0 = at BBO) |
+| `randomize` | boolean | `false` | Enable log-normal clip sizing + timing jitter |
+| `repostJitterMeanMs` | integer | `300` | Mean of the exponential repost delay after a clip fills |
+| `repriceThresholdBps` | decimal | `5` | Reprice only when the BBO has moved at least this far |
+| `repriceConfirmTicks` | integer | `3` | Ticks the move must persist before repricing |
+| `maxSpreadBps` | decimal | `0` (off) | Pause posting when the spread is wider than this |
+| `ofiPauseThresholdPct` | integer 0–100 | `0` (off) | Pause when order-flow imbalance runs against you beyond this threshold |
+| `maxDurationSecs` | integer | `0` (unlimited) | Optional hard stop; remaining size is left unexecuted |
+| `reduceOnly` | boolean | `false` | Clips only reduce an existing position |
+
+## Behavior notes
+
+- **No completion guarantee.** Iceberg never takes liquidity. If price runs away from your level, it simply doesn't fill — that's the point. Pair it with a [trigger](/guides/triggers) or monitor progress if you need a plan B.
+- **Sizing the clip.** Too small wastes time (and risks the ~$10 [minimum notional](/concepts/hyperliquid-constraints#minimum-order-notional-10) per clip); too large defeats the hiding. A good starting point is the typical top-of-book size for the asset.
+- **Restart-safe.** Clip state is reconstructed on engine restart; a resting clip is recovered, not duplicated.
+
+## When to use something else
+
+- You have a deadline → [Passive TWAP](/strategies/passive-twap) or [Adaptive IS](/strategies/adaptive-is).
+- You want volume-scaling without the stealth machinery → [Participation Rate](/strategies/participation-rate).

@@ -1,0 +1,104 @@
+---
+title: "Algo Orders"
+description: "Submit a strategy, track its progress, and cancel it — the full lifecycle of an execution-engine order."
+---
+
+An algo order is a plain `POST /api/orders` with `strategy` set. The engine accepts it as a **parent intent** and works it as child orders on the venue — see [Order Lifecycle](/concepts/order-lifecycle) for the model and [Strategies](/strategies/overview) for choosing an algorithm.
+
+## Submitting
+
+```json
+POST /api/orders
+{
+  "symbol": "ETH",
+  "side": "buy",
+  "size": "2.0",
+  "orderType": "limit",
+  "strategy": "passive_twap",
+  "params": {
+    "durationSecs": 1800,
+    "numSlices": 30,
+    "guaranteedCompletion": true
+  }
+}
+```
+
+```json
+{ "success": true, "orderId": "01HZX8…", "status": "accepted", "provider": "hyperliquid" }
+```
+
+`orderId` is the **parent strategy ID** — keep it; every status and cancel call uses it.
+
+- `params` accepts both camelCase and snake_case keys, and numeric fields accept strings, integers, or floats.
+- Each strategy validates its own params on submission; invalid combinations are rejected with `400` and a message, before anything reaches the venue.
+
+## Tracking progress
+
+List all your algo orders:
+
+```bash
+GET /api/orders/algo
+```
+
+```json
+{
+  "success": true,
+  "orders": [
+    {
+      "orderId": "01HZX8…",
+      "symbol": "ETH",
+      "side": "Buy",
+      "orderQty": "2.0",
+      "filledQty": "1.35",
+      "status": "working",
+      "strategy": "passive_twap",
+      "submitTime": "2026-07-13T14:02:11Z"
+    }
+  ]
+}
+```
+
+Or fetch one by parent ID:
+
+```bash
+GET /api/orders/algo/{order_id}
+```
+
+For push-based progress (the terminal's live "Placing child order…" telemetry), use the [algo status WebSocket](/websockets/algo-status) instead of polling.
+
+## Cancelling
+
+```json
+POST /api/orders/cancel
+{ "symbol": "ETH", "orderId": "01HZX8…" }
+```
+
+A `200` means the cancel was **durably requested**: the engine stops scheduling new children immediately, cancels open child orders on Hyperliquid, and records terminal `cancelled` only after the venue confirms nothing remains open. Fills that landed before the cancel are yours; check `filledQty` on the final state.
+
+<Warning>
+  Don't submit a replacement order the moment the cancel returns `200` if double-execution matters — confirm the parent is terminal first (one poll of `GET /api/orders/algo/{order_id}` or the `parent_completed`/`parent_failed` WebSocket event).
+</Warning>
+
+## Attaching TP/SL to strategy fills
+
+Strategies accept `attachedTpsl` in `params` — take-profit/stop-loss placed against the position the strategy builds:
+
+```json
+{
+  "strategy": "passive_twap",
+  "params": {
+    "durationSecs": 900,
+    "attachedTpsl": {
+      "mode": "market",
+      "tp": { "triggerPrice": "3500" },
+      "sl": { "triggerPrice": "3000" }
+    }
+  }
+}
+```
+
+## Practical sizing checklist
+
+- **Slices vs. the $10 minimum** — each child slice must clear ~$10 notional or it's skipped. `size × price / numSlices ≳ $15` is a safe rule of thumb.
+- **Duration vs. urgency** — longer windows capture more spread but carry more price risk. If you can't decide, [Adaptive IS](/strategies/adaptive-is) with an `urgency` dial makes the trade-off explicit.
+- **Measure it** — after a few executions, check [`/api/analytics/execution`](/guides/analytics) to see your realized cost vs. benchmarks.

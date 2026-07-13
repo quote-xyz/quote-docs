@@ -1,0 +1,60 @@
+---
+title: "Introduction"
+description: "Quote is a professional trading terminal for Hyperliquid with institutional-grade execution algorithms, a wallet-scoped REST API, and real-time strategy telemetry."
+---
+
+## What is Quote?
+
+Quote is a trading terminal built on [Hyperliquid](https://hyperliquid.xyz) that gives you the execution tooling of an institutional trading desk: algorithmic order types (TWAP, VWAP, Iceberg, and more), conditional triggers, execution-quality analytics, and a programmatic API — all non-custodial, settled directly on Hyperliquid.
+
+Everything you can do in the [Quote terminal](https://quotemarkets.xyz) you can also do over the API. The same wallet-scoped backend powers both.
+
+<CardGroup cols={2}>
+  <Card title="Quickstart" icon="rocket" href="/quickstart">
+    Mint an API key and submit your first order in five minutes.
+  </Card>
+  <Card title="Execution Strategies" icon="chart-line" href="/strategies/overview">
+    Six execution algorithms — from passive TWAP to size-hiding Iceberg.
+  </Card>
+  <Card title="Authentication" icon="key" href="/authentication">
+    Privy sessions for the terminal, HMAC API keys for programmatic access.
+  </Card>
+  <Card title="API Reference" icon="code" href="/api-reference/introduction">
+    Every endpoint, request schema, and response shape.
+  </Card>
+</CardGroup>
+
+## How it works
+
+Quote sits between you and Hyperliquid as an execution layer:
+
+1. **You keep custody.** Trading happens through an [agent wallet](/concepts/agent-wallets) — a separate key that can sign orders for your account but can never withdraw funds. You approve it once on Hyperliquid; Quote stores its key encrypted at rest.
+2. **You submit intent, Quote executes.** A plain order goes straight to the venue. An algo order becomes a parent strategy that the execution engine works over time, slicing it into child orders based on market microstructure. See [Order Lifecycle](/concepts/order-lifecycle).
+3. **Everything is measured.** Every fill is benchmarked against arrival price, market VWAP, and a simulated naive market order, so you can see exactly what the execution engine saved (or cost) you. See [Analytics](/guides/analytics).
+
+## Core capabilities
+
+| Capability | Description |
+|---|---|
+| [Execution strategies](/strategies/overview) | `passive_twap`, `adaptive_is`, `vwap`, `iceberg`, `participation_rate`, `chase_limit` |
+| [Plain orders](/guides/placing-orders) | Limit, market (IOC with slippage bound), TP/SL attachment, modify, cancel, cancel-all |
+| [Conditional triggers](/guides/triggers) | Fire an order on price, funding, open-interest, copy-trade, or time conditions |
+| [Order templates](/guides/templates) | Save and reuse execution presets with urgency and price-discipline dials |
+| [Execution analytics](/guides/analytics) | Implementation shortfall, slippage, fees, funding, and portfolio equity time-series |
+| [MCP connector](/guides/mcp-connector) | Read-only analytics for AI agents over the Model Context Protocol |
+| [Real-time telemetry](/websockets/algo-status) | WebSocket stream of live strategy progress |
+
+## Markets
+
+Quote trades everything listed on Hyperliquid: crypto perpetuals (`BTC`, `ETH`, `HYPE`, …), builder-DEX equities and commodities (`xyz:HOOD`, `xyz:CL`, …), and HIP-4 prediction markets.
+
+## Where to go next
+
+<CardGroup cols={2}>
+  <Card title="The wallet-scoped model" icon="wallet" href="/concepts/wallet-scoped-api">
+    Why every resource is keyed by your wallet address, and what that means for the API.
+  </Card>
+  <Card title="Hyperliquid constraints" icon="triangle-exclamation" href="/concepts/hyperliquid-constraints">
+    Minimum notional, price precision, and other venue rules Quote handles for you.
+  </Card>
+</CardGroup>

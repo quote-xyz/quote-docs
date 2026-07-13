@@ -1,0 +1,54 @@
+---
+title: "Chase Limit"
+description: "A limit order that follows the best bid/offer, tightening with each attempt, within a hard time and attempt budget."
+---
+
+`chase_limit` is for when you want **one fill near the touch, soon** — without paying the full spread of a market order. It places a limit order at an offset from the BBO, and when the market moves away, cancels and re-pegs at the new level. Each successive attempt tightens the offset, converging toward the touch, until the order fills or the attempt/time budget runs out.
+
+Think of it as the patient version of a marketable limit: it chases price moves, but only within a bound you set.
+
+## Example
+
+```json
+POST /api/orders
+{
+  "symbol": "BTC",
+  "side": "buy",
+  "size": "0.1",
+  "orderType": "limit",
+  "strategy": "chase_limit",
+  "params": {
+    "maxAttempts": 8,
+    "attemptTimeoutSecs": 3,
+    "maxTotalSecs": 30,
+    "initialOffsetBps": "5",
+    "tightenBps": "1"
+  }
+}
+```
+
+Attempt 1 rests 5 bps behind the touch for up to 3 seconds; each re-peg tightens by 1 bp, for at most 8 attempts or 30 seconds total.
+
+## Parameters
+
+| Parameter | Type | Default | Description |
+|---|---|---|---|
+| `maxAttempts` | integer | `8` | Maximum number of placements/re-pegs |
+| `attemptTimeoutSecs` | integer | `3` | How long each attempt rests before re-pegging |
+| `maxTotalSecs` | integer | `30` | Hard wall-clock budget for the whole chase |
+| `initialOffsetBps` | decimal | `5` | Starting offset behind the touch |
+| `tightenBps` | decimal | `1` | Offset reduction per attempt |
+| `minOffsetBps` | decimal | `0` | Floor for the offset (0 = allowed to reach the touch) |
+| `repriceThresholdBps` | decimal | `0` | Minimum BBO move before re-pegging mid-attempt |
+| `reduceOnly` | boolean | `false` | Only reduce an existing position |
+
+## Behavior notes
+
+- **It can miss.** If price runs away faster than the chase converges, the strategy ends `completed`-with-partial or unfilled at the budget limit. Check `filledQty`. If you need certainty, use a market order with a slippage bound (see [placing orders](/guides/placing-orders#market-orders)) — chase limit is the *cheaper but not guaranteed* alternative.
+- **Best on liquid books.** On thin books, each re-peg competes with a moving, sparse touch; consider a wider `initialOffsetBps` or a different strategy.
+- Good default for "get me in around here" order entry from a bot: bounded latency, bounded slippage, no spread crossing unless the chase converges to the touch.
+
+## When to use something else
+
+- Larger size to work over time → [Passive TWAP](/strategies/passive-twap) or [Adaptive IS](/strategies/adaptive-is).
+- Must fill *now* whatever the cost → plain market order with a slippage-bounded `limitPrice`.

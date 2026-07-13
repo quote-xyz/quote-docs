@@ -1,0 +1,60 @@
+---
+title: "API Reference"
+description: "Base URLs, conventions, and the error envelope — read this before the endpoint pages."
+---
+
+## Base URL
+
+| Environment | URL |
+|---|---|
+| Production | `https://api.quotemarkets.xyz` |
+| Local development | `http://localhost:3001` |
+
+The active network (Hyperliquid mainnet vs. testnet) is reported by the public `GET /api/info` endpoint.
+
+## Authentication
+
+Every endpoint page notes its auth requirements. In short:
+
+- **Privy bearer token** (terminal sessions) — all scopes implicitly.
+- **HMAC API key** — `X-Quote-Key`, `X-Quote-Timestamp` (ms), `X-Quote-Signature`; only the scopes granted at mint time.
+- A few endpoints are **Privy-only** (`/api/keys*`, invites/referrals) and a few are **public** (`/api/info`, `/api/news`, health probes).
+
+Full details, the canonical signing string, and code samples: [Authentication](/authentication).
+
+## Conventions
+
+- **Decimals are strings.** Sizes and prices are decimal strings (`"0.05"`, `"3150.5"`), never floats — precision matters when a venue rejects a fifth significant figure.
+- **Request/response keys are camelCase**, with a handful of documented snake_case exceptions (noted per schema).
+- **Timestamps** are epoch milliseconds in analytics payloads and RFC 3339 strings on resource records; each field documents its shape.
+- **IDs**: templates and triggers use UUIDs; algo parents use engine-issued IDs; plain orders use the venue's numeric order ID.
+
+## The async-accept model
+
+`POST /api/orders` returns `200` when the order or strategy is **accepted into the execution engine**, not when it fills. Parent cancel success means the cancel was durably accepted, with terminal state recorded only after venue reconciliation. This is the single most important thing to internalize before integrating — see [Order Lifecycle](/concepts/order-lifecycle).
+
+## Error envelope
+
+All `4xx`/`5xx` responses (except `413` and bodyless `204`) share one shape:
+
+```json
+{ "success": false, "error": "human-readable message" }
+```
+
+| Status | Meaning |
+|---|---|
+| `400` | Validation error — malformed body, bad UUID, out-of-range parameter |
+| `401` | Missing or invalid credentials (bad signature, stale timestamp) |
+| `403` | Authenticated but not permitted — missing scope, or API key on a Privy-only endpoint |
+| `404` | Resource not found **or not owned by your wallet** |
+| `429` | Rate limit exceeded |
+| `502` | Upstream venue (Hyperliquid/Relay) returned an error |
+| `503` | A required dependency is unavailable, or a circuit breaker to Hyperliquid is open |
+
+<Note>
+  `503` responses are usually transient — Quote wraps its Hyperliquid clients in circuit breakers that recover automatically within ~30 seconds. Retry with backoff.
+</Note>
+
+## Request size limit
+
+Request bodies are capped at **4 MiB**; larger payloads receive `413` (without the JSON envelope).

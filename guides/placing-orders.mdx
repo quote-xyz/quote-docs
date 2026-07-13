@@ -1,0 +1,120 @@
+---
+title: "Placing Orders"
+description: "Limit and market orders, TP/SL attachment, modify, and cancel — the plain-order surface."
+---
+
+This guide covers plain (non-algo) orders. For execution strategies, see [Algo Orders](/guides/algo-orders).
+
+## Limit orders
+
+```json
+POST /api/orders
+{
+  "symbol": "ETH",
+  "side": "buy",
+  "size": "0.5",
+  "orderType": "limit",
+  "limitPrice": "3150.5",
+  "timeInForce": "GTC"
+}
+```
+
+- `size` and `limitPrice` are decimal **strings** — never floats. Quote normalizes them to the asset's [precision rules](/concepts/hyperliquid-constraints#price-and-size-precision).
+- `timeInForce`: `GTC` (default), `ALO` (post-only), or `IOC`.
+- `clientOrderId` (optional) lets you tag the order with your own identifier.
+- `reduceOnly: true` restricts the order to reducing an existing position.
+
+The response returns the venue `orderId`:
+
+```json
+{ "success": true, "orderId": "1234567890", "status": "resting", "provider": "hyperliquid" }
+```
+
+## Market orders
+
+Hyperliquid market orders are IOC limits with a slippage bound, so **`limitPrice` is required** — it's the worst price you'll accept:
+
+```json
+POST /api/orders
+{
+  "symbol": "ETH",
+  "side": "buy",
+  "size": "0.5",
+  "orderType": "market",
+  "limitPrice": "3320.0"
+}
+```
+
+Compute the bound from the best opposing quote — buy: `bestAsk × (1 + slippage)`, sell: `bestBid × (1 − slippage)`.
+
+<Warning>
+  Anchor to the best **opposing quote**, not mid. On wide-spread books (prediction markets especially), a mid-anchored bound can sit inside the spread — the IOC crosses nothing and silently fills zero. See [Hyperliquid constraints](/concepts/hyperliquid-constraints#market-orders-are-ioc-limits-with-a-slippage-bound).
+</Warning>
+
+## Attaching TP/SL
+
+Attach take-profit / stop-loss to any order with `tpsl`:
+
+```json
+{
+  "symbol": "ETH",
+  "side": "buy",
+  "size": "0.5",
+  "orderType": "limit",
+  "limitPrice": "3150.5",
+  "tpsl": {
+    "mode": "market",
+    "tp": { "triggerPrice": "3500" },
+    "sl": { "triggerPrice": "3000" }
+  }
+}
+```
+
+- `mode: "market"` exits at market when triggered; `mode: "limit"` places a limit at `limitPrice` per side.
+- Either `tp` or `sl` may be omitted.
+
+## Modifying an order
+
+```json
+POST /api/orders/modify
+{
+  "symbol": "ETH",
+  "orderId": 1234567890,
+  "side": "buy",
+  "limitPrice": "3160.0",
+  "size": "0.5"
+}
+```
+
+Uses Hyperliquid's native modify — the order keeps working; price and/or size change atomically. Note `orderId` here is the numeric exchange order ID.
+
+## Cancelling
+
+Single order:
+
+```json
+POST /api/orders/cancel
+{ "symbol": "ETH", "orderId": "1234567890" }
+```
+
+All open orders (optionally per symbol):
+
+```json
+POST /api/orders/cancel-all
+{ "symbol": "ETH" }
+```
+
+Omit `symbol` to cancel everything. The response reports how many orders were cancelled.
+
+<Note>
+  Plain-order cancels are synchronous. Cancelling an **algo parent** via the same endpoint is a request with reconciliation semantics — see [Order Lifecycle](/concepts/order-lifecycle#cancellation-semantics).
+</Note>
+
+## Common rejections
+
+| Error | Cause | Fix |
+|---|---|---|
+| Sub-minimum notional | `size × price` under ~$10 | Increase size |
+| ALO would cross | Post-only price at or through the opposing touch | Reprice inside the spread |
+| Market order without `limitPrice` | Missing slippage bound | Compute from best opposing quote |
+| `403` | Missing `orders:write` scope | Re-mint key with the right scopes |

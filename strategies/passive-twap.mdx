@@ -1,0 +1,60 @@
+---
+title: "Passive TWAP"
+description: "Time-sliced execution that rests passively at the touch and falls back to aggressive orders to stay on schedule. Guaranteed completion."
+---
+
+`passive_twap` splits your order into equal slices over a fixed window. Each slice first rests as a post-only (ALO) order at the best bid/offer — capturing the spread and earning maker fees — and converts to an aggressive IOC order if it hasn't filled by the slice deadline. The result: TWAP scheduling with meaningfully better prices than naive market-order slicing, and completion by end-of-window when `guaranteedCompletion` is set.
+
+## Example
+
+```json
+POST /api/orders
+{
+  "symbol": "ETH",
+  "side": "buy",
+  "size": "2.5",
+  "orderType": "limit",
+  "strategy": "passive_twap",
+  "params": {
+    "durationSecs": 1800,
+    "numSlices": 30,
+    "passivePct": 80,
+    "guaranteedCompletion": true
+  }
+}
+```
+
+This works 2.5 ETH over 30 minutes in 30 slices, spending 80% of each minute resting passively before taking liquidity.
+
+## Parameters
+
+| Parameter | Type | Default | Description |
+|---|---|---|---|
+| `durationSecs` | integer | `300` | Total execution window in seconds |
+| `numSlices` | integer | `10` | Number of equal child slices |
+| `passivePct` | integer 0–100 | `80` | Percent of each slice interval spent resting passively before the IOC fallback |
+| `limitOffsetBps` | decimal | `0` | Offset from the touch for passive placement (0 = at BBO) |
+| `randomize` | boolean | `false` | Jitter slice timing/sizing to avoid a detectable cadence |
+| `minSpreadBps` | decimal | — | Skip passive placement when the spread is tighter than this (go straight to schedule) |
+| `guaranteedCompletion` | boolean | `false` | Sweep all remaining size with one wide-tolerance IOC at the end of the window |
+| `completionSlippageBps` | decimal | `100` | Slippage tolerance for the guaranteed-completion sweep |
+| `queueImproveThreshold` | integer | `0` | Queue-jump feature — leave at `0` (see note) |
+| `reduceOnly` | boolean | `false` | Children only reduce an existing position |
+| `attachedTpsl` | object | — | Attach TP/SL to the resulting position |
+
+<Warning>
+  Leave `queueImproveThreshold` at `0`. Placing one tick inside the spread to jump the queue backfires on tight-spread assets — on one-tick spreads the improved price is clamped back to the BBO, and on wider books it measurably reduced fill rates in production testing.
+</Warning>
+
+## Behavior notes
+
+- **Slice sizing vs. the $10 minimum.** Slices below Hyperliquid's ~$10 minimum notional are skipped, and near-complete slices are folded into the remainder. Choose `numSlices` so each slice clears the minimum comfortably — see [Hyperliquid constraints](/concepts/hyperliquid-constraints#minimum-order-notional-10).
+- **Repricing.** If the BBO moves more than a tick while a passive order rests, the order is cancelled and re-placed at the new touch rather than converting to aggressive.
+- **Behind schedule?** If passive fills lag, the aggressive fallback per slice keeps the schedule; with `guaranteedCompletion`, any final remainder is swept at window end within `completionSlippageBps`.
+- **Restart-safe.** Slice state is reconstructed on engine restart; resting children are recovered from the venue rather than duplicated.
+
+## When to use something else
+
+- Market conditions vary a lot within your window → [Adaptive IS](/strategies/adaptive-is) modulates pace automatically.
+- You're benchmarked to volume, not time → [VWAP](/strategies/vwap).
+- No deadline, maximum stealth → [Iceberg](/strategies/iceberg).

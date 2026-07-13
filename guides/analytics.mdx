@@ -1,0 +1,110 @@
+---
+title: "Analytics"
+description: "Execution quality, volume, fees, funding, and portfolio equity — measured, benchmarked, and queryable."
+---
+
+Quote measures every execution so you can hold the engine (and yourself) to account. All analytics endpoints are [wallet-scoped](/concepts/wallet-scoped-api), require `orders:read` for API-key callers, and take a common `range` query parameter: `1d`, `7d`, `30d`, or `all`.
+
+## The benchmark convention
+
+All benchmark values are **signed basis points**:
+
+- **Positive = worse** — you paid more (buys) or received less (sells) than the benchmark.
+- **Negative = better** — you beat the benchmark.
+
+Three benchmarks are computed per execution:
+
+| Benchmark | Question it answers |
+|---|---|
+| vs. **arrival price** | How much did price drift from when I decided to trade? (implementation shortfall) |
+| vs. **market VWAP** | Did I beat the average trade in the market during my window? |
+| vs. **market order** | What did working the order save me vs. sweeping the book immediately? |
+
+The "vs. market order" benchmark — a simulated L2 sweep at each fill time — is the most actionable: it isolates spread capture from market drift.
+
+## Execution quality
+
+```bash
+GET /api/analytics/execution?range=7d
+```
+
+```json
+{
+  "isBps": -2.4,
+  "isSavingsDollars": 184.2,
+  "volumeTraded": 1250000.0,
+  "totalFills": 342,
+  "fillsAtOrBetterPct": 87.4,
+  "avgSlippageBps": 1.1
+}
+```
+
+- `isBps` — notional-weighted implementation shortfall vs. arrival (negative = you beat arrival).
+- `isSavingsDollars` — dollars saved vs. naive market orders (positive = saved).
+
+A time-bucketed view comparing cumulative naive-Hyperliquid cost vs. Quote's realized cost (slippage and fees split out):
+
+```bash
+GET /api/analytics/execution/timeline?range=30d
+```
+
+## Volume and fees
+
+```bash
+GET /api/analytics/volume?range=30d   # { "cumulativeVolume": 1250000.0 }
+GET /api/analytics/fees?range=30d     # { "totalFee": 312.5, "builderFee": 25.0 }
+```
+
+`totalFee` is exchange + builder fees on Quote-routed fills; `builderFee` breaks out Quote's [builder fee](/concepts/hyperliquid-constraints#builder-fee) so the platform's cut is always visible.
+
+## Funding
+
+Funding payments are synced from Hyperliquid into a durable per-wallet ledger.
+
+```bash
+GET /api/funding?range=7d
+```
+
+```json
+{
+  "totalPaid": 42.1,
+  "totalReceived": 58.3,
+  "net": 16.2,
+  "paymentCount": 168,
+  "byCoin": [ { "coin": "ETH", "net": 12.9, "paid": 20.0, "received": 32.9, "count": 84 } ]
+}
+```
+
+Sign convention: `net = received − paid`; `totalPaid`/`totalReceived` are positive magnitudes.
+
+- `GET /api/funding/timeline` — cumulative net/paid/received, bucketed hourly for `1d` and daily otherwise.
+- `GET /api/funding/history` — the raw per-event log, newest first, with position size and rate at each payment.
+
+## Portfolio equity
+
+Hourly account-value samples (perp + spot), with margin, unrealized PnL, and per-hour external net flow:
+
+```bash
+GET /api/portfolio/equity?range=30d
+GET /api/portfolio/equity/latest
+```
+
+```json
+{
+  "timestamp": 1752402000000,
+  "accountValue": 25431.2,
+  "perpEquity": 21200.5,
+  "spotEquity": 4230.7,
+  "unrealizedPnl": 312.4,
+  "netFlow": 0.0
+}
+```
+
+Two things to handle when charting:
+
+- `accountValue` may be `null` — that's a **gap** in sampling, never a zero. Skip the point; don't draw it to the axis.
+- PnL over a window is `Δ accountValue − Σ netFlow` — subtract deposits/withdrawals so transfers don't masquerade as performance.
+
+## Programmatic access for AI agents
+
+All of the above is also exposed as read-only tools over the [MCP connector](/guides/mcp-connector), so an AI agent can pull your execution report or funding carry without handling HMAC signing.

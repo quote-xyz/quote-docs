@@ -1,47 +1,169 @@
 ---
 title: "Quickstart"
-description: "Begin with a guide on the fastest path to a successful outcome"
+description: "Mint an API key, sign your first request, and submit an order in five minutes."
 ---
 
-Describe how someone begins using your product. What is the first thing they need to do? Are there any prerequisites?
-
-A quickstart should take someone from zero to using your product. They'll get a quick win and a sense of what they can accomplish.
-
-## Prerequisites
-
-Before you begin, you must have:
-
-- Requirement one (for example, Node.js 18+, a free account, an API key)
-- Requirement two (for example, a compatible device, a compatible browser, a compatible operating system)
-
-## Get started
+This guide takes you from zero to a filled order over the API. You'll need a Quote account with a registered agent wallet — if you've traded in the [terminal](https://quotemarkets.xyz), you already have one.
 
 <Steps>
-  <Step title="Install">
-    Describe how to install your product or sign up.
+  <Step title="Mint an API key">
+    API keys are minted from a logged-in terminal session (they can't mint each other — see [Authentication](/authentication)). In the terminal, open **Settings → API Keys**, or call the endpoint directly with your Privy session token:
 
     ```bash
-    npm install your-package
+    curl -X POST https://api.quotemarkets.xyz/api/keys \
+      -H "Authorization: Bearer $PRIVY_TOKEN" \
+      -H "Content-Type: application/json" \
+      -d '{
+        "name": "my-trading-bot",
+        "scopes": ["orders:read", "orders:write", "agents:read"]
+      }'
     ```
+
+    ```json
+    {
+      "keyId": "qk_a1b2c3...",
+      "secret": "9f86d081884c7d659a2feaa0c55ad015a3bf4f1b2b0b822cd15d6c15b0f00a08"
+    }
+    ```
+
+    <Warning>
+      The `secret` is returned **once** and never again. Store it securely — it is the raw HMAC-SHA256 signing key for every request you make.
+    </Warning>
   </Step>
-  <Step title="Configure">
-    Describe any setup or configuration needed before first use.
 
-    ```bash
-    your-cli init
+  <Step title="Sign a request">
+    Every API-key request carries three headers: `X-Quote-Key`, `X-Quote-Timestamp` (milliseconds), and `X-Quote-Signature` — an HMAC-SHA256 over the canonical string `timestamp \n METHOD \n path_with_query \n body`.
+
+    <CodeGroup>
+    ```typescript signing.ts
+    import { createHmac } from "node:crypto";
+
+    const BASE_URL = "https://api.quotemarkets.xyz";
+    const KEY_ID = process.env.QUOTE_KEY_ID!;
+    const SECRET = process.env.QUOTE_SECRET!; // hex string from mint time
+
+    export async function quoteFetch(
+      method: string,
+      path: string, // includes query string, e.g. "/api/orders/algo"
+      body?: unknown,
+    ) {
+      const timestamp = Date.now().toString();
+      const rawBody = body ? JSON.stringify(body) : "";
+      const canonical = `${timestamp}\n${method.toUpperCase()}\n${path}\n${rawBody}`;
+      const signature = createHmac("sha256", Buffer.from(SECRET, "hex"))
+        .update(canonical)
+        .digest("hex");
+
+      return fetch(`${BASE_URL}${path}`, {
+        method,
+        headers: {
+          "Content-Type": "application/json",
+          "X-Quote-Key": KEY_ID,
+          "X-Quote-Timestamp": timestamp,
+          "X-Quote-Signature": signature,
+        },
+        body: rawBody || undefined,
+      });
+    }
     ```
+
+    ```python signing.py
+    import hashlib, hmac, json, os, time
+    import requests
+
+    BASE_URL = "https://api.quotemarkets.xyz"
+    KEY_ID = os.environ["QUOTE_KEY_ID"]
+    SECRET = bytes.fromhex(os.environ["QUOTE_SECRET"])  # hex string from mint time
+
+    def quote_request(method: str, path: str, body: dict | None = None):
+        timestamp = str(int(time.time() * 1000))
+        raw_body = json.dumps(body, separators=(",", ":")) if body else ""
+        canonical = f"{timestamp}\n{method.upper()}\n{path}\n{raw_body}"
+        signature = hmac.new(SECRET, canonical.encode(), hashlib.sha256).hexdigest()
+
+        return requests.request(
+            method,
+            BASE_URL + path,
+            headers={
+                "Content-Type": "application/json",
+                "X-Quote-Key": KEY_ID,
+                "X-Quote-Timestamp": timestamp,
+                "X-Quote-Signature": signature,
+            },
+            data=raw_body or None,
+        )
+    ```
+    </CodeGroup>
+
+    <Note>
+      The timestamp must be within 30 seconds of server time (configurable server-side). Sign the *exact* bytes you send — the path must include the query string, and the body must match byte-for-byte.
+    </Note>
   </Step>
-  <Step title="Run it">
-    Show the first thing a user does to see it working.
 
-    ```bash
-    your-cli start
+  <Step title="Check your agent wallet">
+    Orders are signed by your [agent wallet](/concepts/agent-wallets). Verify one is registered:
+
+    ```typescript
+    const res = await quoteFetch("GET", "/api/agents");
+    const agent = await res.json();
+    // { success: true, agentAddress: "0x...", builderFeeApproved: true, ... }
     ```
+
+    If `agentAddress` is missing or `expired: true`, complete agent setup in the terminal first (registration requires a signature from your main wallet, which API keys can't produce).
+  </Step>
+
+  <Step title="Submit an order">
+    A limit order:
+
+    ```typescript
+    const res = await quoteFetch("POST", "/api/orders", {
+      symbol: "ETH",
+      side: "buy",
+      size: "0.05",
+      orderType: "limit",
+      limitPrice: "3200.0",
+      timeInForce: "GTC",
+    });
+    const result = await res.json();
+    // { success: true, orderId: "...", status: "accepted", provider: "hyperliquid" }
+    ```
+
+    Or hand the same size to the execution engine as a [TWAP](/strategies/passive-twap) worked over 15 minutes:
+
+    ```typescript
+    const res = await quoteFetch("POST", "/api/orders", {
+      symbol: "ETH",
+      side: "buy",
+      size: "0.5",
+      orderType: "limit",
+      strategy: "passive_twap",
+      params: { durationSecs: 900, numSlices: 15 },
+    });
+    ```
+
+    <Warning>
+      A `200` response means the order was **accepted into the engine**, not that it filled. For algo strategies, `orderId` is the parent strategy ID. See [Order Lifecycle](/concepts/order-lifecycle).
+    </Warning>
+  </Step>
+
+  <Step title="Track progress">
+    ```typescript
+    const res = await quoteFetch("GET", "/api/orders/algo");
+    const { orders } = await res.json();
+    // [{ orderId, symbol, side, orderQty, filledQty, status, strategy, submitTime }]
+    ```
+
+    For live push updates, the terminal uses the [algo status WebSocket](/websockets/algo-status).
   </Step>
 </Steps>
 
-<Tip>
-  Give people a way to get help. This could be a link to a support page, a chat with a customer support agent, or a forum for your product.
+## Next steps
 
-  Example: Need help? Reach out to us at [support@yourcompany.com](mailto:support@yourcompany.com).
-</Tip>
+<CardGroup cols={2}>
+  <Card title="Authentication in depth" icon="key" href="/authentication">
+    Scopes, the canonical signing string, and Privy-only endpoints.
+  </Card>
+  <Card title="Choose a strategy" icon="chart-line" href="/strategies/overview">
+    Which execution algorithm fits your order size and urgency.
+  </Card>
+</CardGroup>

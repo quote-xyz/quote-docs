@@ -1,0 +1,80 @@
+---
+title: "Conditional Triggers"
+description: "Fire an order automatically when a price, funding, open-interest, copy-trade, or time condition is met."
+---
+
+Triggers are server-side conditions that submit an order for you when they fire. Unlike venue-native trigger orders, Quote triggers can watch conditions Hyperliquid can't express — funding rates, open-interest changes, another wallet's trades, or the clock — and the resulting order can be anything the [order API](/guides/placing-orders) accepts, including a full [algo strategy](/guides/algo-orders).
+
+## Trigger types
+
+| `triggerType` | Fires when |
+|---|---|
+| `price` | An asset's price crosses a level |
+| `funding` | A funding-rate condition is met |
+| `oi_change` | Open interest moves by a threshold |
+| `copy_trade` | A watched wallet trades |
+| `time` | A scheduled time arrives |
+
+## Creating a trigger
+
+```json
+POST /api/triggers
+{
+  "name": "ETH breakout entry",
+  "triggerType": "price",
+  "condition": {
+    "symbol": "ETH",
+    "direction": "above",
+    "price": "3500"
+  },
+  "executionOrder": {
+    "symbol": "ETH",
+    "side": "buy",
+    "size": "1.0",
+    "orderType": "market",
+    "slippageBps": 50
+  },
+  "expiresAt": "2026-08-01T00:00:00Z"
+}
+```
+
+Returns `201` with the trigger (UUID `id`, `status: "active"`).
+
+- `condition` and `executionOrder` are JSON payloads interpreted by the trigger evaluator for the given `triggerType`; the shapes above follow the terminal's usage.
+- `expiresAt` is optional — an un-fired trigger flips to `expired` after it.
+- Scope: `orders:write` to create/cancel, `orders:read` to list/read.
+
+## Lifecycle
+
+```
+active ──fires──▶ triggered
+   │──you cancel──▶ cancelled
+   │──expiresAt───▶ expired
+   └──eval error──▶ failed
+```
+
+List with optional filtering:
+
+```bash
+GET /api/triggers?status=active&limit=50
+```
+
+Inspect one, or its full event history (evaluations, firing, order submission results):
+
+```bash
+GET /api/triggers/{trigger_id}
+GET /api/triggers/{trigger_id}/history
+```
+
+Cancel an active trigger:
+
+```bash
+DELETE /api/triggers/{trigger_id}
+```
+
+## Semantics worth knowing
+
+- **One-shot.** A trigger fires once, submits its execution order, and moves to `triggered`. Recreate it if you want it re-armed.
+- **The order still has to pass.** When a trigger fires, the execution order goes through the normal order path — agent signing, venue constraints, minimum notional. A failed submission is recorded in the trigger's history.
+- **Triggers survive restarts.** They're durable server-side state, not a client session feature.
+- **Ownership.** Like everything else, triggers are [wallet-scoped](/concepts/wallet-scoped-api) — you only ever see and manage your own.

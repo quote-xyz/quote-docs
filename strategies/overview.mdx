@@ -1,0 +1,86 @@
+---
+title: "Strategies Overview"
+description: "Six execution algorithms, how to choose between them, and the mechanics they share."
+---
+
+Quote's execution engine runs six strategies. You select one by setting `strategy` on [`POST /api/orders`](/guides/algo-orders) and tuning it via `params`.
+
+| Strategy | `strategy` value | Best for |
+|---|---|---|
+| [Passive TWAP](/strategies/passive-twap) | `passive_twap` | Time-sliced execution with guaranteed completion |
+| [Adaptive IS](/strategies/adaptive-is) | `adaptive_is` | Smart TWAP that adapts pace to microstructure signals |
+| [VWAP](/strategies/vwap) | `vwap` | Tracking the market's volume profile over a window |
+| [Iceberg](/strategies/iceberg) | `iceberg` | Hiding large size; pure-passive, no deadline |
+| [Participation Rate](/strategies/participation-rate) | `participation_rate` | Staying a fixed % of real-time market volume |
+| [Chase Limit](/strategies/chase-limit) | `chase_limit` | A limit order that follows the BBO within a bound |
+
+## Choosing a strategy
+
+<AccordionGroup>
+  <Accordion title="I need it done by a deadline">
+    **Passive TWAP** with `guaranteedCompletion: true`. It slices your order evenly over `durationSecs` and falls back to aggressive IOC orders when passive fills lag.
+  </Accordion>
+  <Accordion title="I want the engine to be smart about timing">
+    **Adaptive IS**. It reads order-flow imbalance, book depth, and impact signals to front-load when conditions are favorable and slow down when they're not. Set a single `urgency` dial (0–100) and let it derive the mechanics.
+  </Accordion>
+  <Accordion title="I'm benchmarked against VWAP">
+    **VWAP**. Slices proportionally to the asset's historical intraday volume profile instead of uniformly in time.
+  </Accordion>
+  <Accordion title="I don't want the market to see my size">
+    **Iceberg**. Shows only one small clip at a time, repositions with randomized timing and sizing to defeat order-book pattern detection, and never crosses the spread. No time limit — it works until filled or cancelled.
+  </Accordion>
+  <Accordion title="I want to scale with market activity">
+    **Participation Rate**. Targets a fixed percentage of observed market volume — trades more when the market is busy, less when it's quiet.
+  </Accordion>
+  <Accordion title="I want one fill near the touch, soon">
+    **Chase Limit**. Places a limit near the BBO and re-pegs as the market moves, tightening each attempt, for a bounded number of attempts/seconds.
+  </Accordion>
+</AccordionGroup>
+
+## Shared mechanics
+
+### The passive → aggressive cycle
+
+Time-sliced strategies work each slice through the same state machine:
+
+```
+idle → passive → cancelling → aggressive → idle → …
+```
+
+1. **Passive** — an ALO (post-only) order rests at the best bid/offer, earning the spread and maker fees.
+2. **Cancelling** — the slice's passive deadline expired; the resting order is cancelled (confirmed via the venue stream before proceeding).
+3. **Aggressive** — an IOC order takes liquidity to complete the slice on schedule.
+4. If the BBO moves more than a tick while passive, the order **reprices** — re-placed passively at the new level rather than going aggressive.
+
+The `passivePct` parameter controls how much of each slice interval is spent resting passively before the aggressive fallback.
+
+### Common parameters
+
+These appear across multiple strategies (all optional; camelCase and snake_case are both accepted):
+
+| Parameter | Type | Meaning |
+|---|---|---|
+| `durationSecs` | integer | Total execution window |
+| `numSlices` | integer | Number of child slices |
+| `passivePct` | integer 0–100 | Portion of each slice spent passive before going aggressive |
+| `urgency` | integer 0–100 | High-level dial that derives slice count/pacing (Adaptive IS) |
+| `randomize` | boolean | Jitter slice timing and sizing to avoid detectable patterns |
+| `reduceOnly` | boolean | Children only reduce an existing position |
+| `guaranteedCompletion` | boolean | Sweep any remainder with a wide-tolerance IOC at the end |
+| `attachedTpsl` | object | Attach take-profit/stop-loss to the resulting position |
+
+Per-strategy pages document the full parameter set with defaults.
+
+### Execution benchmarks
+
+Every strategy execution is measured against three benchmarks (see [Analytics](/guides/analytics)):
+
+- **vs. arrival price** — the mid when your parent order started (implementation shortfall).
+- **vs. market VWAP** — all market trades during your execution window.
+- **vs. market order** — a simulated aggressive sweep of the book at each fill time. This is the most actionable one: it measures the spread you captured versus just smashing the book.
+
+All benchmark values are signed basis points with the convention **positive = worse, negative = better**.
+
+<Note>
+  Strategies are a closed, curated set — each one ships with recovery logic that survives engine restarts (see [Order Lifecycle](/concepts/order-lifecycle)) and observation-mode calibration before adaptive behaviors go live.
+</Note>

@@ -1,72 +1,100 @@
 {
   "$schema": "https://mintlify.com/docs.json",
   "theme": "mint",
-  "name": "Mintlify Starter Kit",
+  "name": "Quote",
+  "description": "Documentation for Quote — a professional trading terminal for Hyperliquid with institutional-grade execution algorithms.",
   "colors": {
-    "primary": "#16A34A",
-    "light": "#07C983",
-    "dark": "#15803D"
+    "primary": "#10B981",
+    "light": "#34D399",
+    "dark": "#059669"
   },
   "favicon": "/favicon.svg",
-  "navigation": {
-    "pages": [
-      {
-        "group": "Getting Started",
-        "pages": [
-          "index",
-          "quickstart"
-        ]
-      }
-    ],
-    "global": {
-      "anchors": [
-        {
-          "anchor": "Documentation",
-          "href": "https://mintlify.com/docs",
-          "icon": "book-open-cover"
-        },
-        {
-          "anchor": "Blog",
-          "href": "https://mintlify.com/blog",
-          "icon": "newspaper"
-        }
-      ]
-    }
-  },
   "logo": {
     "light": "/logo/light.svg",
     "dark": "/logo/dark.svg"
   },
+  "navigation": {
+    "tabs": [
+      {
+        "tab": "Documentation",
+        "groups": [
+          {
+            "group": "Getting Started",
+            "pages": [
+              "introduction",
+              "quickstart",
+              "authentication"
+            ]
+          },
+          {
+            "group": "Core Concepts",
+            "pages": [
+              "concepts/wallet-scoped-api",
+              "concepts/agent-wallets",
+              "concepts/order-lifecycle",
+              "concepts/hyperliquid-constraints"
+            ]
+          },
+          {
+            "group": "Execution Strategies",
+            "pages": [
+              "strategies/overview",
+              "strategies/passive-twap",
+              "strategies/adaptive-is",
+              "strategies/vwap",
+              "strategies/iceberg",
+              "strategies/participation-rate",
+              "strategies/chase-limit"
+            ]
+          },
+          {
+            "group": "Guides",
+            "pages": [
+              "guides/api-keys",
+              "guides/placing-orders",
+              "guides/algo-orders",
+              "guides/triggers",
+              "guides/templates",
+              "guides/analytics",
+              "guides/mcp-connector"
+            ]
+          },
+          {
+            "group": "Real-Time",
+            "pages": [
+              "websockets/algo-status"
+            ]
+          }
+        ]
+      },
+      {
+        "tab": "API Reference",
+        "groups": [
+          {
+            "group": "Overview",
+            "pages": [
+              "api-reference/introduction"
+            ]
+          },
+          {
+            "group": "Endpoints",
+            "openapi": "api-reference/openapi.yaml"
+          }
+        ]
+      }
+    ]
+  },
   "navbar": {
     "links": [
       {
-        "label": "Support",
-        "href": "mailto:hi@mintlify.com"
+        "label": "Trading Terminal",
+        "href": "https://quotemarkets.xyz"
       }
-    ],
-    "primary": {
-      "type": "button",
-      "label": "Dashboard",
-      "href": "https://app.mintlify.com"
-    }
-  },
-  "contextual": {
-    "options": [
-      "copy",
-      "view",
-      "chatgpt",
-      "claude",
-      "perplexity",
-      "mcp",
-      "cursor",
-      "vscode"
     ]
   },
   "footer": {
     "socials": {
-      "x": "https://x.com/mintlify",
-      "github": "https://github.com/mintlify",
-      "linkedin": "https://linkedin.com/company/mintlify"
+      "website": "https://quotemarkets.xyz"
     }
   }
 }

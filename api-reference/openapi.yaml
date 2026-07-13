@@ -1,0 +1,2922 @@
+openapi: 3.0.3
+info:
+  title: Quote API
+  version: 0.1.0
+  description: |
+    Hand-authored reference for the Quote Hyperliquid trading backend (Rust/axum).
+
+    ## Wallet-scoped model
+    Every authenticated request is resolved to a single normalized
+    `wallet_address` by the auth layer. TiKV signing-key IDs, agent rows,
+    template ownership, strategy ownership, invites, referrals, and analytics
+    are all keyed by that wallet. Handlers never read `walletAddress` from
+    request bodies or query strings — the caller identity always comes from the
+    credential, never from the payload.
+
+    ## Authentication
+    There are two ways to authenticate, both of which converge on the same
+    `wallet_address`:
+
+    1. **Privy identity token** (`PrivyBearer`) — used by the frontend. A Privy
+       JWT in `Authorization: Bearer <jwt>`, verified offline against Privy's
+       JWKS endpoint. The embedded EVM wallet is read from the
+       `linked_accounts` claim. Privy sessions implicitly carry **all** scopes.
+    2. **HMAC API key** (`ApiKeyHmac`) — programmatic clients. See the
+       `ApiKeyHmac` security scheme for the canonical signing string. API-key
+       callers carry only the scopes granted at mint time and must satisfy the
+       per-endpoint scope noted in each operation's description.
+
+    Routes under `/api/*` require authentication, except `/api/info`,
+    `/api/news`, and `/api/webhooks/parallel`. The root probes `/health`,
+    `/ready`, and `/metrics` are unauthenticated.
+
+    ### Privy-only endpoints
+    API-key management (`/api/keys*`) and the invite/referral endpoints
+    (`/api/invites*`, `/api/referrals/summary`) are gated to Privy sessions
+    only — an API key cannot mint, list, or revoke other API keys, nor manage
+    invites. These return `403` for API-key callers.
+
+    ## Async-accept order model
+    `POST /api/orders` returns `200` when the order (or algo strategy) is
+    **accepted into the execution engine** — NOT when it is filled. For algo
+    strategies the response carries the parent order id; fills and progress
+    arrive asynchronously (queryable via `GET /api/orders/algo*` or the
+    `/ws/algos` WebSocket). Parent cancel success likewise means the cancel was
+    durably accepted and child orders will be reconciled before a terminal
+    state is recorded — it does not by itself mean the strategy is terminated.
+
+    ## Order constraints (Hyperliquid)
+    - **Minimum order notional ~$10**: Hyperliquid rejects orders below ~$10
+      notional; sub-minimum child slices are skipped by strategies.
+    - **Builder fee**: orders routed through Quote carry Quote's builder code.
+      The builder address must be lowercase hex; the fee field is in tenths of
+      a basis point (2 bps = 20). This is handled server-side.
+    - **Price/size precision**: size is rounded to the asset's `szDecimals`;
+      price is limited to 5 significant figures and `MAX_DECIMALS - szDecimals`
+      decimal places.
+
+    ## Error envelope
+    All `4xx`/`5xx` responses (except `413` and `204`) use the JSON shape
+    `{ "success": false, "error": "<message>" }`.
+
+servers:
+  - url: https://api.quotemarkets.xyz
+    description: Production
+  - url: http://localhost:3001
+    description: Local development
+
+tags:
+  - name: Orders
+    description: Order submission, cancellation, modification, and algo-order status.
+  - name: Agents
+    description: Agent wallet lifecycle (create, register, builder-fee approval, terms).
+  - name: Positions
+    description: Leverage, margin, and spot/perp transfer actions.
+  - name: Templates
+    description: Saved order templates (CRUD).
+  - name: Triggers
+    description: Conditional triggers (CRUD + history).
+  - name: Invites & Referrals
+    description: Invite codes and referral dashboard. Privy-session only.
+  - name: Analytics
+    description: Execution-quality, volume, and fee analytics.
+  - name: Funding
+    description: Funding-payment tracking — totals, timeline, and history.
+  - name: Portfolio
+    description: Quote-owned hourly equity time-series.
+  - name: API Keys
+    description: HMAC API-key management. Privy-session only.
+  - name: NL Order
+    description: Natural-language trading-intent interpreter (SSE stream).
+  - name: Bridge
+    description: Relay bridge quote proxy.
+  - name: News
+    description: Public market-news feed and ingest webhook.
+  - name: Health
+    description: Liveness/readiness probes, info, and Prometheus metrics.
+  - name: MCP Connector
+    description: >-
+      Read-only analytics over the Model Context Protocol. The remote connector
+      (`/mcp`, Streamable HTTP) authenticates via OAuth 2.1 (discovery under
+      `/.well-known/*`); the REST surface (`/api/mcp/*`) uses the standard
+      Privy/HMAC auth and backs the local stdio proxy. Scopes: `analytics:read`
+      (market-wide) and `account:read` (own account).
+
+security:
+  - PrivyBearer: []
+  - ApiKeyHmac: []
+
+paths:
+  # ==========================================================================
+  # MCP CONNECTOR
+  # ==========================================================================
+  /mcp:
+    post:
+      tags: [MCP Connector]
+      summary: Remote MCP endpoint (Streamable HTTP, JSON-RPC 2.0)
+      description: >-
+        The remote connector endpoint used by MCP clients (Claude custom
+        connectors). Speaks JSON-RPC (`initialize`, `tools/list`, `tools/call`).
+        Authenticated with an OAuth 2.1 Bearer access token — NOT Privy/HMAC; a
+        missing/invalid token returns 401 with a `WWW-Authenticate` header
+        pointing at the protected-resource metadata. Tools are filtered to the
+        token's scopes.
+      operationId: mcpEndpoint
+      security: []
+      responses:
+        '200': { description: JSON-RPC response }
+        '401': { description: Missing or invalid access token (triggers OAuth discovery) }
+        '503': { $ref: '#/components/responses/ServiceUnavailable' }
+  /.well-known/oauth-protected-resource:
+    get:
+      tags: [MCP Connector]
+      summary: OAuth Protected Resource Metadata (RFC 9728)
+      operationId: oauthProtectedResourceMetadata
+      security: []
+      responses:
+        '200': { description: Resource + authorization-server metadata }
+        '503': { $ref: '#/components/responses/ServiceUnavailable' }
+  /.well-known/oauth-authorization-server:
+    get:
+      tags: [MCP Connector]
+      summary: OAuth Authorization Server Metadata (RFC 8414)
+      operationId: oauthAuthorizationServerMetadata
+      security: []
+      responses:
+        '200': { description: Authorization-server metadata }
+        '503': { $ref: '#/components/responses/ServiceUnavailable' }
+  /oauth/register:
+    post:
+      tags: [MCP Connector]
+      summary: Dynamic Client Registration (RFC 7591)
+      operationId: oauthRegister
+      security: []
+      responses:
+        '201': { description: 'Registered client (public, no secret)' }
+        '400': { description: Invalid redirect_uris }
+        '503': { $ref: '#/components/responses/ServiceUnavailable' }
+  /oauth/authorize:
+    get:
+      tags: [MCP Connector]
+      summary: Authorization endpoint (redirects to the consent page)
+      operationId: oauthAuthorize
+      security: []
+      responses:
+        '302': { description: Redirect to the branded consent page (or error redirect) }
+        '400': { description: Unknown client / unregistered redirect_uri }
+  /oauth/token:
+    post:
+      tags: [MCP Connector]
+      summary: Token endpoint (authorization_code + refresh_token, PKCE)
+      operationId: oauthToken
+      security: []
+      responses:
+        '200': { description: Access token (+ rotating refresh token) }
+        '400': { description: invalid_grant / invalid_request }
+        '503': { $ref: '#/components/responses/ServiceUnavailable' }
+  /api/mcp/tools:
+    get:
+      tags: [MCP Connector]
+      summary: Read-tool catalog (REST; backs the local stdio proxy)
+      description: 'Lists the analytics tools with their required scope. Auth: any authenticated caller.'
+      operationId: mcpTools
+      responses:
+        '200': { description: '{ tools: [{ name, description, inputSchema, scope }] }' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+  /api/mcp/guide:
+    get:
+      tags: [MCP Connector]
+      summary: Operating guide for connecting agents
+      operationId: mcpGuide
+      responses:
+        '200': { description: '{ guide: <markdown> }' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+  /api/mcp/dispatch:
+    post:
+      tags: [MCP Connector]
+      summary: Execute one read tool
+      description: >-
+        Runs a single analytics tool. Enforces the tool's scope
+        (`analytics:read` / `account:read`) for API-key callers.
+      operationId: mcpDispatch
+      responses:
+        '200': { description: '{ result: <json> } or { error: <message> }' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { description: Unknown tool }
+
+  # ==========================================================================
+  # ORDERS
+  # ==========================================================================
+  /api/orders:
+    post:
+      tags: [Orders]
+      summary: Submit an order or algo strategy
+      description: |
+        Submit a plain order (limit/market) or an algo strategy order.
+
+        **Auth:** authenticated (Privy or API key). API-key scope:
+        `orders:write`.
+
+        **Async-accept:** a `200` means the order/strategy was **accepted into
+        the engine**, not that it filled. For algo strategies (`strategy` set),
+        `orderId` is the parent strategy id; track progress via
+        `GET /api/orders/algo`.
+
+        Sub-$10-notional orders are rejected by Hyperliquid; orders routed
+        through Quote carry Quote's builder fee automatically.
+      operationId: submitOrder
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SubmitOrderRequest'
+      responses:
+        '200':
+          description: Order accepted into the engine (not necessarily filled).
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SubmitOrderResponse'
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '429': { $ref: '#/components/responses/RateLimited' }
+        '503': { $ref: '#/components/responses/ServiceUnavailable' }
+
+  /api/orders/cancel:
+    post:
+      tags: [Orders]
+      summary: Cancel a single order
+      description: |
+        Cancel a resting order or request cancellation of an algo strategy.
+
+        **Auth:** authenticated. API-key scope: `orders:write`.
+
+        For a strategy parent, the response indicates the cancel was *requested*
+        — venue child orders are reconciled before a terminal state is recorded.
+      operationId: cancelOrder
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CancelOrderRequest'
+      responses:
+        '200':
+          description: Cancel succeeded or was durably requested.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CancelOrderResponse'
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '429': { $ref: '#/components/responses/RateLimited' }
+        '502': { $ref: '#/components/responses/BadGateway' }
+        '503': { $ref: '#/components/responses/ServiceUnavailable' }
+
+  /api/orders/cancel-all:
+    post:
+      tags: [Orders]
+      summary: Cancel all open orders
+      description: |
+        Cancel all of the caller's open orders, optionally filtered by symbol.
+
+        **Auth:** authenticated. API-key scope: `orders:write`.
+      operationId: cancelAllOrders
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CancelAllOrdersRequest'
+      responses:
+        '200':
+          description: Returns the number of orders cancelled.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CancelOrderResponse'
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '429': { $ref: '#/components/responses/RateLimited' }
+        '502': { $ref: '#/components/responses/BadGateway' }
+        '503': { $ref: '#/components/responses/ServiceUnavailable' }
+
+  /api/orders/modify:
+    post:
+      tags: [Orders]
+      summary: Modify an existing order
+      description: |
+        Update the price and/or size of an existing order via Hyperliquid's
+        modify action.
+
+        **Auth:** authenticated. API-key scope: `orders:write`.
+      operationId: modifyOrder
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ModifyOrderRequest'
+      responses:
+        '200':
+          description: Order modified.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ModifyOrderResponse'
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '429': { $ref: '#/components/responses/RateLimited' }
+        '503': { $ref: '#/components/responses/ServiceUnavailable' }
+
+  /api/orders/algo:
+    get:
+      tags: [Orders]
+      summary: List algo (strategy) orders
+      description: |
+        List the caller's algo/strategy orders from the Postgres read
+        projection.
+
+        **Auth:** authenticated. API-key scope: `orders:read`.
+      operationId: getAlgoOrders
+      responses:
+        '200':
+          description: List of algo orders.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AlgoOrdersResponse'
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '429': { $ref: '#/components/responses/RateLimited' }
+        '503': { $ref: '#/components/responses/ServiceUnavailable' }
+
+  /api/orders/algo/{order_id}:
+    get:
+      tags: [Orders]
+      summary: Get a single algo order
+      description: |
+        Fetch a single algo/strategy order by parent order id. Must belong to
+        the caller's wallet.
+
+        **Auth:** authenticated. API-key scope: `orders:read`.
+      operationId: getAlgoOrder
+      parameters:
+        - name: order_id
+          in: path
+          required: true
+          description: Parent strategy order id.
+          schema:
+            type: string
+      responses:
+        '200':
+          description: The algo order.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AlgoOrderResponse'
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '429': { $ref: '#/components/responses/RateLimited' }
+        '503': { $ref: '#/components/responses/ServiceUnavailable' }
+
+  # ==========================================================================
+  # AGENTS
+  # ==========================================================================
+  /api/agents:
+    post:
+      tags: [Agents]
+      summary: Create an agent wallet
+      description: |
+        Generate a locally-encrypted agent wallet (AES-256-GCM secp256k1) for
+        the caller. Returns the agent address to be approved on Hyperliquid via
+        `POST /api/agents/register`.
+
+        **Auth:** authenticated. API-key scope: `agents:write`.
+      operationId: createAgent
+      responses:
+        '200':
+          description: Agent created (or already existing).
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CreateAgentResponse'
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '429': { $ref: '#/components/responses/RateLimited' }
+        '503': { $ref: '#/components/responses/ServiceUnavailable' }
+    get:
+      tags: [Agents]
+      summary: Get the caller's agent wallet
+      description: |
+        Return the caller's agent wallet, verifying registration against
+        Hyperliquid. Only registered agents are returned. A missing/unregistered
+        agent yields `success: true` with no `agentAddress`; an expired agent
+        yields `expired: true`.
+
+        **Auth:** authenticated. API-key scope: `agents:read`.
+      operationId: getAgent
+      responses:
+        '200':
+          description: Agent info (possibly empty/expired).
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GetAgentResponse'
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '429': { $ref: '#/components/responses/RateLimited' }
+        '503': { $ref: '#/components/responses/ServiceUnavailable' }
+
+  /api/agents/register:
+    post:
+      tags: [Agents]
+      summary: Register an agent wallet with Hyperliquid
+      description: |
+        Submit a signed `approveAgent` action to Hyperliquid for the caller's
+        agent. The signature is produced client-side over the agent address and
+        nonce.
+
+        **Auth:** authenticated. API-key scope: `agents:write`.
+      operationId: registerAgent
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RegisterAgentRequest'
+      responses:
+        '200':
+          description: Agent registered (or already registered).
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RegisterAgentResponse'
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '429': { $ref: '#/components/responses/RateLimited' }
+        '502': { $ref: '#/components/responses/BadGateway' }
+        '503': { $ref: '#/components/responses/ServiceUnavailable' }
+
+  /api/agents/builder-approval:
+    post:
+      tags: [Agents]
+      summary: Record builder-fee approval
+      description: |
+        Advisory record that the caller approved Quote's builder fee on
+        Hyperliquid (HL is the source of truth).
+
+        **Auth:** authenticated. API-key scope: `agents:write`.
+      operationId: recordBuilderApproval
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RecordBuilderApprovalRequest'
+      responses:
+        '200':
+          description: Recorded.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessResponse'
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '429': { $ref: '#/components/responses/RateLimited' }
+        '503': { $ref: '#/components/responses/ServiceUnavailable' }
+
+  /api/agents/accept-terms:
+    post:
+      tags: [Agents]
+      summary: Accept terms of service
+      description: |
+        Record the caller's acceptance of a terms version and analytics consent.
+
+        **Auth:** authenticated. API-key scope: `agents:write`.
+      operationId: acceptTerms
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AcceptTermsRequest'
+      responses:
+        '200':
+          description: Recorded.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessResponse'
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '429': { $ref: '#/components/responses/RateLimited' }
+        '503': { $ref: '#/components/responses/ServiceUnavailable' }
+
+  # ==========================================================================
+  # POSITIONS
+  # ==========================================================================
+  /api/positions/leverage:
+    post:
+      tags: [Positions]
+      summary: Update leverage
+      description: |
+        Sign and submit an `updateLeverage` action via the agent wallet.
+
+        **Auth:** authenticated. API-key scope: `positions:write`.
+      operationId: updateLeverage
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateLeverageRequest'
+      responses:
+        '200':
+          description: Leverage updated.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MessageResponse'
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '429': { $ref: '#/components/responses/RateLimited' }
+        '503': { $ref: '#/components/responses/ServiceUnavailable' }
+
+  /api/positions/margin:
+    post:
+      tags: [Positions]
+      summary: Update isolated margin
+      description: |
+        Sign and submit an `updateIsolatedMargin` action via the agent wallet.
+        Positive `marginDelta` adds margin, negative removes.
+
+        **Auth:** authenticated. API-key scope: `positions:write`.
+      operationId: updateMargin
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateMarginRequest'
+      responses:
+        '200':
+          description: Margin updated.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MessageResponse'
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '429': { $ref: '#/components/responses/RateLimited' }
+        '503': { $ref: '#/components/responses/ServiceUnavailable' }
+
+  /api/positions/transfer:
+    post:
+      tags: [Positions]
+      summary: Transfer between spot and perp
+      description: |
+        Sign and submit a `spotUser` transfer action via the agent wallet.
+        `amount` is in USD and must be positive.
+
+        **Auth:** authenticated. API-key scope: `positions:write`.
+      operationId: transferSpotPerp
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TransferSpotPerpRequest'
+      responses:
+        '200':
+          description: Transfer submitted.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MessageResponse'
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '429': { $ref: '#/components/responses/RateLimited' }
+        '503': { $ref: '#/components/responses/ServiceUnavailable' }
+
+  # ==========================================================================
+  # QUOTES
+  # ==========================================================================
+  /api/quotes/daily:
+    get:
+      tags: [Health]
+      summary: Get the daily quote
+      description: |
+        Returns the daily inspirational quote. Auth-gated to prevent
+        unauthenticated scraping.
+
+        **Auth:** authenticated (any scope; no specific scope required).
+      operationId: getDailyQuote
+      responses:
+        '200':
+          description: The daily quote (or an error envelope if unavailable).
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DailyQuoteResponse'
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '429': { $ref: '#/components/responses/RateLimited' }
+
+  # ==========================================================================
+  # TEMPLATES
+  # ==========================================================================
+  /api/templates:
+    get:
+      tags: [Templates]
+      summary: List order templates
+      description: |
+        List the caller's saved order templates.
+
+        **Auth:** authenticated. API-key scope: `templates:read`.
+      operationId: listTemplates
+      responses:
+        '200':
+          description: List of templates.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ListTemplatesResponse'
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '429': { $ref: '#/components/responses/RateLimited' }
+        '503': { $ref: '#/components/responses/ServiceUnavailable' }
+    post:
+      tags: [Templates]
+      summary: Create an order template
+      description: |
+        Create a saved order template. `urgency` and `priceDiscipline` must be
+        between 0 and 100.
+
+        **Auth:** authenticated. API-key scope: `templates:write`.
+      operationId: createTemplate
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateTemplateRequest'
+      responses:
+        '201':
+          description: Template created.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TemplateResponse'
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '429': { $ref: '#/components/responses/RateLimited' }
+        '503': { $ref: '#/components/responses/ServiceUnavailable' }
+
+  /api/templates/{template_id}:
+    get:
+      tags: [Templates]
+      summary: Get a template
+      description: |
+        Fetch one of the caller's templates by id (UUID).
+
+        **Auth:** authenticated. API-key scope: `templates:read`.
+      operationId: getTemplate
+      parameters:
+        - $ref: '#/components/parameters/TemplateId'
+      responses:
+        '200':
+          description: The template.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TemplateResponse'
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '429': { $ref: '#/components/responses/RateLimited' }
+        '503': { $ref: '#/components/responses/ServiceUnavailable' }
+    put:
+      tags: [Templates]
+      summary: Update a template
+      description: |
+        Update one of the caller's templates. Provided `urgency`/`priceDiscipline`
+        must be 0–100.
+
+        **Auth:** authenticated. API-key scope: `templates:write`.
+      operationId: updateTemplate
+      parameters:
+        - $ref: '#/components/parameters/TemplateId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateTemplateRequest'
+      responses:
+        '200':
+          description: Template updated.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TemplateResponse'
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '429': { $ref: '#/components/responses/RateLimited' }
+        '503': { $ref: '#/components/responses/ServiceUnavailable' }
+    delete:
+      tags: [Templates]
+      summary: Delete a template
+      description: |
+        Delete one of the caller's templates by id.
+
+        **Auth:** authenticated. API-key scope: `templates:write`.
+      operationId: deleteTemplate
+      parameters:
+        - $ref: '#/components/parameters/TemplateId'
+      responses:
+        '200':
+          description: Template deleted.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TemplateResponse'
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '429': { $ref: '#/components/responses/RateLimited' }
+        '503': { $ref: '#/components/responses/ServiceUnavailable' }
+
+  # ==========================================================================
+  # NL ORDER
+  # ==========================================================================
+  /api/nl-order:
+    post:
+      tags: [NL Order]
+      summary: Interpret a natural-language trading intent (SSE)
+      description: |
+        Accepts a conversational message plus market context, calls Claude, and
+        returns a **Server-Sent Events** stream (`text/event-stream`). Event
+        names include `step`, `text` (text deltas), `actions` (the final
+        proposed actions JSON), `done`, and `error`. This endpoint only
+        *interprets* intent — the frontend submits any resulting order.
+
+        **Auth:** authenticated. API-key scope: `orders:read`.
+      operationId: nlOrder
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/NLOrderRequest'
+      responses:
+        '200':
+          description: SSE stream of interpretation events.
+          content:
+            text/event-stream:
+              schema:
+                type: string
+                description: Server-Sent Events stream.
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '429': { $ref: '#/components/responses/RateLimited' }
+        '503': { $ref: '#/components/responses/ServiceUnavailable' }
+
+  /api/nl-order-dev:
+    post:
+      tags: [NL Order]
+      summary: Interpret a natural-language trading intent (dev, no scope check)
+      description: |
+        Same as `POST /api/nl-order` but skips the API-key scope check. Still
+        requires authentication via the `/api` auth middleware.
+
+        **Auth:** authenticated (no specific scope required).
+      operationId: nlOrderDev
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/NLOrderRequest'
+      responses:
+        '200':
+          description: SSE stream of interpretation events.
+          content:
+            text/event-stream:
+              schema:
+                type: string
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '429': { $ref: '#/components/responses/RateLimited' }
+        '503': { $ref: '#/components/responses/ServiceUnavailable' }
+
+  # ==========================================================================
+  # BRIDGE
+  # ==========================================================================
+  /api/bridge/quote:
+    post:
+      tags: [Bridge]
+      summary: Proxy a Relay bridge quote
+      description: |
+        Proxies the request body to Relay's `POST /quote/v2`, attaching Quote's
+        Relay API key. The request and response bodies are opaque Relay JSON and
+        are passed through unchanged.
+
+        **Auth:** authenticated. API-key scope: `bridge:write`.
+      operationId: bridgeQuote
+      requestBody:
+        required: true
+        description: Opaque Relay `quote/v2` request body.
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: true
+      responses:
+        '200':
+          description: Opaque Relay quote response (passed through).
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '429': { $ref: '#/components/responses/RateLimited' }
+        '502': { $ref: '#/components/responses/BadGateway' }
+        '503': { $ref: '#/components/responses/ServiceUnavailable' }
+
+  # ==========================================================================
+  # TRIGGERS
+  # ==========================================================================
+  /api/triggers:
+    get:
+      tags: [Triggers]
+      summary: List conditional triggers
+      description: |
+        List the caller's conditional triggers, optionally filtered by status.
+
+        **Auth:** authenticated. API-key scope: `orders:read`.
+      operationId: listTriggers
+      parameters:
+        - name: status
+          in: query
+          required: false
+          description: 'One of: active, triggered, cancelled, expired, failed.'
+          schema:
+            type: string
+            enum: [active, triggered, cancelled, expired, failed]
+        - name: limit
+          in: query
+          required: false
+          schema:
+            type: integer
+            format: int64
+      responses:
+        '200':
+          description: List of triggers.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ListTriggersResponse'
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '429': { $ref: '#/components/responses/RateLimited' }
+        '503': { $ref: '#/components/responses/ServiceUnavailable' }
+    post:
+      tags: [Triggers]
+      summary: Create a conditional trigger
+      description: |
+        Create a conditional trigger. `triggerType` must be a known type
+        (e.g. `price`, `copy_trade`, `funding`, `oi_change`, `time`). The
+        `condition` and `executionOrder` payloads are opaque JSON interpreted by
+        the trigger evaluator.
+
+        **Auth:** authenticated. API-key scope: `orders:write`.
+      operationId: createTrigger
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateTriggerRequest'
+      responses:
+        '201':
+          description: Trigger created.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TriggerResponse'
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '429': { $ref: '#/components/responses/RateLimited' }
+        '503': { $ref: '#/components/responses/ServiceUnavailable' }
+
+  /api/triggers/{trigger_id}:
+    get:
+      tags: [Triggers]
+      summary: Get a trigger
+      description: |
+        Fetch one of the caller's triggers by id (UUID).
+
+        **Auth:** authenticated. API-key scope: `orders:read`.
+      operationId: getTrigger
+      parameters:
+        - $ref: '#/components/parameters/TriggerId'
+      responses:
+        '200':
+          description: The trigger.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TriggerResponse'
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '429': { $ref: '#/components/responses/RateLimited' }
+        '503': { $ref: '#/components/responses/ServiceUnavailable' }
+    delete:
+      tags: [Triggers]
+      summary: Cancel a trigger
+      description: |
+        Cancel one of the caller's active triggers (status -> `cancelled`).
+
+        **Auth:** authenticated. API-key scope: `orders:write`.
+      operationId: cancelTrigger
+      parameters:
+        - $ref: '#/components/parameters/TriggerId'
+      responses:
+        '200':
+          description: Trigger cancelled.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TriggerResponse'
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '429': { $ref: '#/components/responses/RateLimited' }
+        '503': { $ref: '#/components/responses/ServiceUnavailable' }
+
+  /api/triggers/{trigger_id}/history:
+    get:
+      tags: [Triggers]
+      summary: Get trigger history
+      description: |
+        List the history events for one of the caller's triggers.
+
+        **Auth:** authenticated. API-key scope: `orders:read`.
+      operationId: triggerHistory
+      parameters:
+        - $ref: '#/components/parameters/TriggerId'
+        - name: limit
+          in: query
+          required: false
+          schema:
+            type: integer
+            format: int64
+      responses:
+        '200':
+          description: Trigger history events.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TriggerHistoryResponse'
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '429': { $ref: '#/components/responses/RateLimited' }
+        '503': { $ref: '#/components/responses/ServiceUnavailable' }
+
+  # ==========================================================================
+  # INVITES & REFERRALS
+  # ==========================================================================
+  /api/invites:
+    get:
+      tags: [Invites & Referrals]
+      summary: List the caller's invite codes
+      description: |
+        List the caller's invite codes plus remaining allowance and volume
+        progress.
+
+        **Auth:** Privy-session only. API-key callers receive `403`.
+      operationId: listInvites
+      security:
+        - PrivyBearer: []
+      responses:
+        '200':
+          description: Invite codes and allowance.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ListInvitesResponse'
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '429': { $ref: '#/components/responses/RateLimited' }
+        '503': { $ref: '#/components/responses/ServiceUnavailable' }
+    post:
+      tags: [Invites & Referrals]
+      summary: Issue a new invite code
+      description: |
+        Issue one new invite code if the caller has remaining allowance.
+
+        **Auth:** Privy-session only. API-key callers receive `403`.
+      operationId: issueInvite
+      security:
+        - PrivyBearer: []
+      responses:
+        '200':
+          description: The newly issued code.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/IssueInviteResponse'
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '429': { $ref: '#/components/responses/RateLimited' }
+        '503': { $ref: '#/components/responses/ServiceUnavailable' }
+
+  /api/invites/redeem:
+    post:
+      tags: [Invites & Referrals]
+      summary: Redeem an invite code
+      description: |
+        Redeem an invite code, creating a referral attribution link for the
+        caller.
+
+        **Auth:** Privy-session only. API-key callers receive `403`.
+      operationId: redeemInvite
+      security:
+        - PrivyBearer: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RedeemRequest'
+      responses:
+        '200':
+          description: The created attribution link.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RedeemResponse'
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '429': { $ref: '#/components/responses/RateLimited' }
+        '503': { $ref: '#/components/responses/ServiceUnavailable' }
+
+  /api/invites/status:
+    get:
+      tags: [Invites & Referrals]
+      summary: Invite gating status
+      description: |
+        Whether the caller has redeemed an invite and whether signup gating is
+        enabled.
+
+        **Auth:** Privy-session only. API-key callers receive `403`.
+      operationId: inviteStatus
+      security:
+        - PrivyBearer: []
+      responses:
+        '200':
+          description: Gating status.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/InviteStatusResponse'
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '429': { $ref: '#/components/responses/RateLimited' }
+        '503': { $ref: '#/components/responses/ServiceUnavailable' }
+
+  /api/referrals/summary:
+    get:
+      tags: [Invites & Referrals]
+      summary: Referral dashboard summary
+      description: |
+        The caller's referral dashboard: who referred them, how many they've
+        referred, accrued rewards, and discount status.
+
+        **Auth:** Privy-session only. API-key callers receive `403`.
+      operationId: referralSummary
+      security:
+        - PrivyBearer: []
+      responses:
+        '200':
+          description: Referral summary.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ReferralSummaryResponse'
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '429': { $ref: '#/components/responses/RateLimited' }
+        '503': { $ref: '#/components/responses/ServiceUnavailable' }
+
+  # ==========================================================================
+  # ANALYTICS
+  # ==========================================================================
+  /api/analytics/execution:
+    get:
+      tags: [Analytics]
+      summary: Execution-quality metrics
+      description: |
+        Aggregate implementation-shortfall metrics over a time range.
+
+        **Auth:** authenticated. API-key scope: `orders:read`.
+      operationId: analyticsExecution
+      parameters:
+        - $ref: '#/components/parameters/AnalyticsRange'
+      responses:
+        '200':
+          description: Aggregate execution metrics.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ExecutionMetrics'
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '429': { $ref: '#/components/responses/RateLimited' }
+        '503': { $ref: '#/components/responses/ServiceUnavailable' }
+
+  /api/analytics/execution/timeline:
+    get:
+      tags: [Analytics]
+      summary: Execution-quality timeline
+      description: |
+        Time-bucketed execution-quality timeline (HL vs Quote cumulative costs)
+        over a time range.
+
+        **Auth:** authenticated. API-key scope: `orders:read`.
+      operationId: analyticsExecutionTimeline
+      parameters:
+        - $ref: '#/components/parameters/AnalyticsRange'
+      responses:
+        '200':
+          description: Timeline points.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/ExecutionTimelinePoint'
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '429': { $ref: '#/components/responses/RateLimited' }
+        '503': { $ref: '#/components/responses/ServiceUnavailable' }
+
+  /api/analytics/volume:
+    get:
+      tags: [Analytics]
+      summary: Quote-routed volume
+      description: |
+        Cumulative Quote-routed trading volume from the fills ledger over a
+        time range.
+
+        **Auth:** authenticated. API-key scope: `orders:read`.
+      operationId: analyticsVolume
+      parameters:
+        - $ref: '#/components/parameters/AnalyticsRange'
+      responses:
+        '200':
+          description: Cumulative volume.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/VolumeResponse'
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '429': { $ref: '#/components/responses/RateLimited' }
+        '503': { $ref: '#/components/responses/ServiceUnavailable' }
+
+  /api/analytics/fees:
+    get:
+      tags: [Analytics]
+      summary: Quote-routed fees
+      description: |
+        Exchange + builder fees paid on Quote-routed fills over a time range.
+
+        **Auth:** authenticated. API-key scope: `orders:read`.
+      operationId: analyticsFees
+      parameters:
+        - $ref: '#/components/parameters/AnalyticsRange'
+      responses:
+        '200':
+          description: Fee totals.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FeesResponse'
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '429': { $ref: '#/components/responses/RateLimited' }
+        '503': { $ref: '#/components/responses/ServiceUnavailable' }
+
+  # ==========================================================================
+  # FUNDING
+  # ==========================================================================
+  /api/funding:
+    get:
+      tags: [Funding]
+      summary: Funding totals
+      description: |
+        Aggregate funding paid / received / net over a time range, with a
+        per-coin breakdown. Funding is synced incrementally from Hyperliquid
+        `userFunding` into a durable projection on each request; if the sync
+        fails the persisted rows are still returned.
+
+        Sign convention: `net = received − paid`; `totalPaid` / `totalReceived`
+        are positive magnitudes.
+
+        **Auth:** authenticated. API-key scope: `orders:read`.
+      operationId: fundingSummary
+      parameters:
+        - $ref: '#/components/parameters/AnalyticsRange'
+      responses:
+        '200':
+          description: Funding totals and per-coin breakdown.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FundingSummary'
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '429': { $ref: '#/components/responses/RateLimited' }
+        '503': { $ref: '#/components/responses/ServiceUnavailable' }
+
+  /api/funding/timeline:
+    get:
+      tags: [Funding]
+      summary: Funding timeline
+      description: |
+        Cumulative funding timeline (net / paid / received), bucketed hourly for
+        `1d` and daily otherwise.
+
+        **Auth:** authenticated. API-key scope: `orders:read`.
+      operationId: fundingTimeline
+      parameters:
+        - $ref: '#/components/parameters/AnalyticsRange'
+      responses:
+        '200':
+          description: Cumulative funding timeline points.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/FundingTimelinePoint'
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '429': { $ref: '#/components/responses/RateLimited' }
+        '503': { $ref: '#/components/responses/ServiceUnavailable' }
+
+  /api/funding/history:
+    get:
+      tags: [Funding]
+      summary: Funding history
+      description: |
+        Detailed per-event funding log over a time range, newest-first.
+
+        **Auth:** authenticated. API-key scope: `orders:read`.
+      operationId: fundingHistory
+      parameters:
+        - $ref: '#/components/parameters/AnalyticsRange'
+      responses:
+        '200':
+          description: Funding events, newest-first.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/FundingHistoryItem'
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '429': { $ref: '#/components/responses/RateLimited' }
+        '503': { $ref: '#/components/responses/ServiceUnavailable' }
+
+  # ==========================================================================
+  # PORTFOLIO
+  # ==========================================================================
+  /api/portfolio/equity:
+    get:
+      tags: [Portfolio]
+      summary: Equity time-series
+      description: |
+        Hourly account-value samples (perp + spot), with margin, unrealized PnL,
+        and per-hour net flow. `accountValue` may be `null` (a gap), never 0.
+        PnL view = Δ accountValue − Σ netFlow.
+
+        **Auth:** authenticated. API-key scope: `orders:read`.
+      operationId: portfolioEquity
+      parameters:
+        - $ref: '#/components/parameters/AnalyticsRange'
+      responses:
+        '200':
+          description: Equity samples, oldest-first.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/EquityPoint'
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '429': { $ref: '#/components/responses/RateLimited' }
+        '503': { $ref: '#/components/responses/ServiceUnavailable' }
+
+  /api/portfolio/equity/latest:
+    get:
+      tags: [Portfolio]
+      summary: Latest equity sample
+      description: |
+        The most recent equity sample for the wallet (or `null`).
+
+        **Auth:** authenticated. API-key scope: `orders:read`.
+      operationId: portfolioEquityLatest
+      responses:
+        '200':
+          description: Latest sample or null.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EquityPoint'
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '503': { $ref: '#/components/responses/ServiceUnavailable' }
+
+  # ==========================================================================
+  # API KEYS (Privy-only)
+  # ==========================================================================
+  /api/keys:
+    get:
+      tags: [API Keys]
+      summary: List API keys
+      description: |
+        List the caller's API keys (secrets are never returned, only a preview).
+
+        **Auth:** Privy-session only. API-key callers receive `403`.
+      operationId: listKeys
+      security:
+        - PrivyBearer: []
+      responses:
+        '200':
+          description: API keys.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ListKeysResponse'
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '429': { $ref: '#/components/responses/RateLimited' }
+        '503': { $ref: '#/components/responses/ServiceUnavailable' }
+    post:
+      tags: [API Keys]
+      summary: Mint an API key
+      description: |
+        Mint a new HMAC API key. The 32-byte `secret` is returned **once** at
+        mint time and never again — it is the HMAC-SHA256 key used to sign
+        requests (see the `ApiKeyHmac` scheme). `scopes` must be a subset of the
+        allowed scopes.
+
+        **Auth:** Privy-session only. API-key callers receive `403`.
+      operationId: mintKey
+      security:
+        - PrivyBearer: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/MintKeyRequest'
+      responses:
+        '200':
+          description: The minted key id and one-time secret.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MintKeyResponse'
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '429': { $ref: '#/components/responses/RateLimited' }
+        '503': { $ref: '#/components/responses/ServiceUnavailable' }
+
+  /api/keys/{key_id}:
+    delete:
+      tags: [API Keys]
+      summary: Revoke an API key
+      description: |
+        Revoke one of the caller's API keys.
+
+        **Auth:** Privy-session only. API-key callers receive `403`.
+      operationId: revokeKey
+      security:
+        - PrivyBearer: []
+      parameters:
+        - name: key_id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '204':
+          description: Key revoked (no content).
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '429': { $ref: '#/components/responses/RateLimited' }
+        '503': { $ref: '#/components/responses/ServiceUnavailable' }
+
+  # ==========================================================================
+  # PUBLIC: INFO / NEWS / WEBHOOK
+  # ==========================================================================
+  /api/info:
+    get:
+      tags: [Health]
+      summary: API/network info
+      description: |
+        Small network/config debug endpoint reporting the active network and
+        Hyperliquid API URL.
+
+        **Auth:** public (no auth).
+      operationId: getInfo
+      security: []
+      responses:
+        '200':
+          description: Network info.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/InfoResponse'
+        '429': { $ref: '#/components/responses/RateLimited' }
+
+  /api/news:
+    get:
+      tags: [News]
+      summary: Market-news feed
+      description: |
+        Recent market-news articles, newest first, optionally filtered by
+        category and/or asset symbol. `limit` defaults to 30 and is clamped to
+        1–100. Each article carries a `market` object (listed symbol, mark
+        price, 24h change) when its topic resolves to a live tradeable market,
+        `null` otherwise.
+
+        **Auth:** public (no auth).
+      operationId: getNews
+      security: []
+      parameters:
+        - name: limit
+          in: query
+          required: false
+          description: Max articles (default 30, clamped 1–100).
+          schema:
+            type: integer
+            format: int64
+        - name: category
+          in: query
+          required: false
+          description: 'Filter by category (e.g. stock, crypto, commodity, index, fx).'
+          schema:
+            type: string
+        - name: topic
+          in: query
+          required: false
+          description: 'Filter by asset symbol (e.g. TSLA, BTC).'
+          schema:
+            type: string
+      responses:
+        '200':
+          description: List of articles.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Article'
+        '429': { $ref: '#/components/responses/RateLimited' }
+        '503': { $ref: '#/components/responses/ServiceUnavailable' }
+
+  /api/webhooks/parallel:
+    post:
+      tags: [News]
+      summary: Parallel Monitor ingest webhook
+      description: |
+        Receives Parallel Monitor push events (`monitor.event.detected`). Not
+        gated by the auth middleware; instead a shared secret is verified via
+        the `token` query parameter (constant-time). Detected events are acked
+        immediately (`200`) and ingested off the request path. The response is
+        an empty body with only a status code.
+
+        **Auth:** public at the middleware level; secured by the `token` shared
+        secret.
+      operationId: parallelWebhook
+      security: []
+      parameters:
+        - name: token
+          in: query
+          required: true
+          description: Shared secret configured on the monitor's webhook URL.
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/WebhookPayload'
+      responses:
+        '200':
+          description: Event acknowledged (detected events are ingested asynchronously).
+        '401':
+          description: Invalid/absent shared secret (empty body).
+        '503':
+          description: News monitors not configured (empty body).
+
+  # ==========================================================================
+  # ROOT: HEALTH / READY / METRICS
+  # ==========================================================================
+  /health:
+    get:
+      tags: [Health]
+      summary: Liveness probe
+      description: Always returns 200 while the process is running.
+      operationId: healthCheck
+      security: []
+      responses:
+        '200':
+          description: Liveness OK.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HealthResponse'
+
+  /ready:
+    get:
+      tags: [Health]
+      summary: Readiness probe
+      description: |
+        Returns 200 if all configured dependencies (PostgreSQL, Hyperliquid
+        circuit breakers, TiKV vault, JetStream) are healthy; 503 otherwise.
+      operationId: readinessCheck
+      security: []
+      responses:
+        '200':
+          description: All dependencies healthy.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ReadinessResponse'
+        '503':
+          description: One or more dependencies degraded.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ReadinessResponse'
+
+  /metrics:
+    get:
+      tags: [Health]
+      summary: Prometheus metrics
+      description: |
+        Prometheus text-format metrics in local/default mode. In OTLP mode this
+        returns `503` because metrics flow through the OpenTelemetry collector.
+      operationId: metrics
+      security: []
+      responses:
+        '200':
+          description: Prometheus text exposition format.
+          content:
+            text/plain:
+              schema:
+                type: string
+        '503':
+          description: Metrics disabled (OTLP mode).
+
+components:
+  securitySchemes:
+    PrivyBearer:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: |
+        Privy identity token. Send `Authorization: Bearer <jwt>`. Verified
+        offline against Privy's JWKS endpoint (`auth.privy.io`); the embedded
+        EVM wallet is read from the `linked_accounts` claim. Privy sessions
+        implicitly carry all scopes. Required server env: `PRIVY_APP_ID`.
+    ApiKeyHmac:
+      type: apiKey
+      in: header
+      name: X-Quote-Key
+      description: |
+        HMAC API-key authentication. Three headers are sent on every request:
+
+        - `X-Quote-Key`: the public key id (this scheme's header).
+        - `X-Quote-Timestamp`: request time in **milliseconds** since epoch.
+          Must be within `AUTH_TIMESTAMP_TOLERANCE_SECONDS` (default 30) of
+          server time.
+        - `X-Quote-Signature`: hex HMAC-SHA256 over the canonical string.
+
+        **Canonical signing string** (literal `\n` separators):
+
+        ```
+        <timestamp>\n<METHOD>\n<path_with_query>\n<body>
+        ```
+
+        where `<timestamp>` is the `X-Quote-Timestamp` value, `<METHOD>` is the
+        uppercase HTTP method, `<path_with_query>` is the request path including
+        any query string, and `<body>` is the raw request body (empty string if
+        none). The 32-byte secret returned at mint time is used **directly** as
+        the HMAC-SHA256 key.
+
+        API keys carry only the scopes granted at mint time and cannot access
+        Privy-only endpoints (`/api/keys*`, `/api/invites*`,
+        `/api/referrals/summary`).
+
+  parameters:
+    TemplateId:
+      name: template_id
+      in: path
+      required: true
+      description: Template UUID.
+      schema:
+        type: string
+        format: uuid
+    TriggerId:
+      name: trigger_id
+      in: path
+      required: true
+      description: Trigger UUID.
+      schema:
+        type: string
+        format: uuid
+    AnalyticsRange:
+      name: range
+      in: query
+      required: false
+      description: 'Time range. One of: 1d, 7d, 30d, all. Defaults to a server default when omitted.'
+      schema:
+        type: string
+        enum: ['1d', '7d', '30d', 'all']
+
+  responses:
+    BadRequest:
+      description: Invalid request (validation error, malformed body/UUID, etc.).
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    Unauthorized:
+      description: Missing or invalid credentials.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    Forbidden:
+      description: |
+        Authenticated but not permitted — missing API-key scope, or an API-key
+        caller hitting a Privy-only endpoint.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    NotFound:
+      description: Resource not found or not owned by the caller's wallet.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    RateLimited:
+      description: Rate limit exceeded.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    BadGateway:
+      description: Upstream (Hyperliquid/Relay) returned an error.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    ServiceUnavailable:
+      description: |
+        A required dependency is unavailable or a feature is not configured
+        (also returned when a Hyperliquid circuit breaker is open).
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    PayloadTooLarge:
+      description: |
+        Request body exceeds the 4 MiB limit enforced by the body-buffering
+        layer. The response body is not the standard JSON error envelope.
+
+  schemas:
+    # ----- Common -----
+    ErrorResponse:
+      type: object
+      description: Standard error envelope used for 4xx/5xx (except 413/204).
+      required: [success, error]
+      properties:
+        success:
+          type: boolean
+          enum: [false]
+        error:
+          type: string
+    SuccessResponse:
+      type: object
+      required: [success]
+      properties:
+        success:
+          type: boolean
+          enum: [true]
+    MessageResponse:
+      type: object
+      description: Generic success response with an optional human-readable message.
+      required: [success]
+      properties:
+        success:
+          type: boolean
+        message:
+          type: string
+        error:
+          type: string
+
+    # ----- Orders -----
+    Side:
+      type: string
+      enum: [buy, sell]
+    OrderType:
+      type: string
+      enum: [limit, market]
+    TimeInForce:
+      type: string
+      description: Time in force. Serialized as the uppercase variant names.
+      enum: [GTC, ALO, IOC]
+    TpslMode:
+      type: string
+      enum: [market, limit]
+    TpslSide:
+      type: object
+      required: [triggerPrice]
+      properties:
+        triggerPrice:
+          type: string
+        limitPrice:
+          type: string
+          nullable: true
+    TpslParams:
+      type: object
+      description: TP/SL configuration. Note `mode`, `tp`, `sl` are snake/lower as named.
+      required: [mode]
+      properties:
+        mode:
+          $ref: '#/components/schemas/TpslMode'
+        tp:
+          allOf: [{ $ref: '#/components/schemas/TpslSide' }]
+          nullable: true
+        sl:
+          allOf: [{ $ref: '#/components/schemas/TpslSide' }]
+          nullable: true
+    StrategyParamsInput:
+      type: object
+      description: |
+        Strategy-specific parameters forwarded to the execution engine. This is
+        a large, mostly-optional bag of knobs; the relevant subset depends on
+        the chosen `strategy`. Fields accept both camelCase and snake_case keys
+        (serde aliases). Numeric "bps"/decimal fields accept string, integer, or
+        float JSON. Only commonly-used fields are enumerated here; additional
+        properties are accepted.
+      additionalProperties: true
+      properties:
+        reduceOnly: { type: boolean, nullable: true }
+        timeInForce:
+          type: string
+          nullable: true
+          description: Child-order TIF (gtc/alo/ioc), strategy-dependent.
+        attachedTpsl:
+          allOf: [{ $ref: '#/components/schemas/TpslParams' }]
+          nullable: true
+        durationSecs: { type: integer, format: int64, nullable: true }
+        numSlices: { type: integer, format: int64, nullable: true }
+        passivePct: { type: integer, format: int64, nullable: true }
+        clipSize: { type: string, nullable: true, description: 'Decimal as string.' }
+        clipPct: { type: number, format: double, nullable: true }
+        participationRate: { type: string, nullable: true, description: 'Decimal as string.' }
+        urgency: { type: integer, format: int64, nullable: true, description: '0–100.' }
+        distributionSkew: { type: integer, format: int64, nullable: true, description: '0–100.' }
+        randomize: { type: boolean, nullable: true }
+        maxSlippageBps: { type: string, nullable: true }
+        hardCancelPct: { type: string, nullable: true }
+        offsetFromMidBps: { type: integer, format: int64, nullable: true }
+        chaseEnabled: { type: boolean, nullable: true }
+        observationMode: { type: boolean, nullable: true }
+        guaranteedCompletion: { type: boolean, nullable: true }
+        queueImproveThreshold: { type: integer, format: int64, nullable: true }
+    SubmitOrderRequest:
+      type: object
+      required: [symbol, side, size, orderType]
+      properties:
+        symbol:
+          type: string
+          example: ETH
+        side:
+          $ref: '#/components/schemas/Side'
+        size:
+          type: string
+          description: Base-asset size as a decimal string.
+        orderType:
+          $ref: '#/components/schemas/OrderType'
+        limitPrice:
+          type: string
+          nullable: true
+          description: Required for limit orders; for market orders supply a slippage-adjusted price.
+        reduceOnly:
+          type: boolean
+          nullable: true
+          default: false
+        timeInForce:
+          allOf: [{ $ref: '#/components/schemas/TimeInForce' }]
+          nullable: true
+        clientOrderId:
+          type: string
+          nullable: true
+        strategy:
+          type: string
+          nullable: true
+          description: 'Algo strategy name (e.g. passive_twap, adaptive_is, vwap, iceberg, participation_rate, chase_limit). Omit for a plain order.'
+        params:
+          allOf: [{ $ref: '#/components/schemas/StrategyParamsInput' }]
+          nullable: true
+        tpsl:
+          allOf: [{ $ref: '#/components/schemas/TpslParams' }]
+          nullable: true
+    SubmitOrderResponse:
+      type: object
+      required: [success]
+      properties:
+        success:
+          type: boolean
+        orderId:
+          type: string
+          description: Venue order id, or for algo strategies the parent strategy id.
+        status:
+          type: string
+        provider:
+          type: string
+          description: 'Execution provider, e.g. "hyperliquid".'
+        error:
+          type: string
+        warnings:
+          type: array
+          items:
+            type: string
+    CancelOrderRequest:
+      type: object
+      required: [symbol, orderId]
+      properties:
+        symbol:
+          type: string
+        orderId:
+          type: string
+    CancelOrderResponse:
+      type: object
+      required: [success]
+      properties:
+        success:
+          type: boolean
+        message:
+          type: string
+        error:
+          type: string
+    CancelAllOrdersRequest:
+      type: object
+      properties:
+        symbol:
+          type: string
+          nullable: true
+          description: If omitted, cancels all open orders.
+    ModifyOrderRequest:
+      type: object
+      required: [symbol, orderId, side, limitPrice, size]
+      properties:
+        symbol:
+          type: string
+        orderId:
+          type: integer
+          format: int64
+          description: Exchange order id to modify.
+        side:
+          type: string
+          enum: [buy, sell]
+        limitPrice:
+          type: string
+        size:
+          type: string
+        reduceOnly:
+          type: boolean
+          default: false
+        timeInForce:
+          type: string
+          enum: [gtc, alo, ioc]
+          nullable: true
+          description: Defaults to gtc.
+        clientOrderId:
+          type: string
+          nullable: true
+    ModifyOrderResponse:
+      type: object
+      required: [success]
+      properties:
+        success:
+          type: boolean
+        message:
+          type: string
+        error:
+          type: string
+    AlgoOrderInfo:
+      type: object
+      required: [orderId, symbol, side, orderQty, filledQty, status, strategy, submitTime]
+      properties:
+        orderId:
+          type: string
+        symbol:
+          type: string
+        side:
+          type: string
+          description: 'Debug-formatted side (e.g. "Buy"/"Sell").'
+        orderQty:
+          type: string
+        filledQty:
+          type: string
+        status:
+          type: string
+        strategy:
+          type: string
+        submitTime:
+          type: string
+          format: date-time
+    AlgoOrdersResponse:
+      type: object
+      required: [success, orders]
+      properties:
+        success:
+          type: boolean
+        orders:
+          type: array
+          items:
+            $ref: '#/components/schemas/AlgoOrderInfo'
+    AlgoOrderResponse:
+      type: object
+      required: [success, order]
+      properties:
+        success:
+          type: boolean
+        order:
+          $ref: '#/components/schemas/AlgoOrderInfo'
+
+    # ----- Agents -----
+    CreateAgentResponse:
+      type: object
+      required: [success]
+      properties:
+        success:
+          type: boolean
+        agentAddress:
+          type: string
+        error:
+          type: string
+    RegisterAgentRequest:
+      type: object
+      required: [agentAddress, signature, nonce, agentName]
+      properties:
+        agentAddress:
+          type: string
+          description: EVM address of the agent wallet (normalized).
+        signature:
+          type: string
+        nonce:
+          type: integer
+          format: int64
+          description: Nonce used when signing (timestamp in milliseconds).
+        agentName:
+          type: string
+    RegisterAgentResponse:
+      type: object
+      required: [success]
+      properties:
+        success:
+          type: boolean
+        message:
+          type: string
+        agentAddress:
+          type: string
+        network:
+          type: string
+          enum: [mainnet, testnet]
+        error:
+          type: string
+    RecordBuilderApprovalRequest:
+      type: object
+      required: [nonce]
+      properties:
+        nonce:
+          type: integer
+          format: int64
+    AcceptTermsRequest:
+      type: object
+      required: [termsVersion, analyticsConsent]
+      properties:
+        termsVersion:
+          type: string
+        analyticsConsent:
+          type: boolean
+    GetAgentResponse:
+      type: object
+      required: [success]
+      properties:
+        success:
+          type: boolean
+        agentAddress:
+          type: string
+        createdAt:
+          type: integer
+          format: int64
+          description: Unix timestamp (seconds).
+        expired:
+          type: boolean
+        builderFeeApproved:
+          type: boolean
+        termsAcceptedAt:
+          type: integer
+          format: int64
+        termsVersion:
+          type: string
+        error:
+          type: string
+
+    # ----- Positions -----
+    UpdateLeverageRequest:
+      type: object
+      required: [symbol, leverage]
+      properties:
+        symbol:
+          type: string
+        leverage:
+          type: integer
+          format: int32
+        isCross:
+          type: boolean
+          default: false
+    UpdateMarginRequest:
+      type: object
+      required: [symbol, marginDelta, isBuy]
+      properties:
+        symbol:
+          type: string
+        marginDelta:
+          type: string
+          description: Margin to add (positive) or remove (negative), as a number string.
+        isBuy:
+          type: boolean
+          description: Long side (true) or short side (false).
+    TransferSpotPerpRequest:
+      type: object
+      required: [amount, toPerp]
+      properties:
+        amount:
+          type: string
+          description: USD amount (positive).
+        toPerp:
+          type: boolean
+          description: Transfer to perp (true) or to spot (false).
+
+    # ----- Quotes -----
+    QuoteInfo:
+      type: object
+      required: [text, author]
+      properties:
+        text:
+          type: string
+        author:
+          type: string
+    DailyQuoteResponse:
+      type: object
+      required: [success]
+      properties:
+        success:
+          type: boolean
+        quote:
+          $ref: '#/components/schemas/QuoteInfo'
+        error:
+          type: string
+
+    # ----- Templates -----
+    TemplateInfo:
+      type: object
+      required: [id, name, urgency, priceDiscipline, createdAt, updatedAt]
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        description:
+          type: string
+        icon:
+          type: string
+        urgency:
+          type: integer
+          format: int32
+        priceDiscipline:
+          type: integer
+          format: int32
+        parameters:
+          $ref: '#/components/schemas/StrategyParamsInput'
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+    CreateTemplateRequest:
+      type: object
+      required: [name, urgency, priceDiscipline]
+      properties:
+        name:
+          type: string
+        description:
+          type: string
+          nullable: true
+        icon:
+          type: string
+          nullable: true
+        urgency:
+          type: integer
+          format: int32
+          description: 0–100.
+        priceDiscipline:
+          type: integer
+          format: int32
+          description: 0–100.
+        parameters:
+          allOf: [{ $ref: '#/components/schemas/StrategyParamsInput' }]
+          nullable: true
+    UpdateTemplateRequest:
+      type: object
+      description: All fields optional; only provided fields are updated.
+      properties:
+        name:
+          type: string
+          nullable: true
+        description:
+          type: string
+          nullable: true
+        icon:
+          type: string
+          nullable: true
+        urgency:
+          type: integer
+          format: int32
+          nullable: true
+          description: 0–100.
+        priceDiscipline:
+          type: integer
+          format: int32
+          nullable: true
+          description: 0–100.
+        parameters:
+          allOf: [{ $ref: '#/components/schemas/StrategyParamsInput' }]
+          nullable: true
+    TemplateResponse:
+      type: object
+      required: [success]
+      properties:
+        success:
+          type: boolean
+        template:
+          $ref: '#/components/schemas/TemplateInfo'
+        error:
+          type: string
+    ListTemplatesResponse:
+      type: object
+      required: [success, templates]
+      properties:
+        success:
+          type: boolean
+        templates:
+          type: array
+          items:
+            $ref: '#/components/schemas/TemplateInfo'
+        error:
+          type: string
+
+    # ----- NL Order -----
+    NLChatMessage:
+      type: object
+      required: [role, content]
+      properties:
+        role:
+          type: string
+        content:
+          type: string
+    NLPositionContext:
+      type: object
+      required: [symbol, size, entryPrice, unrealizedPnl]
+      description: Field keys are snake_case (no camelCase rename on this type).
+      properties:
+        symbol: { type: string }
+        size: { type: string }
+        entry_price: { type: string }
+        unrealized_pnl: { type: string }
+        leverage_type: { type: string }
+        leverage_value: { type: integer, format: int32 }
+    NLOrderContextEntry:
+      type: object
+      required: [symbol, side, size, price, order_type, status]
+      properties:
+        symbol: { type: string }
+        side: { type: string }
+        size: { type: string }
+        price: { type: string }
+        order_type: { type: string }
+        status: { type: string }
+    NLFillContextEntry:
+      type: object
+      required: [symbol, side, size, price, timestamp]
+      properties:
+        symbol: { type: string }
+        side: { type: string }
+        size: { type: string }
+        price: { type: string }
+        timestamp: { type: integer, format: int64 }
+    NLOrderHistoryEntry:
+      type: object
+      required: [symbol, side, size, price, status]
+      properties:
+        symbol: { type: string }
+        side: { type: string }
+        size: { type: string }
+        price: { type: string }
+        status: { type: string }
+    NLOrderContext:
+      type: object
+      description: |
+        Market/account context. Field keys are snake_case (this type has no
+        camelCase rename).
+      required:
+        - symbol
+        - mark_price
+        - best_bid
+        - best_ask
+        - available_margin
+        - current_leverage
+        - margin_mode
+      properties:
+        symbol: { type: string }
+        mark_price: { type: string }
+        funding_rate: { type: string }
+        open_interest: { type: string }
+        volume_24h: { type: string }
+        best_bid: { type: string }
+        best_ask: { type: string }
+        available_margin: { type: string }
+        positions:
+          type: array
+          items: { $ref: '#/components/schemas/NLPositionContext' }
+        current_leverage: { type: integer, format: int32 }
+        margin_mode: { type: string }
+        total_equity: { type: string }
+        open_orders:
+          type: array
+          items: { $ref: '#/components/schemas/NLOrderContextEntry' }
+        recent_fills:
+          type: array
+          items: { $ref: '#/components/schemas/NLFillContextEntry' }
+        order_history:
+          type: array
+          items: { $ref: '#/components/schemas/NLOrderHistoryEntry' }
+        available_symbols:
+          type: array
+          items: { type: string }
+    NLOrderRequest:
+      type: object
+      required: [messages, context]
+      properties:
+        messages:
+          type: array
+          items:
+            $ref: '#/components/schemas/NLChatMessage'
+        context:
+          $ref: '#/components/schemas/NLOrderContext'
+
+    # ----- Triggers -----
+    CreateTriggerRequest:
+      type: object
+      required: [triggerType, condition, executionOrder]
+      properties:
+        name:
+          type: string
+          nullable: true
+        triggerType:
+          type: string
+          description: 'Known type: price, copy_trade, funding, oi_change, time.'
+        condition:
+          type: object
+          additionalProperties: true
+          description: Opaque condition payload.
+        executionOrder:
+          type: object
+          additionalProperties: true
+          description: Opaque execution-order payload.
+        expiresAt:
+          type: string
+          format: date-time
+          nullable: true
+    TriggerInfo:
+      type: object
+      required: [id, status, triggerType, condition, executionOrder, createdAt, updatedAt]
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        status:
+          type: string
+        triggerType:
+          type: string
+        condition:
+          type: object
+          additionalProperties: true
+        executionOrder:
+          type: object
+          additionalProperties: true
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+        triggeredAt:
+          type: string
+          format: date-time
+        expiresAt:
+          type: string
+          format: date-time
+    TriggerEventInfo:
+      type: object
+      required: [id, triggerId, eventType, createdAt]
+      properties:
+        id:
+          type: string
+        triggerId:
+          type: string
+        eventType:
+          type: string
+        eventData:
+          type: object
+          additionalProperties: true
+          nullable: true
+        createdAt:
+          type: string
+          format: date-time
+    TriggerResponse:
+      type: object
+      required: [success]
+      properties:
+        success:
+          type: boolean
+        trigger:
+          $ref: '#/components/schemas/TriggerInfo'
+        error:
+          type: string
+    ListTriggersResponse:
+      type: object
+      required: [success, triggers]
+      properties:
+        success:
+          type: boolean
+        triggers:
+          type: array
+          items:
+            $ref: '#/components/schemas/TriggerInfo'
+        error:
+          type: string
+    TriggerHistoryResponse:
+      type: object
+      required: [success, events]
+      properties:
+        success:
+          type: boolean
+        events:
+          type: array
+          items:
+            $ref: '#/components/schemas/TriggerEventInfo'
+        error:
+          type: string
+
+    # ----- Invites & Referrals -----
+    InviteCodeView:
+      type: object
+      required: [code, maxUses, usedCount, status, createdAt]
+      properties:
+        code:
+          type: string
+        maxUses:
+          type: integer
+          format: int32
+        usedCount:
+          type: integer
+          format: int32
+        status:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
+    ListInvitesResponse:
+      type: object
+      required: [codes, remainingAllowance, cumulativeVolume, volumePerCode]
+      properties:
+        codes:
+          type: array
+          items:
+            $ref: '#/components/schemas/InviteCodeView'
+        remainingAllowance:
+          type: integer
+          format: int64
+        cumulativeVolume:
+          type: string
+          description: USD cumulative volume as a string.
+        volumePerCode:
+          type: string
+          description: USD volume that earns one code, as a string.
+    IssueInviteResponse:
+      type: object
+      required: [code]
+      properties:
+        code:
+          type: string
+    RedeemRequest:
+      type: object
+      required: [code]
+      properties:
+        code:
+          type: string
+    RedeemResponse:
+      type: object
+      required: [referrerWallet, inviteCode]
+      properties:
+        referrerWallet:
+          type: string
+        inviteCode:
+          type: string
+    InviteStatusResponse:
+      type: object
+      required: [referred, gatingEnabled]
+      properties:
+        referred:
+          type: boolean
+        gatingEnabled:
+          type: boolean
+    ReferralSummaryResponse:
+      type: object
+      required:
+        - referredCount
+        - accruedRewardUsd
+        - discountActive
+        - cumulativeVolume
+        - discountCapUsd
+      properties:
+        referredBy:
+          type: string
+          nullable: true
+        referredCount:
+          type: integer
+          format: int64
+        accruedRewardUsd:
+          type: number
+          format: double
+        discountActive:
+          type: boolean
+        cumulativeVolume:
+          type: number
+          format: double
+        discountCapUsd:
+          type: number
+          format: double
+
+    # ----- Analytics -----
+    ExecutionMetrics:
+      type: object
+      required:
+        - isBps
+        - isSavingsDollars
+        - volumeTraded
+        - totalFills
+        - fillsAtOrBetterPct
+        - avgSlippageBps
+      properties:
+        isBps:
+          type: number
+          format: double
+          description: Notional-weighted IS vs arrival (bps; positive = worse).
+        isSavingsDollars:
+          type: number
+          format: double
+          description: Dollars saved vs a naive market order (positive = saved).
+        volumeTraded:
+          type: number
+          format: double
+        totalFills:
+          type: integer
+          format: int64
+        fillsAtOrBetterPct:
+          type: number
+          format: double
+        avgSlippageBps:
+          type: number
+          format: double
+    ExecutionTimelinePoint:
+      type: object
+      required:
+        - timestamp
+        - volumeTraded
+        - hlTotalCost
+        - quoteTotalCost
+        - hlSlippage
+        - quoteSlippage
+        - hlFees
+        - quoteFees
+      properties:
+        timestamp:
+          type: integer
+          format: int64
+          description: Bucket start, epoch milliseconds.
+        volumeTraded:
+          type: number
+          format: double
+        hlTotalCost:
+          type: number
+          format: double
+        quoteTotalCost:
+          type: number
+          format: double
+        hlSlippage:
+          type: number
+          format: double
+        quoteSlippage:
+          type: number
+          format: double
+        hlFees:
+          type: number
+          format: double
+        quoteFees:
+          type: number
+          format: double
+    VolumeResponse:
+      type: object
+      required: [cumulativeVolume]
+      properties:
+        cumulativeVolume:
+          type: number
+          format: double
+    FeesResponse:
+      type: object
+      required: [totalFee, builderFee]
+      properties:
+        totalFee:
+          type: number
+          format: double
+        builderFee:
+          type: number
+          format: double
+    CoinFunding:
+      type: object
+      required: [coin, net, paid, received, count]
+      properties:
+        coin:
+          type: string
+        net:
+          type: number
+          format: double
+          description: Net funding for this coin (received − paid); signed.
+        paid:
+          type: number
+          format: double
+          description: Funding paid for this coin, positive magnitude.
+        received:
+          type: number
+          format: double
+          description: Funding received for this coin, positive magnitude.
+        count:
+          type: integer
+          format: int64
+    FundingSummary:
+      type: object
+      required: [totalPaid, totalReceived, net, paymentCount, byCoin]
+      properties:
+        totalPaid:
+          type: number
+          format: double
+          description: Total funding paid in range, positive magnitude.
+        totalReceived:
+          type: number
+          format: double
+          description: Total funding received in range, positive magnitude.
+        net:
+          type: number
+          format: double
+          description: Net funding (received − paid); signed.
+        paymentCount:
+          type: integer
+          format: int64
+        byCoin:
+          type: array
+          items:
+            $ref: '#/components/schemas/CoinFunding'
+          description: Per-coin breakdown, largest absolute net first.
+    FundingTimelinePoint:
+      type: object
+      required: [timestamp, net, paid, received]
+      properties:
+        timestamp:
+          type: integer
+          format: int64
+          description: Bucket start, epoch milliseconds.
+        net:
+          type: number
+          format: double
+          description: Cumulative net funding (received − paid); signed.
+        paid:
+          type: number
+          format: double
+          description: Cumulative funding paid, positive magnitude.
+        received:
+          type: number
+          format: double
+          description: Cumulative funding received, positive magnitude.
+    FundingHistoryItem:
+      type: object
+      required: [timestamp, coin, usdc, szi, fundingRate]
+      properties:
+        timestamp:
+          type: integer
+          format: int64
+          description: Funding event time, epoch milliseconds.
+        coin:
+          type: string
+        usdc:
+          type: number
+          format: double
+          description: Signed USDC delta (HL convention; + received, − paid).
+        szi:
+          type: number
+          format: double
+          description: Signed position size at funding time.
+        fundingRate:
+          type: number
+          format: double
+
+    # ----- Portfolio -----
+    EquityPoint:
+      type: object
+      required: [timestamp, netFlow]
+      properties:
+        timestamp: { type: integer, format: int64, description: 'Sample time, epoch ms.' }
+        accountValue: { type: number, format: double, nullable: true, description: Total perp+spot; null = gap. }
+        perpEquity: { type: number, format: double, nullable: true }
+        spotEquity: { type: number, format: double, nullable: true }
+        unrealizedPnl: { type: number, format: double, nullable: true }
+        netFlow: { type: number, format: double, description: External net flow this hour (+ in / − out). }
+
+    # ----- API Keys -----
+    MintKeyRequest:
+      type: object
+      required: [name, scopes]
+      properties:
+        name:
+          type: string
+        scopes:
+          type: array
+          items:
+            type: string
+            enum:
+              - orders:read
+              - orders:write
+              - agents:read
+              - agents:write
+              - positions:write
+              - templates:read
+              - templates:write
+              - bridge:write
+        expiresInDays:
+          type: integer
+          format: int64
+          nullable: true
+    MintKeyResponse:
+      type: object
+      required: [keyId, secret]
+      properties:
+        keyId:
+          type: string
+        secret:
+          type: string
+          description: 32-byte secret (hex), returned once. Used as the HMAC-SHA256 key.
+    ApiKeyRow:
+      type: object
+      required: [key_id, name, secret_preview, scopes, created_at]
+      description: Field keys are snake_case (ApiKeyRow has no camelCase rename).
+      properties:
+        key_id:
+          type: string
+        name:
+          type: string
+        secret_preview:
+          type: string
+        scopes:
+          type: array
+          items:
+            type: string
+        created_at:
+          type: string
+          format: date-time
+        last_used_at:
+          type: string
+          format: date-time
+          nullable: true
+        expires_at:
+          type: string
+          format: date-time
+          nullable: true
+        revoked_at:
+          type: string
+          format: date-time
+          nullable: true
+    ListKeysResponse:
+      type: object
+      required: [keys]
+      properties:
+        keys:
+          type: array
+          items:
+            $ref: '#/components/schemas/ApiKeyRow'
+
+    # ----- News -----
+    Article:
+      type: object
+      required: [url, title]
+      properties:
+        url:
+          type: string
+        title:
+          type: string
+        source:
+          type: string
+          nullable: true
+        excerpt:
+          type: string
+          nullable: true
+        topic:
+          type: string
+          nullable: true
+        category:
+          type: string
+          nullable: true
+        importance:
+          type: string
+          nullable: true
+        publishedAt:
+          type: string
+          nullable: true
+        market:
+          allOf:
+            - $ref: '#/components/schemas/ArticleMarket'
+          nullable: true
+          description: >-
+            Live tradeable market for the article's topic, resolved at serve
+            time against listed Hyperliquid markets (venue-preferred, e.g.
+            `xyz:` builder markets for equities). `null` when the topic has no
+            listed market — render the card without a Trade action.
+    ArticleMarket:
+      type: object
+      required: [symbol, markPrice]
+      properties:
+        symbol:
+          type: string
+          description: 'Listed market symbol, exactly as tradeable (e.g. xyz:HOOD, xyz:CL, BTC).'
+          example: 'xyz:HOOD'
+        markPrice:
+          type: string
+          description: Current mark price (string-precision, as reported by Hyperliquid).
+          example: '112.87'
+        change24hPct:
+          type: number
+          nullable: true
+          description: Signed 24h change in percent (positive = up).
+          example: 4.61
+    WebhookPayload:
+      type: object
+      description: Parallel Monitor webhook envelope.
+      required: [type, data]
+      properties:
+        type:
+          type: string
+          description: 'Event type; only "monitor.event.detected" carries articles.'
+        data:
+          type: object
+          required: [monitor_id, event]
+          properties:
+            monitor_id:
+              type: string
+            event:
+              type: object
+              required: [event_group_id]
+              properties:
+                event_group_id:
+                  type: string
+            metadata:
+              type: object
+              nullable: true
+              properties:
+                external_id:
+                  type: string
+                  nullable: true
+
+    # ----- Health -----
+    HealthResponse:
+      type: object
+      required: [status, version, network]
+      properties:
+        status:
+          type: string
+          example: ok
+        version:
+          type: string
+        network:
+          type: string
+          enum: [mainnet, testnet]
+    ServiceCheck:
+      type: object
+      required: [service, status, latency_ms]
+      description: Field keys are snake_case.
+      properties:
+        service:
+          type: string
+        status:
+          type: string
+          enum: [ok, error]
+        message:
+          type: string
+        latency_ms:
+          type: integer
+          format: int64
+    ReadinessResponse:
+      type: object
+      required: [status, checks]
+      properties:
+        status:
+          type: string
+          enum: [ok, degraded]
+        checks:
+          type: array
+          items:
+            $ref: '#/components/schemas/ServiceCheck'
+    InfoResponse:
+      type: object
+      required: [network, api_url]
+      description: Field keys are snake_case.
+      properties:
+        network:
+          type: string
+          enum: [mainnet, testnet]
+        api_url:
+          type: string

@@ -1,55 +1,48 @@
-# Mintlify Starter Kit
+# Quote Docs
 
-Use the starter kit to get your docs deployed and ready to customize.
+Public developer documentation for [Quote](https://quotemarkets.xyz) — a professional trading terminal for Hyperliquid. Built with [Mintlify](https://mintlify.com); `docs.json` defines navigation and theme, pages are MDX.
 
-Click the green **Use this template** button at the top of this repo to copy the Mintlify starter kit. The starter kit contains examples with
+## Layout
 
-- Guide pages
-- Navigation
-- Customizations
-- API reference pages
-- Use of popular components
+```
+├── docs.json                  # Mintlify config: nav, theme, colors
+├── introduction.mdx           # Landing page
+├── quickstart.mdx             # Key → sign → order in 5 minutes
+├── authentication.mdx         # Privy + HMAC, scopes, canonical string
+├── concepts/                  # Wallet scoping, agent wallets, order lifecycle, venue constraints
+├── strategies/                # Overview + one page per execution strategy
+├── guides/                    # API keys, orders, algos, triggers, templates, analytics, MCP
+├── websockets/                # /api/ws/algos telemetry protocol
+└── api-reference/
+    ├── introduction.mdx       # Conventions + error envelope
+    └── openapi.yaml           # Synced from quote-backend/docs/openapi.yaml (endpoint pages are auto-generated)
+```
 
-**[Follow the full quickstart guide](https://starter.mintlify.com/quickstart)**
-
-## AI-assisted writing
-
-Set up your AI coding tool to work with Mintlify:
+## Local preview
 
 ```bash
-npx skills add https://mintlify.com/docs
-```
-
-This command installs Mintlify's documentation skill for your configured AI tools like Claude Code, Cursor, Windsurf, and others. The skill includes component reference, writing standards, and workflow guidance.
-
-See the [AI tools guides](/ai-tools) for tool-specific setup.
-
-## Development
-
-Install the [Mintlify CLI](https://www.npmjs.com/package/mint) to preview your documentation changes locally. To install, use the following command:
-
-```
 npm i -g mint
+mint dev          # http://localhost:3000
 ```
 
-Run the following command at the root of your documentation, where your `docs.json` is located:
+`mint broken-links` checks internal links before pushing.
 
+## Deploying
+
+The repo is connected to Mintlify — pushes to `main` deploy automatically. Custom domain (e.g. `docs.quotemarkets.xyz`) is configured in the [Mintlify dashboard](https://dashboard.mintlify.com).
+
+## Keeping the API reference in sync
+
+The endpoint pages are generated from `api-reference/openapi.yaml`, which is a **copy** of the hand-authored spec in the backend repo. After editing `quote-backend/docs/openapi.yaml`:
+
+```bash
+cp ../quote-backend/docs/openapi.yaml api-reference/openapi.yaml
 ```
-mint dev
-```
 
-View your local preview at `http://localhost:3000`.
+The source of truth is `quote-backend/docs/openapi.yaml`.
 
-## Publishing changes
+## Conventions for new pages
 
-Install our GitHub app from your [dashboard](https://dashboard.mintlify.com/settings/organization/github-app) to propagate changes from your repo to your deployment. Changes are deployed to production automatically after pushing to the default branch.
-
-## Need help?
-
-### Troubleshooting
-
-- If your dev environment isn't running: Run `mint update` to ensure you have the most recent version of the CLI.
-- If a page loads as a 404: Make sure you are running in a folder with a valid `docs.json`.
-
-### Resources
-- [Mintlify documentation](https://mintlify.com/docs)
+- Add every new page to `docs.json` navigation — orphaned pages don't render in the sidebar (but are still publicly served, so never commit internal material here).
+- Ground claims in the backend source or the OpenAPI spec; this site documents actual behavior, not intent.
+- Follow the platform conventions already documented: decimals as strings, signed-bps benchmarks (positive = worse), async-accept order semantics.
