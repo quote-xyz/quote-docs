@@ -72,7 +72,7 @@ signature = hmac.new(bytes.fromhex(secret), canonical.encode(), hashlib.sha256).
 
 ### Scopes
 
-API keys carry only the scopes granted at mint time. Each endpoint's required scope is noted in the [API Reference](/api-reference/introduction).
+API keys carry only the scopes granted at mint time. Each endpoint's required scope is noted in the [Trader API Reference](/api-reference/introduction).
 
 | Scope | Grants |
 |---|---|
@@ -83,7 +83,6 @@ API keys carry only the scopes granted at mint time. Each endpoint's required sc
 | `positions:write` | Update leverage, isolated margin, spot↔perp transfers |
 | `templates:read` | List/read order templates |
 | `templates:write` | Create/update/delete order templates |
-| `bridge:write` | Request bridge quotes via the Relay proxy |
 
 Requests missing a required scope return `403` with the standard [error envelope](/api-reference/introduction#error-envelope).
 

@@ -17,15 +17,26 @@ from pathlib import Path
 
 import yaml
 
-# Non-trading surfaces excluded from the public docs.
+# Excluded from the Trader API reference: non-trading surfaces, plus the MCP
+# connector endpoints (documented in the docs site's own MCP tab instead).
 EXCLUDED_PATHS = [
     "/api/nl-order",
     "/api/nl-order-dev",
     "/api/news",
     "/api/webhooks/parallel",
     "/api/quotes/daily",
+    "/mcp",
+    "/.well-known/oauth-protected-resource",
+    "/.well-known/oauth-authorization-server",
+    "/oauth/register",
+    "/oauth/authorize",
+    "/oauth/token",
+    "/api/mcp/tools",
+    "/api/mcp/guide",
+    "/api/mcp/dispatch",
+    "/api/bridge/quote",
 ]
-EXCLUDED_TAGS = ["NL Order", "News"]
+EXCLUDED_TAGS = ["NL Order", "News", "MCP Connector", "Bridge"]
 EXCLUDED_SCHEMAS = [
     "NLChatMessage",
     "NLPositionContext",
@@ -41,8 +52,31 @@ EXCLUDED_SCHEMAS = [
     "DailyQuoteResponse",
 ]
 # Prose fixups for the top-level description (which otherwise references
-# excluded endpoints).
+# excluded endpoints or leads with terminal-internal auth detail).
 DESCRIPTION_REPLACEMENTS = [
+    (
+        "There are two ways to authenticate, both of which converge on the same\n"
+        "`wallet_address`:\n"
+        "\n"
+        "1. **Privy identity token** (`PrivyBearer`), used by the frontend. A Privy\n"
+        "   JWT in `Authorization: Bearer <jwt>`, verified offline against Privy's\n"
+        "   JWKS endpoint. The embedded EVM wallet is read from the\n"
+        "   `linked_accounts` claim. Privy sessions implicitly carry **all** scopes.\n"
+        "2. **HMAC API key** (`ApiKeyHmac`), for programmatic clients. See the\n"
+        "   `ApiKeyHmac` security scheme for the canonical signing string. API-key\n"
+        "   callers carry only the scopes granted at mint time and must satisfy the\n"
+        "   per-endpoint scope noted in each operation's description.",
+        "Programmatic clients authenticate with an **HMAC API key**\n"
+        "(`ApiKeyHmac`); see that security scheme for the canonical signing\n"
+        "string. API-key callers carry only the scopes granted at mint time and\n"
+        "must satisfy the per-endpoint scope noted in each operation's\n"
+        "description.\n"
+        "\n"
+        "The Quote terminal (web app) authenticates with a **Privy session\n"
+        "token** (`PrivyBearer`), which carries all scopes implicitly. There is\n"
+        "no way to obtain one programmatically; it appears here because a few\n"
+        "endpoints accept only terminal sessions.",
+    ),
     (
         "Routes under `/api/*` require authentication, except `/api/info`,\n"
         "    `/api/news`, and `/api/webhooks/parallel`. The root probes `/health`,\n"
@@ -84,6 +118,29 @@ def main() -> None:
     schemas = spec.get("components", {}).get("schemas", {})
     for name in EXCLUDED_SCHEMAS:
         schemas.pop(name, None)
+
+    # Public-reference framing: the API key is the credential developers can
+    # actually obtain, so it leads. The Privy scheme stays (some endpoints are
+    # terminal-session only) but its description is written for readers, not
+    # operators; the internal env-var note is dropped.
+    spec["security"] = [{"ApiKeyHmac": []}, {"PrivyBearer": []}]
+    priv = spec.get("components", {}).get("securitySchemes", {}).get("PrivyBearer")
+    if priv:
+        priv["description"] = (
+            "Privy session token, sent as `Authorization: Bearer <jwt>`. This is\n"
+            "the credential the Quote terminal (web app) uses; there is no way to\n"
+            "obtain one programmatically. Programmatic clients authenticate with\n"
+            "an API key instead (see `ApiKeyHmac`). This scheme is listed because\n"
+            "a few endpoints (API-key management, invites and referrals) accept\n"
+            "only terminal sessions."
+        )
+
+    # The bridge endpoint is excluded, so hide its scope from the mint-key enum.
+    mint_scopes = (
+        schemas.get("MintKeyRequest", {}).get("properties", {}).get("scopes", {}).get("items", {})
+    )
+    if "enum" in mint_scopes:
+        mint_scopes["enum"] = [s for s in mint_scopes["enum"] if s != "bridge:write"]
 
     desc = spec["info"]["description"]
     for old, new in DESCRIPTION_REPLACEMENTS:

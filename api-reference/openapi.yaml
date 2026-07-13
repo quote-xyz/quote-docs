@@ -14,17 +14,16 @@ info:
     credential, never from the payload.
 
     ## Authentication
-    There are two ways to authenticate, both of which converge on the same
-    `wallet_address`:
+    Programmatic clients authenticate with an **HMAC API key**
+    (`ApiKeyHmac`); see that security scheme for the canonical signing
+    string. API-key callers carry only the scopes granted at mint time and
+    must satisfy the per-endpoint scope noted in each operation's
+    description.
 
-    1. **Privy identity token** (`PrivyBearer`), used by the frontend. A Privy
-       JWT in `Authorization: Bearer <jwt>`, verified offline against Privy's
-       JWKS endpoint. The embedded EVM wallet is read from the
-       `linked_accounts` claim. Privy sessions implicitly carry **all** scopes.
-    2. **HMAC API key** (`ApiKeyHmac`), for programmatic clients. See the
-       `ApiKeyHmac` security scheme for the canonical signing string. API-key
-       callers carry only the scopes granted at mint time and must satisfy the
-       per-endpoint scope noted in each operation's description.
+    The Quote terminal (web app) authenticates with a **Privy session
+    token** (`PrivyBearer`), which carries all scopes implicitly. There is
+    no way to obtain one programmatically; it appears here because a few
+    endpoints accept only terminal sessions.
 
     Routes under `/api/*` require authentication, except the public
     `/api/info`. The root probes `/health`, `/ready`, and `/metrics` are
@@ -89,141 +88,12 @@ tags:
   description: Quote-owned hourly equity time-series.
 - name: API Keys
   description: HMAC API-key management. Privy-session only.
-- name: Bridge
-  description: Relay bridge quote proxy.
 - name: Health
   description: Liveness/readiness probes, info, and Prometheus metrics.
-- name: MCP Connector
-  description: 'Read-only analytics over the Model Context Protocol. The remote connector (`/mcp`, Streamable
-    HTTP) authenticates via OAuth 2.1 (discovery under `/.well-known/*`); the REST surface (`/api/mcp/*`)
-    uses the standard Privy/HMAC auth and backs the local stdio proxy. Scopes: `analytics:read` (market-wide)
-    and `account:read` (own account).'
 security:
-- PrivyBearer: []
 - ApiKeyHmac: []
+- PrivyBearer: []
 paths:
-  /mcp:
-    post:
-      tags:
-      - MCP Connector
-      summary: Remote MCP endpoint (Streamable HTTP, JSON-RPC 2.0)
-      description: The remote connector endpoint used by MCP clients (Claude custom connectors). Speaks
-        JSON-RPC (`initialize`, `tools/list`, `tools/call`). Authenticated with an OAuth 2.1 Bearer access
-        token, NOT Privy/HMAC; a missing/invalid token returns 401 with a `WWW-Authenticate` header pointing
-        at the protected-resource metadata. Tools are filtered to the token's scopes.
-      operationId: mcpEndpoint
-      security: []
-      responses:
-        '200':
-          description: JSON-RPC response
-        '401':
-          description: Missing or invalid access token (triggers OAuth discovery)
-        '503':
-          $ref: '#/components/responses/ServiceUnavailable'
-  /.well-known/oauth-protected-resource:
-    get:
-      tags:
-      - MCP Connector
-      summary: OAuth Protected Resource Metadata (RFC 9728)
-      operationId: oauthProtectedResourceMetadata
-      security: []
-      responses:
-        '200':
-          description: Resource + authorization-server metadata
-        '503':
-          $ref: '#/components/responses/ServiceUnavailable'
-  /.well-known/oauth-authorization-server:
-    get:
-      tags:
-      - MCP Connector
-      summary: OAuth Authorization Server Metadata (RFC 8414)
-      operationId: oauthAuthorizationServerMetadata
-      security: []
-      responses:
-        '200':
-          description: Authorization-server metadata
-        '503':
-          $ref: '#/components/responses/ServiceUnavailable'
-  /oauth/register:
-    post:
-      tags:
-      - MCP Connector
-      summary: Dynamic Client Registration (RFC 7591)
-      operationId: oauthRegister
-      security: []
-      responses:
-        '201':
-          description: Registered client (public, no secret)
-        '400':
-          description: Invalid redirect_uris
-        '503':
-          $ref: '#/components/responses/ServiceUnavailable'
-  /oauth/authorize:
-    get:
-      tags:
-      - MCP Connector
-      summary: Authorization endpoint (redirects to the consent page)
-      operationId: oauthAuthorize
-      security: []
-      responses:
-        '302':
-          description: Redirect to the branded consent page (or error redirect)
-        '400':
-          description: Unknown client / unregistered redirect_uri
-  /oauth/token:
-    post:
-      tags:
-      - MCP Connector
-      summary: Token endpoint (authorization_code + refresh_token, PKCE)
-      operationId: oauthToken
-      security: []
-      responses:
-        '200':
-          description: Access token (+ rotating refresh token)
-        '400':
-          description: invalid_grant / invalid_request
-        '503':
-          $ref: '#/components/responses/ServiceUnavailable'
-  /api/mcp/tools:
-    get:
-      tags:
-      - MCP Connector
-      summary: Read-tool catalog (REST; backs the local stdio proxy)
-      description: 'Lists the analytics tools with their required scope. Auth: any authenticated caller.'
-      operationId: mcpTools
-      responses:
-        '200':
-          description: '{ tools: [{ name, description, inputSchema, scope }] }'
-        '401':
-          $ref: '#/components/responses/Unauthorized'
-  /api/mcp/guide:
-    get:
-      tags:
-      - MCP Connector
-      summary: Operating guide for connecting agents
-      operationId: mcpGuide
-      responses:
-        '200':
-          description: '{ guide: <markdown> }'
-        '401':
-          $ref: '#/components/responses/Unauthorized'
-  /api/mcp/dispatch:
-    post:
-      tags:
-      - MCP Connector
-      summary: Execute one read tool
-      description: Runs a single analytics tool. Enforces the tool's scope (`analytics:read` / `account:read`)
-        for API-key callers.
-      operationId: mcpDispatch
-      responses:
-        '200':
-          description: '{ result: <json> } or { error: <message> }'
-        '401':
-          $ref: '#/components/responses/Unauthorized'
-        '403':
-          $ref: '#/components/responses/Forbidden'
-        '404':
-          description: Unknown tool
   /api/orders:
     post:
       tags:
@@ -858,46 +728,6 @@ paths:
           $ref: '#/components/responses/NotFound'
         '429':
           $ref: '#/components/responses/RateLimited'
-        '503':
-          $ref: '#/components/responses/ServiceUnavailable'
-  /api/bridge/quote:
-    post:
-      tags:
-      - Bridge
-      summary: Proxy a Relay bridge quote
-      description: |
-        Proxies the request body to Relay's `POST /quote/v2`, attaching Quote's
-        Relay API key. The request and response bodies are opaque Relay JSON and
-        are passed through unchanged.
-
-        **Auth:** authenticated. API-key scope: `bridge:write`.
-      operationId: bridgeQuote
-      requestBody:
-        required: true
-        description: Opaque Relay `quote/v2` request body.
-        content:
-          application/json:
-            schema:
-              type: object
-              additionalProperties: true
-      responses:
-        '200':
-          description: Opaque Relay quote response (passed through).
-          content:
-            application/json:
-              schema:
-                type: object
-                additionalProperties: true
-        '400':
-          $ref: '#/components/responses/BadRequest'
-        '401':
-          $ref: '#/components/responses/Unauthorized'
-        '403':
-          $ref: '#/components/responses/Forbidden'
-        '429':
-          $ref: '#/components/responses/RateLimited'
-        '502':
-          $ref: '#/components/responses/BadGateway'
         '503':
           $ref: '#/components/responses/ServiceUnavailable'
   /api/triggers:
@@ -1676,11 +1506,13 @@ components:
       type: http
       scheme: bearer
       bearerFormat: JWT
-      description: |
-        Privy identity token. Send `Authorization: Bearer <jwt>`. Verified
-        offline against Privy's JWKS endpoint (`auth.privy.io`); the embedded
-        EVM wallet is read from the `linked_accounts` claim. Privy sessions
-        implicitly carry all scopes. Required server env: `PRIVY_APP_ID`.
+      description: |-
+        Privy session token, sent as `Authorization: Bearer <jwt>`. This is
+        the credential the Quote terminal (web app) uses; there is no way to
+        obtain one programmatically. Programmatic clients authenticate with
+        an API key instead (see `ApiKeyHmac`). This scheme is listed because
+        a few endpoints (API-key management, invites and referrals) accept
+        only terminal sessions.
     ApiKeyHmac:
       type: apiKey
       in: header
@@ -2860,7 +2692,6 @@ components:
             - positions:write
             - templates:read
             - templates:write
-            - bridge:write
         expiresInDays:
           type: integer
           format: int64
