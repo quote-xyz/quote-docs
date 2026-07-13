@@ -3,10 +3,10 @@ title: "API Keys"
 description: "Mint, scope, rotate, and revoke HMAC API keys for programmatic trading."
 ---
 
-API keys give bots and scripts scoped access to your account. They authenticate with HMAC-SHA256 request signing — see [Authentication](/authentication#hmac-api-keys) for the signing mechanics.
+API keys give bots and scripts scoped access to your account. They authenticate with HMAC-SHA256 request signing; see [Authentication](/authentication#hmac-api-keys) for the signing mechanics.
 
 <Note>
-  Key management is **Privy-session only**: you mint, list, and revoke keys from a logged-in terminal session. An API key can never mint another API key — a leaked key can't escalate itself.
+  Key management is **Privy-session only**: you mint, list, and revoke keys from a logged-in terminal session. An API key can never mint another API key, so a leaked key cannot escalate itself.
 </Note>
 
 ## Minting a key
@@ -30,7 +30,7 @@ Authorization: Bearer <privy-jwt>
 ```
 
 <Warning>
-  The `secret` — a 32-byte hex value used directly as your HMAC-SHA256 signing key — is returned **once**. It is not stored recoverably and cannot be retrieved again. If you lose it, revoke the key and mint a new one.
+  The `secret` (a 32-byte hex value used directly as your HMAC-SHA256 signing key) is returned **once**. It is not stored recoverably and cannot be retrieved again. If you lose it, revoke the key and mint a new one.
 </Warning>
 
 ### Choosing scopes
@@ -59,11 +59,11 @@ Returns each key's `key_id`, `name`, a `secret_preview` (never the full secret),
 DELETE /api/keys/{key_id}
 ```
 
-Returns `204`. Revocation is immediate — in-flight requests signed with the key will fail.
+Returns `204`. Revocation is immediate: in-flight requests signed with the key will fail.
 
 ## Operational tips
 
-- **Rotate by overlap.** Mint the replacement key, deploy it, then revoke the old one — no downtime.
+- **Rotate by overlap.** Mint the replacement key, deploy it, then revoke the old one. No downtime.
 - **One key per deployment.** Separate keys per bot/environment make `last_used_at` meaningful and blast radius small.
 - **Clock discipline.** Signatures embed a millisecond timestamp with a 30-second tolerance; run NTP on anything that signs requests.
-- **What a leaked key can't do:** withdraw funds (the [agent wallet](/concepts/agent-wallets) can't withdraw), manage keys or invites (Privy-only), or act beyond its scopes. What it *can* do — trade within its scopes — is bad enough: revoke immediately.
+- **What a leaked key can't do:** withdraw funds (the [agent wallet](/concepts/agent-wallets) can't withdraw), manage keys or invites (Privy-only), or act beyond its scopes. It can still trade within its scopes, so revoke a leaked key immediately.

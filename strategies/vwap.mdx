@@ -3,7 +3,7 @@ title: "VWAP"
 description: "Volume-proportional execution: slice sizes follow the asset's intraday volume profile instead of the clock."
 ---
 
-`vwap` executes your order in proportion to how the market actually trades through the day. Instead of equal time slices, each slice's size follows a volume profile built from historical candle data for the asset — larger slices when the market is typically busy, smaller when it's quiet. Use it when your benchmark is the market VWAP over your window.
+`vwap` executes your order in proportion to how the market actually trades through the day. Instead of equal time slices, each slice's size follows a volume profile built from historical candle data for the asset: larger slices when the market is typically busy, smaller when it is quiet. Use it when your benchmark is the market VWAP over your window.
 
 Each slice still runs the standard [passive → aggressive cycle](/strategies/overview#the-passive--aggressive-cycle), so you're capturing spread within the volume schedule.
 
@@ -37,7 +37,7 @@ POST /api/orders
 
 ## Behavior notes
 
-- **The profile is per-asset and horizon-aware.** Volume curves differ sharply between crypto majors, builder-DEX equities (which follow underlying market hours), and prediction markets; the engine builds the profile from the asset's own history and skips profile-weighting on horizons too short for it to matter.
+- **The profile is per-asset and horizon-aware.** Volume curves differ sharply between crypto majors, builder-DEX equities (which follow underlying market hours), and prediction markets. The engine builds the profile from the asset's own history and skips profile-weighting on horizons too short for it to matter.
 - **Weekends are handled.** Weekend volume magnitude differs from weekdays; the forecast scales for it rather than assuming a uniform week.
 - **Falls back gracefully.** If no usable profile exists for the asset/window, slicing degrades to uniform TWAP behavior rather than stalling.
 - The engine's VWAP forecasting has been verified by walk-forward testing on real Hyperliquid data across all product classes.

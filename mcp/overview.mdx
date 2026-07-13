@@ -3,21 +3,21 @@ title: "MCP Overview"
 description: "Quote's Model Context Protocol server: read-only market and account analytics for AI agents."
 ---
 
-Quote exposes its analytics as an [MCP](https://modelcontextprotocol.io) server, so AI agents — Claude, coding assistants, or anything that speaks MCP — can query markets and your account in natural language.
+Quote exposes its analytics as an [MCP](https://modelcontextprotocol.io) server, so AI agents (Claude, coding assistants, or anything that speaks MCP) can query markets and your account in natural language.
 
 ```
 https://api.quotemarkets.xyz/mcp
 ```
 
 <Note>
-  The MCP server is **strictly read-only**. Its tools fetch data — prices, books, analytics, reports — and can never place, modify, or cancel orders. Trading stays behind the [REST API](/api-reference/introduction) and its explicit credentials.
+  The MCP server is **strictly read-only**. Its tools fetch data (prices, books, analytics, reports) and can never place, modify, or cancel orders. Trading stays behind the [REST API](/api-reference/introduction) and its explicit credentials.
 </Note>
 
 ## What agents can do with it
 
-- **Market research** — live prices, candles, order-book microstructure, funding history, market screeners, earnings, and prediction markets.
-- **Pre-trade analysis** — estimate the cost of a trade or stress-test a position against the live book before you commit.
-- **Account review** — your execution-quality report, portfolio report, funding carry, triggers, and fee tier.
+- **Market research**: live prices, candles, order-book microstructure, funding history, market screeners, earnings, and prediction markets.
+- **Pre-trade analysis**: estimate the cost of a trade or stress-test a position against the live book before you commit.
+- **Account review**: your execution-quality report, portfolio report, funding carry, triggers, and fee tier.
 
 See the [tools reference](/mcp/tools) for the full catalog.
 
@@ -27,13 +27,13 @@ Access is governed by two scopes, granted during the OAuth consent flow:
 
 | Scope | Grants |
 |---|---|
-| `analytics:read` | Market-wide data — nothing about your account |
-| `account:read` | Your wallet's analytics — execution, portfolio, funding, triggers, fees |
+| `analytics:read` | Market-wide data; nothing about your account |
+| `account:read` | Your wallet's analytics: execution, portfolio, funding, triggers, fees |
 
 Two properties worth knowing:
 
-- A token only ever sees the account it was issued for — the same [wallet-scoped model](/concepts/wallet-scoped-api) as the REST API.
-- Tool listings are filtered to the token's scopes: an `analytics:read`-only token doesn't even see account tools.
+- A token only ever sees the account it was issued for, the same [wallet-scoped model](/concepts/wallet-scoped-api) as the REST API.
+- Tool listings are filtered to the token's scopes: an `analytics:read`-only token doesn't see account tools at all.
 
 ## Symbol formats
 

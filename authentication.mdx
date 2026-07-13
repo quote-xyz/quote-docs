@@ -1,9 +1,9 @@
 ---
 title: "Authentication"
-description: "Two auth paths — Privy identity tokens and HMAC API keys — that both resolve to your wallet address."
+description: "Two auth paths, Privy identity tokens and HMAC API keys, both resolve to your wallet address."
 ---
 
-Every authenticated request is resolved to a single normalized **wallet address**. All of your resources — orders, strategies, agent wallets, templates, triggers, analytics — are keyed by that wallet. The caller's identity always comes from the credential, never from the request payload: there is no `walletAddress` field to pass (or spoof) in a body or query string.
+Every authenticated request is resolved to a single normalized **wallet address**. All of your resources (orders, strategies, agent wallets, templates, triggers, analytics) are keyed by that wallet. The caller's identity always comes from the credential, never from the request payload: there is no `walletAddress` field to pass (or spoof) in a body or query string.
 
 There are two ways to authenticate, and they converge on the same wallet:
 
@@ -21,7 +21,7 @@ curl https://api.quotemarkets.xyz/api/agents \
   -H "Authorization: Bearer $PRIVY_TOKEN"
 ```
 
-Privy sessions carry **all scopes implicitly** — no scope management needed.
+Privy sessions carry **all scopes implicitly**, so they need no scope management.
 
 ## HMAC API keys
 
@@ -41,12 +41,12 @@ Join four components with literal `\n` (newline) characters:
 <timestamp>\n<METHOD>\n<path_with_query>\n<body>
 ```
 
-- `<timestamp>` — the exact value sent in `X-Quote-Timestamp`
-- `<METHOD>` — the uppercase HTTP method (`GET`, `POST`, `DELETE`, …)
-- `<path_with_query>` — the request path **including any query string** (e.g. `/api/triggers?status=active`), no host
-- `<body>` — the raw request body bytes, or the empty string for bodyless requests
+- `<timestamp>`: the exact value sent in `X-Quote-Timestamp`
+- `<METHOD>`: the uppercase HTTP method (`GET`, `POST`, `DELETE`, …)
+- `<path_with_query>`: the request path **including any query string** (e.g. `/api/triggers?status=active`), no host
+- `<body>`: the raw request body bytes, or the empty string for bodyless requests
 
-The 32-byte secret returned at mint time (hex-encoded) is used **directly** as the HMAC-SHA256 key — decode the hex to bytes first.
+The 32-byte secret returned at mint time (hex-encoded) is used **directly** as the HMAC-SHA256 key. Decode the hex to bytes first.
 
 <CodeGroup>
 ```typescript TypeScript
@@ -67,7 +67,7 @@ signature = hmac.new(bytes.fromhex(secret), canonical.encode(), hashlib.sha256).
 </CodeGroup>
 
 <Warning>
-  The timestamp must be within **30 seconds** of server time. If your clock drifts, requests fail with `401`. Sign the exact bytes you transmit — re-serializing JSON with different whitespace or key order after signing will invalidate the signature.
+  The timestamp must be within **30 seconds** of server time. If your clock drifts, requests fail with `401`. Sign the exact bytes you transmit: re-serializing JSON with different whitespace or key order after signing will invalidate the signature.
 </Warning>
 
 ### Scopes
@@ -91,7 +91,7 @@ Requests missing a required scope return `403` with the standard [error envelope
 
 Some endpoints are gated to Privy sessions and return `403` for API-key callers regardless of scope:
 
-- **API key management** (`/api/keys*`) — API keys cannot mint, list, or revoke other API keys.
+- **API key management** (`/api/keys*`): API keys cannot mint, list, or revoke other API keys.
 - **Invites and referrals** (`/api/invites*`, `/api/referrals/summary`).
 
 ## Public endpoints
@@ -100,4 +100,4 @@ A small read-only group requires no authentication (per-IP rate limited): `/api/
 
 ## MCP connector auth
 
-The [MCP connector](/mcp/overview) endpoint (`/mcp`) is the one surface that uses neither Privy nor HMAC — it authenticates MCP clients with OAuth 2.1 bearer tokens issued through Quote's own authorization flow.
+The [MCP connector](/mcp/overview) endpoint (`/mcp`) is the one surface that uses neither Privy nor HMAC. It authenticates MCP clients with OAuth 2.1 bearer tokens issued through Quote's own authorization flow.

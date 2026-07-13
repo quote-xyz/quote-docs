@@ -10,18 +10,18 @@ info:
     `wallet_address` by the auth layer. TiKV signing-key IDs, agent rows,
     template ownership, strategy ownership, invites, referrals, and analytics
     are all keyed by that wallet. Handlers never read `walletAddress` from
-    request bodies or query strings — the caller identity always comes from the
+    request bodies or query strings. The caller identity always comes from the
     credential, never from the payload.
 
     ## Authentication
     There are two ways to authenticate, both of which converge on the same
     `wallet_address`:
 
-    1. **Privy identity token** (`PrivyBearer`) — used by the frontend. A Privy
+    1. **Privy identity token** (`PrivyBearer`), used by the frontend. A Privy
        JWT in `Authorization: Bearer <jwt>`, verified offline against Privy's
        JWKS endpoint. The embedded EVM wallet is read from the
        `linked_accounts` claim. Privy sessions implicitly carry **all** scopes.
-    2. **HMAC API key** (`ApiKeyHmac`) — programmatic clients. See the
+    2. **HMAC API key** (`ApiKeyHmac`), for programmatic clients. See the
        `ApiKeyHmac` security scheme for the canonical signing string. API-key
        callers carry only the scopes granted at mint time and must satisfy the
        per-endpoint scope noted in each operation's description.
@@ -33,17 +33,17 @@ info:
     ### Privy-only endpoints
     API-key management (`/api/keys*`) and the invite/referral endpoints
     (`/api/invites*`, `/api/referrals/summary`) are gated to Privy sessions
-    only — an API key cannot mint, list, or revoke other API keys, nor manage
+    only: an API key cannot mint, list, or revoke other API keys, nor manage
     invites. These return `403` for API-key callers.
 
     ## Async-accept order model
     `POST /api/orders` returns `200` when the order (or algo strategy) is
-    **accepted into the execution engine** — NOT when it is filled. For algo
+    **accepted into the execution engine**, NOT when it is filled. For algo
     strategies the response carries the parent order id; fills and progress
     arrive asynchronously (queryable via `GET /api/orders/algo*` or the
     `/ws/algos` WebSocket). Parent cancel success likewise means the cancel was
     durably accepted and child orders will be reconciled before a terminal
-    state is recorded — it does not by itself mean the strategy is terminated.
+    state is recorded. It does not by itself mean the strategy is terminated.
 
     ## Order constraints (Hyperliquid)
     - **Minimum order notional ~$10**: Hyperliquid rejects orders below ~$10
@@ -84,7 +84,7 @@ tags:
 - name: Analytics
   description: Execution-quality, volume, and fee analytics.
 - name: Funding
-  description: Funding-payment tracking — totals, timeline, and history.
+  description: 'Funding-payment tracking: totals, timeline, and history.'
 - name: Portfolio
   description: Quote-owned hourly equity time-series.
 - name: API Keys
@@ -109,7 +109,7 @@ paths:
       summary: Remote MCP endpoint (Streamable HTTP, JSON-RPC 2.0)
       description: The remote connector endpoint used by MCP clients (Claude custom connectors). Speaks
         JSON-RPC (`initialize`, `tools/list`, `tools/call`). Authenticated with an OAuth 2.1 Bearer access
-        token — NOT Privy/HMAC; a missing/invalid token returns 401 with a `WWW-Authenticate` header pointing
+        token, NOT Privy/HMAC; a missing/invalid token returns 401 with a `WWW-Authenticate` header pointing
         at the protected-resource metadata. Tools are filtered to the token's scopes.
       operationId: mcpEndpoint
       security: []
@@ -245,7 +245,7 @@ paths:
 
         **Prerequisites:** a registered agent wallet AND builder-fee approval
         on the caller's wallet. Hyperliquid rejects orders from wallets that
-        have not approved Quote's builder fee — check `builderFeeApproved` via
+        have not approved Quote's builder fee. Check `builderFeeApproved` via
         `GET /api/agents` before trading.
       operationId: submitOrder
       requestBody:
@@ -281,8 +281,9 @@ paths:
 
         **Auth:** authenticated. API-key scope: `orders:write`.
 
-        For a strategy parent, the response indicates the cancel was *requested*
-        — venue child orders are reconciled before a terminal state is recorded.
+        For a strategy parent, the response indicates only that the cancel was
+        *requested*. Venue child orders are reconciled before a terminal state
+        is recorded.
       operationId: cancelOrder
       requestBody:
         required: true
@@ -1531,7 +1532,7 @@ paths:
       summary: Mint an API key
       description: |
         Mint a new HMAC API key. The 32-byte `secret` is returned **once** at
-        mint time and never again — it is the HMAC-SHA256 key used to sign
+        mint time and never again. It is the HMAC-SHA256 key used to sign
         requests (see the `ApiKeyHmac` scheme). `scopes` must be a subset of the
         allowed scopes.
 
@@ -1752,7 +1753,7 @@ components:
             $ref: '#/components/schemas/ErrorResponse'
     Forbidden:
       description: |
-        Authenticated but not permitted — missing API-key scope, or an API-key
+        Authenticated but not permitted: missing API-key scope, or an API-key
         caller hitting a Privy-only endpoint.
       content:
         application/json:

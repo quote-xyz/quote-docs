@@ -1,11 +1,11 @@
 ---
 title: "Introduction"
-description: "Quote is a professional trading terminal for Hyperliquid with institutional-grade execution algorithms, a wallet-scoped REST API, and real-time strategy telemetry."
+description: "Quote is a trading terminal for Hyperliquid with execution algorithms, a wallet-scoped REST API, and real-time strategy telemetry."
 ---
 
 ## What is Quote?
 
-Quote is a trading terminal built on [Hyperliquid](https://hyperliquid.xyz) that gives you the execution tooling of an institutional trading desk: algorithmic order types (TWAP, VWAP, Iceberg, and more), conditional triggers, execution-quality analytics, and a programmatic API — all non-custodial, settled directly on Hyperliquid.
+Quote is a trading terminal built on [Hyperliquid](https://hyperliquid.xyz). It gives you the execution tools of a trading desk: algorithmic order types (TWAP, VWAP, Iceberg, and more), conditional triggers, execution-quality analytics, and a programmatic API. It is non-custodial, and everything settles directly on Hyperliquid.
 
 Everything you can do in the [Quote terminal](https://quotemarkets.xyz) you can also do over the API. The same wallet-scoped backend powers both.
 
@@ -14,7 +14,7 @@ Everything you can do in the [Quote terminal](https://quotemarkets.xyz) you can 
     Mint an API key and submit your first order in five minutes.
   </Card>
   <Card title="Execution Strategies" icon="chart-line" href="/strategies/overview">
-    Six execution algorithms — from passive TWAP to size-hiding Iceberg.
+    Six execution algorithms, from passive TWAP to size-hiding Iceberg.
   </Card>
   <Card title="Authentication" icon="key" href="/authentication">
     Privy sessions for the terminal, HMAC API keys for programmatic access.
@@ -28,7 +28,7 @@ Everything you can do in the [Quote terminal](https://quotemarkets.xyz) you can 
 
 Quote sits between you and Hyperliquid as an execution layer:
 
-1. **You keep custody.** Trading happens through an [agent wallet](/concepts/agent-wallets) — a separate key that can sign orders for your account but can never withdraw funds. You approve it once on Hyperliquid; Quote stores its key encrypted at rest.
+1. **You keep custody.** Trading happens through an [agent wallet](/concepts/agent-wallets): a separate key that can sign orders for your account but can never withdraw funds. You approve it once on Hyperliquid; Quote stores its key encrypted at rest.
 2. **You submit intent, Quote executes.** A plain order goes straight to the venue. An algo order becomes a parent strategy that the execution engine works over time, slicing it into child orders based on market microstructure. See [Order Lifecycle](/concepts/order-lifecycle).
 3. **Everything is measured.** Every fill is benchmarked against arrival price, market VWAP, and a simulated naive market order, so you can see exactly what the execution engine saved (or cost) you. See [Analytics](/guides/analytics).
 

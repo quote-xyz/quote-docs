@@ -1,9 +1,9 @@
 ---
 title: "Participation Rate"
-description: "Execute at a target percentage of real-time market volume — trade when the market trades."
+description: "Execute at a target percentage of real-time market volume: trade when the market trades."
 ---
 
-`participation_rate` (POV — percentage of volume) keys your execution to **live** market activity: it observes traded volume in real time and submits clips sized to keep you at a target fraction of it. Busy tape → you trade more; quiet tape → you slow down. This bounds your footprint as a share of the market rather than as a schedule.
+`participation_rate` (POV, percentage of volume) keys your execution to **live** market activity. It observes traded volume in real time and submits clips sized to keep you at a target fraction of it. Busy tape → you trade more; quiet tape → you slow down. This bounds your footprint as a share of the market rather than as a schedule.
 
 ## Example
 
@@ -38,8 +38,8 @@ This targets 15% of observed ETH volume until 12 ETH is done or two hours elapse
 
 ## Behavior notes
 
-- **Completion is volume-dependent.** If the market goes quiet, so do you — a strategy at 10% participation in a dead market may not finish inside `maxDurationSecs`. Check `filledQty` at terminal state.
-- **Rate vs. footprint.** Higher participation finishes faster but moves the market more; 10–20% is a common institutional range, and above ~25% your own flow starts dominating the tape you're measuring.
+- **Completion is volume-dependent.** If the market goes quiet, so do you. A strategy at 10% participation in a dead market may not finish inside `maxDurationSecs`. Check `filledQty` at terminal state.
+- **Rate vs. footprint.** Higher participation finishes faster but moves the market more. A common institutional range is 10–20%; above ~25% your own flow starts dominating the tape you're measuring.
 - Clips run the standard [passive → aggressive cycle](/strategies/overview#the-passive--aggressive-cycle), so you're still capturing spread within the volume budget.
 
 ## When to use something else

@@ -3,21 +3,21 @@ title: "Hyperliquid Constraints"
 description: "Venue rules that shape every order: minimum notional, price and size precision, ALO crossing, builder fees, and market-order slippage prices."
 ---
 
-Hyperliquid enforces several non-obvious rules. Quote handles most of them server-side, but they explain behavior you'll observe — skipped slices, adjusted prices, rejected orders — so they're worth knowing.
+Hyperliquid enforces several non-obvious rules. Quote handles most of them server-side, but they explain behavior you will see: skipped slices, adjusted prices, rejected orders.
 
 ## Minimum order notional: ~$10
 
 Hyperliquid rejects any order below roughly **$10 notional**. Consequences:
 
 - A plain order under $10 notional will be rejected by the venue.
-- Execution strategies **skip** child slices that would fall under the minimum rather than submit doomed orders. If you split a small order into many slices (e.g. $50 over 20 slices), most slices are sub-minimum and the strategy can stall — size your `numSlices` so each slice clears ~$10 comfortably.
+- Execution strategies **skip** child slices that would fall under the minimum rather than submit doomed orders. If you split a small order into many slices (e.g. $50 over 20 slices), most slices are sub-minimum and the strategy can stall. Size your `numSlices` so each slice clears ~$10 comfortably.
 
 ## Price and size precision
 
-- **Size** is rounded to the asset's `szDecimals` (from Hyperliquid's meta — e.g. ETH: 4, BTC: 5, SOL: 2).
+- **Size** is rounded to the asset's `szDecimals`, from Hyperliquid's meta (e.g. ETH: 4, BTC: 5, SOL: 2).
 - **Price** allows at most **5 significant figures**, and at most `MAX_DECIMALS − szDecimals` decimal places (`MAX_DECIMALS` = 6 for perps, 8 for spot).
 
-Quote normalizes sizes and prices before signing, so a request with excess precision succeeds — but the working price/size may differ slightly from what you sent.
+Quote normalizes sizes and prices before signing, so a request with excess precision succeeds. But the working price and size may differ slightly from what you sent.
 
 ## ALO orders are rejected if they would cross
 
@@ -26,29 +26,29 @@ ALO (Add Liquidity Only / post-only) orders are rejected by the venue if the pri
 - Buy ALO: price must be strictly **below** the best ask.
 - Sell ALO: price must be strictly **above** the best bid.
 
-The book can move between your snapshot and your order arriving on-chain. Quote's strategies guard for this by clamping passive prices inside the spread — on one-tick-spread assets (like SOL) that guard fires constantly, which is normal.
+The book can move between your snapshot and your order arriving on-chain. Quote's strategies guard for this by clamping passive prices inside the spread. On one-tick-spread assets (like SOL) that guard fires constantly, which is normal.
 
 ## Market orders are IOC limits with a slippage bound
 
-Hyperliquid has no true market order. A "market" order is an **IOC limit** at a slippage-adjusted price, so `orderType: "market"` still requires `limitPrice` — the worst price you'll accept:
+Hyperliquid has no true market order. A "market" order is an **IOC limit** at a slippage-adjusted price, so `orderType: "market"` still requires `limitPrice`, the worst price you'll accept:
 
 - Buy: anchor to the best **ask** (e.g. `bestAsk × 1.05` for 5% max slippage).
 - Sell: anchor to the best **bid** (e.g. `bestBid × 0.95`).
 
 <Warning>
-  Anchor slippage to the best opposing quote, **not** the mid price. On wide-spread books (outcome markets can quote `0.00126 / 0.01013`), `mid × 1.05` sits *below* the best ask — the IOC crosses nothing and silently fills zero.
+  Anchor slippage to the best opposing quote, **not** the mid price. On wide-spread books (outcome markets can quote `0.00126 / 0.01013`), `mid × 1.05` sits *below* the best ask, so the IOC crosses nothing and silently fills zero.
 </Warning>
 
 ## Builder fee
 
-Every order routed through Quote carries Quote's builder code — this is how Quote monetizes without spread markup, and it is not optional: **Hyperliquid rejects orders from wallets that haven't approved the builder fee**, so approval is a hard prerequisite for trading via the terminal or the API. You approve it once during [agent setup](/concepts/agent-wallets); the fee is denominated in tenths of a basis point and attached server-side. Check `builderFeeApproved` on `GET /api/agents` before trading programmatically. All execution analytics report builder fees separately from exchange fees so you always see the full cost picture.
+Every order routed through Quote carries Quote's builder code. This is how Quote monetizes without spread markup, and it is not optional: **Hyperliquid rejects orders from wallets that haven't approved the builder fee**, so approval is a hard prerequisite for trading via the terminal or the API. You approve it once during [agent setup](/concepts/agent-wallets); the fee is denominated in tenths of a basis point and attached server-side. Check `builderFeeApproved` on `GET /api/agents` before trading programmatically. All execution analytics report builder fees separately from exchange fees, so you always see the full cost.
 
 ## Time in force
 
 | TIF | Behavior |
 |---|---|
-| `GTC` | Good till cancelled — rests on the book |
-| `ALO` | Add liquidity only (post-only) — rejected if it would cross |
-| `IOC` | Immediate or cancel — fills what it can instantly, cancels the rest |
+| `GTC` | Good till cancelled: rests on the book |
+| `ALO` | Add liquidity only (post-only): rejected if it would cross |
+| `IOC` | Immediate or cancel: fills what it can instantly, cancels the rest |
 
 Strategies use ALO for passive slices and IOC for aggressive catch-up; plain orders default to `GTC`.

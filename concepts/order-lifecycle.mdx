@@ -5,7 +5,7 @@ description: "The async-accept model: what a 200 actually means, how algo parent
 
 ## Async-accept: what a 200 means
 
-`POST /api/orders` returns `200` when your order (or strategy) is **accepted into the execution engine** — *not* when it fills.
+`POST /api/orders` returns `200` when your order (or strategy) is **accepted into the execution engine**, *not* when it fills.
 
 - For a **plain order**, `orderId` is the venue order ID and the order is live on Hyperliquid.
 - For an **algo strategy** (`strategy` set), `orderId` is the **parent strategy ID**. Fills arrive asynchronously as the engine works the order; track progress via [`GET /api/orders/algo`](/guides/algo-orders) or the [algo status WebSocket](/websockets/algo-status).
@@ -49,7 +49,7 @@ Cancelling an algo parent is a **request**, not an instant state change:
     `POST /api/orders/cancel` with the parent `orderId` returns `200` once the cancel request is durably recorded. The engine stops scheduling new strategy work immediately.
   </Step>
   <Step title="Children reconciled">
-    The engine cancels the strategy's open child orders on Hyperliquid and confirms none remain open. Fills that landed before cancellation are, of course, yours.
+    The engine cancels the strategy's open child orders on Hyperliquid and confirms none remain open. Fills that landed before cancellation are yours.
   </Step>
   <Step title="Terminal state recorded">
     Only after no known child order remains open does the strategy record terminal `cancelled`.
@@ -57,10 +57,10 @@ Cancelling an algo parent is a **request**, not an instant state change:
 </Steps>
 
 <Warning>
-  Parent-cancel HTTP success means the cancel was **durably accepted** — not that the strategy is already terminal. Poll `GET /api/orders/algo/{order_id}` (or watch the WebSocket) if you need to confirm the terminal state before, say, submitting a replacement order.
+  Parent-cancel HTTP success means the cancel was **durably accepted**, not that the strategy is already terminal. Poll `GET /api/orders/algo/{order_id}` (or watch the WebSocket) if you need to confirm the terminal state before, say, submitting a replacement order.
 </Warning>
 
-Plain (non-algo) orders cancel synchronously — `200` means the venue confirmed the cancel.
+Plain (non-algo) orders cancel synchronously: `200` means the venue confirmed the cancel.
 
 ## Order statuses
 

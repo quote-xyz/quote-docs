@@ -3,7 +3,7 @@ title: "Connecting Clients"
 description: "Add Quote's MCP server to Claude, Claude Code, Cursor, or any client that supports remote MCP servers."
 ---
 
-The server speaks **Streamable HTTP** at `https://api.quotemarkets.xyz/mcp` and authenticates with **OAuth 2.1**. Discovery is standards-compliant (RFC 9728 / 8414 metadata, dynamic client registration, PKCE), so for most clients the setup is just the URL — the client discovers the auth flow, opens Quote's consent page in your browser, and you approve the scopes once.
+The server speaks **Streamable HTTP** at `https://api.quotemarkets.xyz/mcp` and authenticates with **OAuth 2.1**. Discovery is standards-compliant (RFC 9728 / 8414 metadata, dynamic client registration, PKCE), so for most clients the setup is the URL alone. The client discovers the auth flow, opens Quote's consent page in your browser, and you approve the scopes once.
 
 ## Claude
 
@@ -39,17 +39,17 @@ Any client that supports remote (Streamable HTTP) MCP servers with OAuth works. 
 
 ## How the OAuth flow works
 
-You don't need these details for the clients above — they're for anyone implementing a client or debugging a connection:
+You don't need these details for the clients above. They are for anyone implementing a client or debugging a connection:
 
 | Endpoint | Role |
 |---|---|
-| `/.well-known/oauth-protected-resource` | Resource metadata (RFC 9728) — points clients at the authorization server |
+| `/.well-known/oauth-protected-resource` | Resource metadata (RFC 9728); points clients at the authorization server |
 | `/.well-known/oauth-authorization-server` | Authorization-server metadata (RFC 8414) |
 | `POST /oauth/register` | Dynamic client registration (RFC 7591) |
 | `GET /oauth/authorize` | Redirects to Quote's consent page |
 | `POST /oauth/token` | Authorization-code + refresh-token grants, with PKCE |
 
-An unauthenticated call to `/mcp` returns `401` with a `WWW-Authenticate` header pointing at the metadata — which is how clients bootstrap the flow automatically. Refresh tokens rotate on use.
+An unauthenticated call to `/mcp` returns `401` with a `WWW-Authenticate` header pointing at the metadata, which is how clients bootstrap the flow automatically. Refresh tokens rotate on use.
 
 ## Headless access (no browser)
 

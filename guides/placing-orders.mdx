@@ -1,6 +1,6 @@
 ---
 title: "Placing Orders"
-description: "Limit and market orders, TP/SL attachment, modify, and cancel — the plain-order surface."
+description: "Limit and market orders, TP/SL attachment, modify, and cancel: the plain-order surface."
 ---
 
 This guide covers plain (non-algo) orders. For execution strategies, see [Algo Orders](/guides/algo-orders).
@@ -19,7 +19,7 @@ POST /api/orders
 }
 ```
 
-- `size` and `limitPrice` are decimal **strings** — never floats. Quote normalizes them to the asset's [precision rules](/concepts/hyperliquid-constraints#price-and-size-precision).
+- `size` and `limitPrice` are decimal **strings**, never floats. Quote normalizes them to the asset's [precision rules](/concepts/hyperliquid-constraints#price-and-size-precision).
 - `timeInForce`: `GTC` (default), `ALO` (post-only), or `IOC`.
 - `clientOrderId` (optional) lets you tag the order with your own identifier.
 - `reduceOnly: true` restricts the order to reducing an existing position.
@@ -32,7 +32,7 @@ The response returns the venue `orderId`:
 
 ## Market orders
 
-Hyperliquid market orders are IOC limits with a slippage bound, so **`limitPrice` is required** — it's the worst price you'll accept:
+Hyperliquid market orders are IOC limits with a slippage bound, so **`limitPrice` is required**. It is the worst price you will accept:
 
 ```json
 POST /api/orders
@@ -45,10 +45,10 @@ POST /api/orders
 }
 ```
 
-Compute the bound from the best opposing quote — buy: `bestAsk × (1 + slippage)`, sell: `bestBid × (1 − slippage)`.
+Compute the bound from the best opposing quote. Buy: `bestAsk × (1 + slippage)`. Sell: `bestBid × (1 − slippage)`.
 
 <Warning>
-  Anchor to the best **opposing quote**, not mid. On wide-spread books (prediction markets especially), a mid-anchored bound can sit inside the spread — the IOC crosses nothing and silently fills zero. See [Hyperliquid constraints](/concepts/hyperliquid-constraints#market-orders-are-ioc-limits-with-a-slippage-bound).
+  Anchor to the best **opposing quote**, not mid. On wide-spread books (prediction markets especially), a mid-anchored bound can sit inside the spread, so the IOC crosses nothing and silently fills zero. See [Hyperliquid constraints](/concepts/hyperliquid-constraints#market-orders-are-ioc-limits-with-a-slippage-bound).
 </Warning>
 
 ## Attaching TP/SL
@@ -86,7 +86,7 @@ POST /api/orders/modify
 }
 ```
 
-Uses Hyperliquid's native modify — the order keeps working; price and/or size change atomically. Note `orderId` here is the numeric exchange order ID.
+This uses Hyperliquid's native modify: the order keeps working, and price and/or size change atomically. `orderId` here is the numeric exchange order ID.
 
 ## Cancelling
 
@@ -107,7 +107,7 @@ POST /api/orders/cancel-all
 Omit `symbol` to cancel everything. The response reports how many orders were cancelled.
 
 <Note>
-  Plain-order cancels are synchronous. Cancelling an **algo parent** via the same endpoint is a request with reconciliation semantics — see [Order Lifecycle](/concepts/order-lifecycle#cancellation-semantics).
+  Plain-order cancels are synchronous. Cancelling an **algo parent** via the same endpoint is a request with reconciliation semantics; see [Order Lifecycle](/concepts/order-lifecycle#cancellation-semantics).
 </Note>
 
 ## Common rejections

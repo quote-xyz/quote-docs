@@ -4,7 +4,7 @@ trading-related surface.
 
 The backend spec (quote-backend/docs/openapi.yaml) documents the full API and
 is the source of truth. The public docs deliberately exclude non-trading
-surfaces (Quentin/NL-order, the Parallel news pipeline, the daily quote) —
+surfaces (Quentin/NL-order, the Parallel news pipeline, the daily quote);
 this script owns that exclusion list so re-syncing never reintroduces them.
 
 Usage:

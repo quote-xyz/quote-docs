@@ -3,11 +3,11 @@ title: "Quickstart"
 description: "Mint an API key, sign your first request, and submit an order in five minutes."
 ---
 
-This guide takes you from zero to a filled order over the API. You'll need a Quote account with a registered agent wallet — if you've traded in the [terminal](https://quotemarkets.xyz), you already have one.
+This guide takes you from zero to a filled order over the API. You need a Quote account with a registered agent wallet. If you have traded in the [terminal](https://quotemarkets.xyz), you already have one.
 
 <Steps>
   <Step title="Mint an API key">
-    API keys are minted from a logged-in terminal session (they can't mint each other — see [Authentication](/authentication)). In the terminal, open **Settings → API Keys**, or call the endpoint directly with your Privy session token:
+    API keys are minted from a logged-in terminal session; they cannot mint each other (see [Authentication](/authentication)). In the terminal, open **Settings → API Keys**, or call the endpoint directly with your Privy session token:
 
     ```bash
     curl -X POST https://api.quotemarkets.xyz/api/keys \
@@ -27,12 +27,12 @@ This guide takes you from zero to a filled order over the API. You'll need a Quo
     ```
 
     <Warning>
-      The `secret` is returned **once** and never again. Store it securely — it is the raw HMAC-SHA256 signing key for every request you make.
+      The `secret` is returned **once** and never again. Store it securely. It is the raw HMAC-SHA256 signing key for every request you make.
     </Warning>
   </Step>
 
   <Step title="Sign a request">
-    Every API-key request carries three headers: `X-Quote-Key`, `X-Quote-Timestamp` (milliseconds), and `X-Quote-Signature` — an HMAC-SHA256 over the canonical string `timestamp \n METHOD \n path_with_query \n body`.
+    Every API-key request carries three headers: `X-Quote-Key`, `X-Quote-Timestamp` (milliseconds), and `X-Quote-Signature`. The signature is an HMAC-SHA256 over the canonical string `timestamp \n METHOD \n path_with_query \n body`.
 
     <CodeGroup>
     ```typescript signing.ts
@@ -96,7 +96,7 @@ This guide takes you from zero to a filled order over the API. You'll need a Quo
     </CodeGroup>
 
     <Note>
-      The timestamp must be within 30 seconds of server time (configurable server-side). Sign the *exact* bytes you send — the path must include the query string, and the body must match byte-for-byte.
+      The timestamp must be within 30 seconds of server time (configurable server-side). Sign the *exact* bytes you send: the path must include the query string, and the body must match byte-for-byte.
     </Note>
   </Step>
 
@@ -111,8 +111,8 @@ This guide takes you from zero to a filled order over the API. You'll need a Quo
 
     Two things must be true before you can trade:
 
-    - an `agentAddress` is present and not `expired` — the agent signs your orders;
-    - `builderFeeApproved` is `true` — **required**. Every Quote-routed order carries Quote's builder code, and Hyperliquid rejects orders from wallets that haven't approved the fee.
+    - an `agentAddress` is present and not `expired`: the agent signs your orders;
+    - `builderFeeApproved` is `true`. This is **required**: every Quote-routed order carries Quote's builder code, and Hyperliquid rejects orders from wallets that haven't approved the fee.
 
     If either is missing, complete agent setup in the terminal first (both steps require a signature from your main wallet, which API keys can't produce).
   </Step>

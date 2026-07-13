@@ -3,7 +3,7 @@ title: "Adaptive IS"
 description: "Implementation-shortfall-aware TWAP: one urgency dial drives slice timing, passivity, and front-loading from live microstructure signals."
 ---
 
-`adaptive_is` is the smart TWAP. Instead of executing uniformly, it minimizes **implementation shortfall** — the drift between your arrival price and your realized average — by reading live microstructure signals (order-flow imbalance, multi-level OFI, book depth, impact prices, liquidation cascades, funding) and adjusting slice timing, passive/aggressive balance, and schedule front-loading as it goes.
+`adaptive_is` is a TWAP that adapts. Instead of executing uniformly, it minimizes **implementation shortfall**: the drift between your arrival price and your realized average. It reads live microstructure signals (order-flow imbalance, multi-level OFI, book depth, impact prices, liquidation cascades, funding) and adjusts slice timing, passive/aggressive balance, and schedule front-loading as it goes.
 
 The simplest way to drive it is the single `urgency` dial: the engine derives slice count and baseline passivity from it, then adapts around that baseline.
 
@@ -30,8 +30,8 @@ POST /api/orders
 | Parameter | Type | Default | Description |
 |---|---|---|---|
 | `durationSecs` | integer | `300` | Total execution window in seconds |
-| `urgency` | integer 0–100 | — | High-level dial: derives `numSlices` and `passivePct`. Higher = faster, more aggressive |
-| `numSlices` | integer | `10` | Explicit slice count (advanced mode — overrides the urgency derivation) |
+| `urgency` | integer 0–100 | none | High-level dial: derives `numSlices` and `passivePct`. Higher = faster, more aggressive |
+| `numSlices` | integer | `10` | Explicit slice count (advanced mode; overrides the urgency derivation) |
 | `passivePct` | integer 0–100 | `70` | Baseline passive percentage before urgency adjustment (advanced mode) |
 | `limitOffsetBps` | decimal | `0` | Offset from the touch for passive placement |
 | `observationMode` | boolean | `true` | Log adaptive signals but execute at constant baseline pace (see note) |
@@ -42,7 +42,7 @@ POST /api/orders
 | `reduceOnly` | boolean | `false` | Children only reduce an existing position |
 
 <Note>
-  `observationMode` defaults to **`true`**: the strategy executes at its baseline pace while logging what the adaptive signals *would* have done. Set `observationMode: false` to enable live adaptation. This default is deliberate — adaptive behavior is enabled only after the signal pipeline has been observed against your market and flow.
+  `observationMode` defaults to **`true`**: the strategy executes at its baseline pace while logging what the adaptive signals *would* have done. Set `observationMode: false` to enable live adaptation. This default is deliberate: adaptive behavior is enabled only after the signal pipeline has been observed against your market and flow.
 </Note>
 
 ## What it adapts on
@@ -50,13 +50,13 @@ POST /api/orders
 | Signal | What it captures |
 |---|---|
 | OFI | Short-window order-flow imbalance at the touch |
-| MLOFI | Multi-level OFI — level-0 flow weighted against deeper book flow |
+| MLOFI | Multi-level OFI: level-0 flow weighted against deeper book flow |
 | Depth imbalance | Bid vs. ask volume across the top 5 levels |
 | Impact prices | Live cost of sweeping a fixed notional through the book |
 | Liquidations | Recency of liquidation cascades (volatility regime) |
 | Funding | Current 1h funding rate |
 
-These combine into a composite urgency score that shifts execution earlier when conditions favor your side and slows down when they don't. `urgencySmoothingSecs` (default `0`, i.e. unsmoothed) applies an EMA to the composite — useful for multi-hour windows (e.g. `1800` for 30-minute smoothing over a 10-hour execution).
+These combine into a composite urgency score. It shifts execution earlier when conditions favor your side and slows down when they do not. `urgencySmoothingSecs` (default `0`, i.e. unsmoothed) applies an EMA to the composite. This is useful for multi-hour windows (e.g. `1800` for 30-minute smoothing over a 10-hour execution).
 
 ## When to use something else
 
