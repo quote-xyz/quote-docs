@@ -43,7 +43,6 @@
             "pages": [
               "strategies/overview",
               "strategies/passive-twap",
-              "strategies/adaptive-is",
               "strategies/vwap",
               "strategies/iceberg",
               "strategies/participation-rate",

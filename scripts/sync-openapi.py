@@ -131,6 +131,8 @@ DESCRIPTION_REPLACEMENTS = [
 GLOBAL_TEXT_REPLACEMENTS = [
     ("**Auth:** authenticated (Privy or API key). API-key scope:", "**Auth:** API-key scope:"),
     ("**Auth:** authenticated. API-key scope:", "**Auth:** API-key scope:"),
+    # adaptive_is is deliberately undocumented in the public reference.
+    ("passive_twap, adaptive_is, vwap", "passive_twap, vwap"),
 ]
 
 APIKEY_SCHEME_DESCRIPTION = """\
@@ -241,6 +243,8 @@ def main() -> None:
     if "Privy" in text or "privy" in text:
         line = next(l for l in text.splitlines() if "rivy" in l)
         sys.exit(f"error: Privy mention survived curation: {line.strip()!r}")
+    if "adaptive_is" in text:
+        sys.exit("error: adaptive_is mention survived curation")
     if "—" in text:
         sys.exit("error: em dash in generated spec")
 

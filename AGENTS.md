@@ -16,7 +16,7 @@
 - "Quote" is the product; "the terminal" is the web app at quotemarkets.xyz; "the API" is the backend at api.quotemarkets.xyz
 - "Agent wallet" (not "API wallet" or "trading key") for the Hyperliquid agent mechanism
 - "Algo order" / "strategy" for parent orders worked by the execution engine; "child order" for the venue orders it places
-- Strategy names in code style: `passive_twap`, `adaptive_is`, `vwap`, `iceberg`, `participation_rate`, `chase_limit`
+- Strategy names in code style: `passive_twap`, `vwap`, `iceberg`, `participation_rate`, `chase_limit`. The engine's `adaptive_is` strategy is deliberately undocumented; never add it to these docs
 - "Privy session" (terminal auth) vs. "API key" (HMAC auth): see authentication.mdx before writing about auth
 
 ## Platform conventions (must hold in every page)

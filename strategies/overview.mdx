@@ -1,14 +1,13 @@
 ---
 title: "Strategies Overview"
-description: "Six execution algorithms, how to choose between them, and the mechanics they share."
+description: "Five execution algorithms, how to choose between them, and the mechanics they share."
 ---
 
-Quote's execution engine runs six strategies. You select one by setting `strategy` on [`POST /api/orders`](/guides/algo-orders) and tuning it via `params`.
+Quote's execution engine runs five strategies. You select one by setting `strategy` on [`POST /api/orders`](/guides/algo-orders) and tuning it via `params`.
 
 | Strategy | `strategy` value | Best for |
 |---|---|---|
 | [Passive TWAP](/strategies/passive-twap) | `passive_twap` | Time-sliced execution with guaranteed completion |
-| [Adaptive IS](/strategies/adaptive-is) | `adaptive_is` | TWAP that adapts pace to microstructure signals |
 | [VWAP](/strategies/vwap) | `vwap` | Tracking the market's volume profile over a window |
 | [Iceberg](/strategies/iceberg) | `iceberg` | Hiding large size; pure-passive, no deadline |
 | [Participation Rate](/strategies/participation-rate) | `participation_rate` | Staying a fixed % of real-time market volume |
@@ -19,9 +18,6 @@ Quote's execution engine runs six strategies. You select one by setting `strateg
 <AccordionGroup>
   <Accordion title="I need it done by a deadline">
     **Passive TWAP** with `guaranteedCompletion: true`. It slices your order evenly over `durationSecs` and falls back to aggressive IOC orders when passive fills lag.
-  </Accordion>
-  <Accordion title="I want the engine to adapt its timing">
-    **Adaptive IS**. It reads order-flow imbalance, book depth, and impact signals. It front-loads when conditions are favorable and slows down when they are not. Set a single `urgency` dial (0–100) and let it derive the mechanics.
   </Accordion>
   <Accordion title="I'm benchmarked against VWAP">
     **VWAP**. Slices proportionally to the asset's historical intraday volume profile instead of uniformly in time.
@@ -63,7 +59,6 @@ These appear across multiple strategies (all optional; camelCase and snake_case 
 | `durationSecs` | integer | Total execution window |
 | `numSlices` | integer | Number of child slices |
 | `passivePct` | integer 0–100 | Portion of each slice spent passive before going aggressive |
-| `urgency` | integer 0–100 | High-level dial that derives slice count/pacing (Adaptive IS) |
 | `randomize` | boolean | Jitter slice timing and sizing to avoid detectable patterns |
 | `reduceOnly` | boolean | Children only reduce an existing position |
 | `guaranteedCompletion` | boolean | Sweep any remainder with a wide-tolerance IOC at the end |
@@ -82,5 +77,5 @@ Every strategy execution is measured against three benchmarks (see [Analytics](/
 All benchmark values are signed basis points with the convention **positive = worse, negative = better**.
 
 <Note>
-  Strategies are a closed, curated set. Each ships with recovery logic that survives engine restarts (see [Order Lifecycle](/concepts/order-lifecycle)) and with observation-mode calibration before adaptive behaviors go live.
+  Strategies are a closed, curated set. Each ships with recovery logic that survives engine restarts (see [Order Lifecycle](/concepts/order-lifecycle)).
 </Note>

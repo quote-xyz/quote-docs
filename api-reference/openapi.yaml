@@ -1554,8 +1554,8 @@ components:
         strategy:
           type: string
           nullable: true
-          description: Algo strategy name (e.g. passive_twap, adaptive_is, vwap, iceberg, participation_rate,
-            chase_limit). Omit for a plain order.
+          description: Algo strategy name (e.g. passive_twap, vwap, iceberg, participation_rate, chase_limit).
+            Omit for a plain order.
         params:
           allOf:
           - $ref: '#/components/schemas/StrategyParamsInput'

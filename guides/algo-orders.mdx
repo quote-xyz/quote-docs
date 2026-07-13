@@ -100,5 +100,5 @@ Strategies accept `attachedTpsl` in `params`: a take-profit/stop-loss placed aga
 ## Practical sizing checklist
 
 - **Slices vs. the $10 minimum.** Each child slice must clear ~$10 notional or it is skipped. `size × price / numSlices ≳ $15` is a safe rule of thumb.
-- **Duration vs. urgency.** Longer windows capture more spread but carry more price risk. If you can't decide, [Adaptive IS](/strategies/adaptive-is) with an `urgency` dial makes the trade-off explicit.
+- **Duration vs. price risk.** Longer windows capture more spread but carry more price risk. Start with 15–30 minutes on liquid assets and measure the result.
 - **Measure it.** After a few executions, check [`/api/analytics/execution`](/guides/analytics) to see your realized cost vs. benchmarks.

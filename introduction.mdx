@@ -3,11 +3,13 @@ title: "Introduction"
 description: "Quote is a trading terminal for Hyperliquid with execution algorithms, a wallet-scoped REST API, and real-time strategy telemetry."
 ---
 
-## What is Quote?
+## Why Quote exists
 
-Quote is a trading terminal built on [Hyperliquid](https://hyperliquid.xyz). It gives you the execution tools of a trading desk: algorithmic order types (TWAP, VWAP, Iceberg, and more), conditional triggers, execution-quality analytics, and a programmatic API. It is non-custodial, and everything settles directly on Hyperliquid.
+Most traders overpay to trade. A market order crosses the spread, pays taker fees, and moves the price against itself; a large one also tells the whole book what you are doing, and the book adjusts before you finish. On most venues, the tools that solve this (execution algorithms, transaction-cost analysis) are sold to institutions and denied to everyone else.
 
-Everything you can do in the [Quote terminal](https://quotemarkets.xyz) you can also do over the API. The same wallet-scoped backend powers both.
+Quote is an execution layer for [Hyperliquid](https://hyperliquid.xyz) that closes that gap. Instead of sending your order straight to the book, the Quote execution engine works it: splitting the parent order into child orders, resting them passively to capture the spread and maker fees rather than pay them, pacing them with real-time market data, and taking liquidity only when the schedule demands it. Every execution is then measured against arrival price, market VWAP, and a simulated market order, so you can see, in basis points, what working the order saved you.
+
+It is non-custodial: you keep your funds, and everything settles directly on Hyperliquid. And everything you can do in the [terminal](https://quotemarkets.xyz) you can also do over the API; the same wallet-scoped backend powers both.
 
 <CardGroup cols={2}>
   <Card title="Quickstart" icon="rocket" href="/quickstart">
@@ -36,7 +38,7 @@ Quote sits between you and Hyperliquid as an execution layer:
 
 | Capability | Description |
 |---|---|
-| [Execution strategies](/strategies/overview) | `passive_twap`, `adaptive_is`, `vwap`, `iceberg`, `participation_rate`, `chase_limit` |
+| [Execution strategies](/strategies/overview) | `passive_twap`, `vwap`, `iceberg`, `participation_rate`, `chase_limit` |
 | [Plain orders](/guides/placing-orders) | Limit, market (IOC with slippage bound), TP/SL attachment, modify, cancel, cancel-all |
 | [Conditional triggers](/guides/triggers) | Fire an order on price, funding, open-interest, copy-trade, or time conditions |
 | [Order templates](/guides/templates) | Save and reuse execution presets with urgency and price-discipline dials |
