@@ -16,11 +16,9 @@ The active network (Hyperliquid mainnet vs. testnet) is reported by the public `
 
 ## Authentication
 
-Every endpoint page notes its auth requirements. In short:
+Every request carries an HMAC API key in three headers: `X-Quote-Key`, `X-Quote-Timestamp` (milliseconds), and `X-Quote-Signature`. A key holds only the scopes granted at mint time, and each endpoint page notes the scope it requires. Mint, list, and revoke keys in the [terminal](https://quotemarkets.xyz) under **Settings → API Keys**.
 
-- **Privy bearer token** (terminal sessions): all scopes implicitly.
-- **HMAC API key**: `X-Quote-Key`, `X-Quote-Timestamp` (ms), `X-Quote-Signature`; only the scopes granted at mint time.
-- A few endpoints are **Privy-only** (`/api/keys*`, invites/referrals) and a few are **public** (`/api/info`, health probes).
+A few endpoints are **public** and need no key: `/api/info` and the health probes.
 
 Full details, the canonical signing string, and code samples: [Authentication](/authentication).
 

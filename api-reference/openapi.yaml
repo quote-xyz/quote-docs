@@ -14,26 +14,16 @@ info:
     credential, never from the payload.
 
     ## Authentication
-    Programmatic clients authenticate with an **HMAC API key**
-    (`ApiKeyHmac`); see that security scheme for the canonical signing
-    string. API-key callers carry only the scopes granted at mint time and
-    must satisfy the per-endpoint scope noted in each operation's
+    Authenticate with an **HMAC API key** (`ApiKeyHmac`); see that security
+    scheme for the canonical signing string. Keys are minted, listed, and
+    revoked in the Quote terminal (**Settings → API Keys**); the secret is
+    shown once at mint time. A key carries only the scopes granted at mint
+    time and must satisfy the per-endpoint scope noted in each operation's
     description.
-
-    The Quote terminal (web app) authenticates with a **Privy session
-    token** (`PrivyBearer`), which carries all scopes implicitly. There is
-    no way to obtain one programmatically; it appears here because a few
-    endpoints accept only terminal sessions.
 
     Routes under `/api/*` require authentication, except the public
     `/api/info`. The root probes `/health`, `/ready`, and `/metrics` are
     unauthenticated.
-
-    ### Privy-only endpoints
-    API-key management (`/api/keys*`) and the invite/referral endpoints
-    (`/api/invites*`, `/api/referrals/summary`) are gated to Privy sessions
-    only: an API key cannot mint, list, or revoke other API keys, nor manage
-    invites. These return `403` for API-key callers.
 
     ## Async-accept order model
     `POST /api/orders` returns `200` when the order (or algo strategy) is
@@ -78,21 +68,16 @@ tags:
   description: Saved order templates (CRUD).
 - name: Triggers
   description: Conditional triggers (CRUD + history).
-- name: Invites & Referrals
-  description: Invite codes and referral dashboard. Privy-session only.
 - name: Analytics
   description: Execution-quality, volume, and fee analytics.
 - name: Funding
   description: 'Funding-payment tracking: totals, timeline, and history.'
 - name: Portfolio
   description: Quote-owned hourly equity time-series.
-- name: API Keys
-  description: HMAC API-key management. Privy-session only.
 - name: Health
   description: Liveness/readiness probes, info, and Prometheus metrics.
 security:
 - ApiKeyHmac: []
-- PrivyBearer: []
 paths:
   /api/orders:
     post:
@@ -102,7 +87,7 @@ paths:
       description: |
         Submit a plain order (limit/market) or an algo strategy order.
 
-        **Auth:** authenticated (Privy or API key). API-key scope:
+        **Auth:** API-key scope:
         `orders:write`.
 
         **Async-accept:** a `200` means the order/strategy was **accepted into
@@ -149,7 +134,7 @@ paths:
       description: |
         Cancel a resting order or request cancellation of an algo strategy.
 
-        **Auth:** authenticated. API-key scope: `orders:write`.
+        **Auth:** API-key scope: `orders:write`.
 
         For a strategy parent, the response indicates only that the cancel was
         *requested*. Venue child orders are reconciled before a terminal state
@@ -188,7 +173,7 @@ paths:
       description: |
         Cancel all of the caller's open orders, optionally filtered by symbol.
 
-        **Auth:** authenticated. API-key scope: `orders:write`.
+        **Auth:** API-key scope: `orders:write`.
       operationId: cancelAllOrders
       requestBody:
         required: false
@@ -222,7 +207,7 @@ paths:
         Update the price and/or size of an existing order via Hyperliquid's
         modify action.
 
-        **Auth:** authenticated. API-key scope: `orders:write`.
+        **Auth:** API-key scope: `orders:write`.
       operationId: modifyOrder
       requestBody:
         required: true
@@ -256,7 +241,7 @@ paths:
         List the caller's algo/strategy orders from the Postgres read
         projection.
 
-        **Auth:** authenticated. API-key scope: `orders:read`.
+        **Auth:** API-key scope: `orders:read`.
       operationId: getAlgoOrders
       responses:
         '200':
@@ -282,7 +267,7 @@ paths:
         Fetch a single algo/strategy order by parent order id. Must belong to
         the caller's wallet.
 
-        **Auth:** authenticated. API-key scope: `orders:read`.
+        **Auth:** API-key scope: `orders:read`.
       operationId: getAlgoOrder
       parameters:
       - name: order_id
@@ -318,7 +303,7 @@ paths:
         the caller. Returns the agent address to be approved on Hyperliquid via
         `POST /api/agents/register`.
 
-        **Auth:** authenticated. API-key scope: `agents:write`.
+        **Auth:** API-key scope: `agents:write`.
       operationId: createAgent
       responses:
         '200':
@@ -349,7 +334,7 @@ paths:
         Quote-routed orders from wallets that have not approved the builder
         fee.
 
-        **Auth:** authenticated. API-key scope: `agents:read`.
+        **Auth:** API-key scope: `agents:read`.
       operationId: getAgent
       responses:
         '200':
@@ -376,7 +361,7 @@ paths:
         agent. The signature is produced client-side over the agent address and
         nonce.
 
-        **Auth:** authenticated. API-key scope: `agents:write`.
+        **Auth:** API-key scope: `agents:write`.
       operationId: registerAgent
       requestBody:
         required: true
@@ -417,7 +402,7 @@ paths:
         and submitted to Hyperliquid by the terminal; without it Hyperliquid
         rejects every Quote-routed order.
 
-        **Auth:** authenticated. API-key scope: `agents:write`.
+        **Auth:** API-key scope: `agents:write`.
       operationId: recordBuilderApproval
       requestBody:
         required: true
@@ -448,7 +433,7 @@ paths:
       description: |
         Record the caller's acceptance of a terms version and analytics consent.
 
-        **Auth:** authenticated. API-key scope: `agents:write`.
+        **Auth:** API-key scope: `agents:write`.
       operationId: acceptTerms
       requestBody:
         required: true
@@ -481,7 +466,7 @@ paths:
       description: |
         Sign and submit an `updateLeverage` action via the agent wallet.
 
-        **Auth:** authenticated. API-key scope: `positions:write`.
+        **Auth:** API-key scope: `positions:write`.
       operationId: updateLeverage
       requestBody:
         required: true
@@ -515,7 +500,7 @@ paths:
         Sign and submit an `updateIsolatedMargin` action via the agent wallet.
         Positive `marginDelta` adds margin, negative removes.
 
-        **Auth:** authenticated. API-key scope: `positions:write`.
+        **Auth:** API-key scope: `positions:write`.
       operationId: updateMargin
       requestBody:
         required: true
@@ -549,7 +534,7 @@ paths:
         Sign and submit a `spotUser` transfer action via the agent wallet.
         `amount` is in USD and must be positive.
 
-        **Auth:** authenticated. API-key scope: `positions:write`.
+        **Auth:** API-key scope: `positions:write`.
       operationId: transferSpotPerp
       requestBody:
         required: true
@@ -582,7 +567,7 @@ paths:
       description: |
         List the caller's saved order templates.
 
-        **Auth:** authenticated. API-key scope: `templates:read`.
+        **Auth:** API-key scope: `templates:read`.
       operationId: listTemplates
       responses:
         '200':
@@ -607,7 +592,7 @@ paths:
         Create a saved order template. `urgency` and `priceDiscipline` must be
         between 0 and 100.
 
-        **Auth:** authenticated. API-key scope: `templates:write`.
+        **Auth:** API-key scope: `templates:write`.
       operationId: createTemplate
       requestBody:
         required: true
@@ -640,7 +625,7 @@ paths:
       description: |
         Fetch one of the caller's templates by id (UUID).
 
-        **Auth:** authenticated. API-key scope: `templates:read`.
+        **Auth:** API-key scope: `templates:read`.
       operationId: getTemplate
       parameters:
       - $ref: '#/components/parameters/TemplateId'
@@ -671,7 +656,7 @@ paths:
         Update one of the caller's templates. Provided `urgency`/`priceDiscipline`
         must be 0–100.
 
-        **Auth:** authenticated. API-key scope: `templates:write`.
+        **Auth:** API-key scope: `templates:write`.
       operationId: updateTemplate
       parameters:
       - $ref: '#/components/parameters/TemplateId'
@@ -707,7 +692,7 @@ paths:
       description: |
         Delete one of the caller's templates by id.
 
-        **Auth:** authenticated. API-key scope: `templates:write`.
+        **Auth:** API-key scope: `templates:write`.
       operationId: deleteTemplate
       parameters:
       - $ref: '#/components/parameters/TemplateId'
@@ -738,7 +723,7 @@ paths:
       description: |
         List the caller's conditional triggers, optionally filtered by status.
 
-        **Auth:** authenticated. API-key scope: `orders:read`.
+        **Auth:** API-key scope: `orders:read`.
       operationId: listTriggers
       parameters:
       - name: status
@@ -786,7 +771,7 @@ paths:
         `condition` and `executionOrder` payloads are opaque JSON interpreted by
         the trigger evaluator.
 
-        **Auth:** authenticated. API-key scope: `orders:write`.
+        **Auth:** API-key scope: `orders:write`.
       operationId: createTrigger
       requestBody:
         required: true
@@ -819,7 +804,7 @@ paths:
       description: |
         Fetch one of the caller's triggers by id (UUID).
 
-        **Auth:** authenticated. API-key scope: `orders:read`.
+        **Auth:** API-key scope: `orders:read`.
       operationId: getTrigger
       parameters:
       - $ref: '#/components/parameters/TriggerId'
@@ -849,7 +834,7 @@ paths:
       description: |
         Cancel one of the caller's active triggers (status -> `cancelled`).
 
-        **Auth:** authenticated. API-key scope: `orders:write`.
+        **Auth:** API-key scope: `orders:write`.
       operationId: cancelTrigger
       parameters:
       - $ref: '#/components/parameters/TriggerId'
@@ -880,7 +865,7 @@ paths:
       description: |
         List the history events for one of the caller's triggers.
 
-        **Auth:** authenticated. API-key scope: `orders:read`.
+        **Auth:** API-key scope: `orders:read`.
       operationId: triggerHistory
       parameters:
       - $ref: '#/components/parameters/TriggerId'
@@ -909,152 +894,6 @@ paths:
           $ref: '#/components/responses/RateLimited'
         '503':
           $ref: '#/components/responses/ServiceUnavailable'
-  /api/invites:
-    get:
-      tags:
-      - Invites & Referrals
-      summary: List the caller's invite codes
-      description: |
-        List the caller's invite codes plus remaining allowance and volume
-        progress.
-
-        **Auth:** Privy-session only. API-key callers receive `403`.
-      operationId: listInvites
-      security:
-      - PrivyBearer: []
-      responses:
-        '200':
-          description: Invite codes and allowance.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ListInvitesResponse'
-        '401':
-          $ref: '#/components/responses/Unauthorized'
-        '403':
-          $ref: '#/components/responses/Forbidden'
-        '429':
-          $ref: '#/components/responses/RateLimited'
-        '503':
-          $ref: '#/components/responses/ServiceUnavailable'
-    post:
-      tags:
-      - Invites & Referrals
-      summary: Issue a new invite code
-      description: |
-        Issue one new invite code if the caller has remaining allowance.
-
-        **Auth:** Privy-session only. API-key callers receive `403`.
-      operationId: issueInvite
-      security:
-      - PrivyBearer: []
-      responses:
-        '200':
-          description: The newly issued code.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/IssueInviteResponse'
-        '401':
-          $ref: '#/components/responses/Unauthorized'
-        '403':
-          $ref: '#/components/responses/Forbidden'
-        '429':
-          $ref: '#/components/responses/RateLimited'
-        '503':
-          $ref: '#/components/responses/ServiceUnavailable'
-  /api/invites/redeem:
-    post:
-      tags:
-      - Invites & Referrals
-      summary: Redeem an invite code
-      description: |
-        Redeem an invite code, creating a referral attribution link for the
-        caller.
-
-        **Auth:** Privy-session only. API-key callers receive `403`.
-      operationId: redeemInvite
-      security:
-      - PrivyBearer: []
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/RedeemRequest'
-      responses:
-        '200':
-          description: The created attribution link.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/RedeemResponse'
-        '400':
-          $ref: '#/components/responses/BadRequest'
-        '401':
-          $ref: '#/components/responses/Unauthorized'
-        '403':
-          $ref: '#/components/responses/Forbidden'
-        '429':
-          $ref: '#/components/responses/RateLimited'
-        '503':
-          $ref: '#/components/responses/ServiceUnavailable'
-  /api/invites/status:
-    get:
-      tags:
-      - Invites & Referrals
-      summary: Invite gating status
-      description: |
-        Whether the caller has redeemed an invite and whether signup gating is
-        enabled.
-
-        **Auth:** Privy-session only. API-key callers receive `403`.
-      operationId: inviteStatus
-      security:
-      - PrivyBearer: []
-      responses:
-        '200':
-          description: Gating status.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/InviteStatusResponse'
-        '401':
-          $ref: '#/components/responses/Unauthorized'
-        '403':
-          $ref: '#/components/responses/Forbidden'
-        '429':
-          $ref: '#/components/responses/RateLimited'
-        '503':
-          $ref: '#/components/responses/ServiceUnavailable'
-  /api/referrals/summary:
-    get:
-      tags:
-      - Invites & Referrals
-      summary: Referral dashboard summary
-      description: |
-        The caller's referral dashboard: who referred them, how many they've
-        referred, accrued rewards, and discount status.
-
-        **Auth:** Privy-session only. API-key callers receive `403`.
-      operationId: referralSummary
-      security:
-      - PrivyBearer: []
-      responses:
-        '200':
-          description: Referral summary.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ReferralSummaryResponse'
-        '401':
-          $ref: '#/components/responses/Unauthorized'
-        '403':
-          $ref: '#/components/responses/Forbidden'
-        '429':
-          $ref: '#/components/responses/RateLimited'
-        '503':
-          $ref: '#/components/responses/ServiceUnavailable'
   /api/analytics/execution:
     get:
       tags:
@@ -1063,7 +902,7 @@ paths:
       description: |
         Aggregate implementation-shortfall metrics over a time range.
 
-        **Auth:** authenticated. API-key scope: `orders:read`.
+        **Auth:** API-key scope: `orders:read`.
       operationId: analyticsExecution
       parameters:
       - $ref: '#/components/parameters/AnalyticsRange'
@@ -1093,7 +932,7 @@ paths:
         Time-bucketed execution-quality timeline (HL vs Quote cumulative costs)
         over a time range.
 
-        **Auth:** authenticated. API-key scope: `orders:read`.
+        **Auth:** API-key scope: `orders:read`.
       operationId: analyticsExecutionTimeline
       parameters:
       - $ref: '#/components/parameters/AnalyticsRange'
@@ -1125,7 +964,7 @@ paths:
         Cumulative Quote-routed trading volume from the fills ledger over a
         time range.
 
-        **Auth:** authenticated. API-key scope: `orders:read`.
+        **Auth:** API-key scope: `orders:read`.
       operationId: analyticsVolume
       parameters:
       - $ref: '#/components/parameters/AnalyticsRange'
@@ -1154,7 +993,7 @@ paths:
       description: |
         Exchange + builder fees paid on Quote-routed fills over a time range.
 
-        **Auth:** authenticated. API-key scope: `orders:read`.
+        **Auth:** API-key scope: `orders:read`.
       operationId: analyticsFees
       parameters:
       - $ref: '#/components/parameters/AnalyticsRange'
@@ -1189,7 +1028,7 @@ paths:
         Sign convention: `net = received − paid`; `totalPaid` / `totalReceived`
         are positive magnitudes.
 
-        **Auth:** authenticated. API-key scope: `orders:read`.
+        **Auth:** API-key scope: `orders:read`.
       operationId: fundingSummary
       parameters:
       - $ref: '#/components/parameters/AnalyticsRange'
@@ -1219,7 +1058,7 @@ paths:
         Cumulative funding timeline (net / paid / received), bucketed hourly for
         `1d` and daily otherwise.
 
-        **Auth:** authenticated. API-key scope: `orders:read`.
+        **Auth:** API-key scope: `orders:read`.
       operationId: fundingTimeline
       parameters:
       - $ref: '#/components/parameters/AnalyticsRange'
@@ -1250,7 +1089,7 @@ paths:
       description: |
         Detailed per-event funding log over a time range, newest-first.
 
-        **Auth:** authenticated. API-key scope: `orders:read`.
+        **Auth:** API-key scope: `orders:read`.
       operationId: fundingHistory
       parameters:
       - $ref: '#/components/parameters/AnalyticsRange'
@@ -1283,7 +1122,7 @@ paths:
         and per-hour net flow. `accountValue` may be `null` (a gap), never 0.
         PnL view = Δ accountValue − Σ netFlow.
 
-        **Auth:** authenticated. API-key scope: `orders:read`.
+        **Auth:** API-key scope: `orders:read`.
       operationId: portfolioEquity
       parameters:
       - $ref: '#/components/parameters/AnalyticsRange'
@@ -1314,7 +1153,7 @@ paths:
       description: |
         The most recent equity sample for the wallet (or `null`).
 
-        **Auth:** authenticated. API-key scope: `orders:read`.
+        **Auth:** API-key scope: `orders:read`.
       operationId: portfolioEquityLatest
       responses:
         '200':
@@ -1327,99 +1166,6 @@ paths:
           $ref: '#/components/responses/Unauthorized'
         '403':
           $ref: '#/components/responses/Forbidden'
-        '503':
-          $ref: '#/components/responses/ServiceUnavailable'
-  /api/keys:
-    get:
-      tags:
-      - API Keys
-      summary: List API keys
-      description: |
-        List the caller's API keys (secrets are never returned, only a preview).
-
-        **Auth:** Privy-session only. API-key callers receive `403`.
-      operationId: listKeys
-      security:
-      - PrivyBearer: []
-      responses:
-        '200':
-          description: API keys.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ListKeysResponse'
-        '401':
-          $ref: '#/components/responses/Unauthorized'
-        '403':
-          $ref: '#/components/responses/Forbidden'
-        '429':
-          $ref: '#/components/responses/RateLimited'
-        '503':
-          $ref: '#/components/responses/ServiceUnavailable'
-    post:
-      tags:
-      - API Keys
-      summary: Mint an API key
-      description: |
-        Mint a new HMAC API key. The 32-byte `secret` is returned **once** at
-        mint time and never again. It is the HMAC-SHA256 key used to sign
-        requests (see the `ApiKeyHmac` scheme). `scopes` must be a subset of the
-        allowed scopes.
-
-        **Auth:** Privy-session only. API-key callers receive `403`.
-      operationId: mintKey
-      security:
-      - PrivyBearer: []
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/MintKeyRequest'
-      responses:
-        '200':
-          description: The minted key id and one-time secret.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/MintKeyResponse'
-        '400':
-          $ref: '#/components/responses/BadRequest'
-        '401':
-          $ref: '#/components/responses/Unauthorized'
-        '403':
-          $ref: '#/components/responses/Forbidden'
-        '429':
-          $ref: '#/components/responses/RateLimited'
-        '503':
-          $ref: '#/components/responses/ServiceUnavailable'
-  /api/keys/{key_id}:
-    delete:
-      tags:
-      - API Keys
-      summary: Revoke an API key
-      description: |
-        Revoke one of the caller's API keys.
-
-        **Auth:** Privy-session only. API-key callers receive `403`.
-      operationId: revokeKey
-      security:
-      - PrivyBearer: []
-      parameters:
-      - name: key_id
-        in: path
-        required: true
-        schema:
-          type: string
-      responses:
-        '204':
-          description: Key revoked (no content).
-        '401':
-          $ref: '#/components/responses/Unauthorized'
-        '403':
-          $ref: '#/components/responses/Forbidden'
-        '429':
-          $ref: '#/components/responses/RateLimited'
         '503':
           $ref: '#/components/responses/ServiceUnavailable'
   /api/info:
@@ -1502,17 +1248,6 @@ paths:
           description: Metrics disabled (OTLP mode).
 components:
   securitySchemes:
-    PrivyBearer:
-      type: http
-      scheme: bearer
-      bearerFormat: JWT
-      description: |-
-        Privy session token, sent as `Authorization: Bearer <jwt>`. This is
-        the credential the Quote terminal (web app) uses; there is no way to
-        obtain one programmatically. Programmatic clients authenticate with
-        an API key instead (see `ApiKeyHmac`). This scheme is listed because
-        a few endpoints (API-key management, invites and referrals) accept
-        only terminal sessions.
     ApiKeyHmac:
       type: apiKey
       in: header
@@ -1522,8 +1257,7 @@ components:
 
         - `X-Quote-Key`: the public key id (this scheme's header).
         - `X-Quote-Timestamp`: request time in **milliseconds** since epoch.
-          Must be within `AUTH_TIMESTAMP_TOLERANCE_SECONDS` (default 30) of
-          server time.
+          Must be within 30 seconds of server time.
         - `X-Quote-Signature`: hex HMAC-SHA256 over the canonical string.
 
         **Canonical signing string** (literal `\n` separators):
@@ -1538,9 +1272,9 @@ components:
         none). The 32-byte secret returned at mint time is used **directly** as
         the HMAC-SHA256 key.
 
-        API keys carry only the scopes granted at mint time and cannot access
-        Privy-only endpoints (`/api/keys*`, `/api/invites*`,
-        `/api/referrals/summary`).
+        Keys are minted, listed, and revoked in the Quote terminal
+        (**Settings → API Keys**). A key carries only the scopes granted at mint
+        time.
   parameters:
     TemplateId:
       name: template_id
@@ -1584,9 +1318,7 @@ components:
           schema:
             $ref: '#/components/schemas/ErrorResponse'
     Forbidden:
-      description: |
-        Authenticated but not permitted: missing API-key scope, or an API-key
-        caller hitting a Privy-only endpoint.
+      description: 'Authenticated but not permitted: the API key lacks the required scope.'
       content:
         application/json:
           schema:
@@ -2346,109 +2078,6 @@ components:
             $ref: '#/components/schemas/TriggerEventInfo'
         error:
           type: string
-    InviteCodeView:
-      type: object
-      required:
-      - code
-      - maxUses
-      - usedCount
-      - status
-      - createdAt
-      properties:
-        code:
-          type: string
-        maxUses:
-          type: integer
-          format: int32
-        usedCount:
-          type: integer
-          format: int32
-        status:
-          type: string
-        createdAt:
-          type: string
-          format: date-time
-    ListInvitesResponse:
-      type: object
-      required:
-      - codes
-      - remainingAllowance
-      - cumulativeVolume
-      - volumePerCode
-      properties:
-        codes:
-          type: array
-          items:
-            $ref: '#/components/schemas/InviteCodeView'
-        remainingAllowance:
-          type: integer
-          format: int64
-        cumulativeVolume:
-          type: string
-          description: USD cumulative volume as a string.
-        volumePerCode:
-          type: string
-          description: USD volume that earns one code, as a string.
-    IssueInviteResponse:
-      type: object
-      required:
-      - code
-      properties:
-        code:
-          type: string
-    RedeemRequest:
-      type: object
-      required:
-      - code
-      properties:
-        code:
-          type: string
-    RedeemResponse:
-      type: object
-      required:
-      - referrerWallet
-      - inviteCode
-      properties:
-        referrerWallet:
-          type: string
-        inviteCode:
-          type: string
-    InviteStatusResponse:
-      type: object
-      required:
-      - referred
-      - gatingEnabled
-      properties:
-        referred:
-          type: boolean
-        gatingEnabled:
-          type: boolean
-    ReferralSummaryResponse:
-      type: object
-      required:
-      - referredCount
-      - accruedRewardUsd
-      - discountActive
-      - cumulativeVolume
-      - discountCapUsd
-      properties:
-        referredBy:
-          type: string
-          nullable: true
-        referredCount:
-          type: integer
-          format: int64
-        accruedRewardUsd:
-          type: number
-          format: double
-        discountActive:
-          type: boolean
-        cumulativeVolume:
-          type: number
-          format: double
-        discountCapUsd:
-          type: number
-          format: double
     ExecutionMetrics:
       type: object
       required:
@@ -2672,85 +2301,6 @@ components:
           type: number
           format: double
           description: External net flow this hour (+ in / − out).
-    MintKeyRequest:
-      type: object
-      required:
-      - name
-      - scopes
-      properties:
-        name:
-          type: string
-        scopes:
-          type: array
-          items:
-            type: string
-            enum:
-            - orders:read
-            - orders:write
-            - agents:read
-            - agents:write
-            - positions:write
-            - templates:read
-            - templates:write
-        expiresInDays:
-          type: integer
-          format: int64
-          nullable: true
-    MintKeyResponse:
-      type: object
-      required:
-      - keyId
-      - secret
-      properties:
-        keyId:
-          type: string
-        secret:
-          type: string
-          description: 32-byte secret (hex), returned once. Used as the HMAC-SHA256 key.
-    ApiKeyRow:
-      type: object
-      required:
-      - key_id
-      - name
-      - secret_preview
-      - scopes
-      - created_at
-      description: Field keys are snake_case (ApiKeyRow has no camelCase rename).
-      properties:
-        key_id:
-          type: string
-        name:
-          type: string
-        secret_preview:
-          type: string
-        scopes:
-          type: array
-          items:
-            type: string
-        created_at:
-          type: string
-          format: date-time
-        last_used_at:
-          type: string
-          format: date-time
-          nullable: true
-        expires_at:
-          type: string
-          format: date-time
-          nullable: true
-        revoked_at:
-          type: string
-          format: date-time
-          nullable: true
-    ListKeysResponse:
-      type: object
-      required:
-      - keys
-      properties:
-        keys:
-          type: array
-          items:
-            $ref: '#/components/schemas/ApiKeyRow'
     HealthResponse:
       type: object
       required:
