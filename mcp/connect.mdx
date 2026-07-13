@@ -1,0 +1,66 @@
+---
+title: "Connecting Clients"
+description: "Add Quote's MCP server to Claude, Claude Code, Cursor, or any client that supports remote MCP servers."
+---
+
+The server speaks **Streamable HTTP** at `https://api.quotemarkets.xyz/mcp` and authenticates with **OAuth 2.1**. Discovery is standards-compliant (RFC 9728 / 8414 metadata, dynamic client registration, PKCE), so for most clients the setup is just the URL — the client discovers the auth flow, opens Quote's consent page in your browser, and you approve the scopes once.
+
+## Claude
+
+Add a custom connector: **Settings → Connectors → Add custom connector**, and paste:
+
+```
+https://api.quotemarkets.xyz/mcp
+```
+
+Claude walks you through the OAuth consent; after that, Quote's tools are available in your conversations.
+
+## Claude Code
+
+```bash
+claude mcp add --transport http quote https://api.quotemarkets.xyz/mcp
+```
+
+The first tool call triggers the browser-based OAuth flow.
+
+## Cursor / VS Code / other MCP clients
+
+Any client that supports remote (Streamable HTTP) MCP servers with OAuth works. The generic configuration shape:
+
+```json
+{
+  "mcpServers": {
+    "quote": {
+      "url": "https://api.quotemarkets.xyz/mcp"
+    }
+  }
+}
+```
+
+## How the OAuth flow works
+
+You don't need these details for the clients above — they're for anyone implementing a client or debugging a connection:
+
+| Endpoint | Role |
+|---|---|
+| `/.well-known/oauth-protected-resource` | Resource metadata (RFC 9728) — points clients at the authorization server |
+| `/.well-known/oauth-authorization-server` | Authorization-server metadata (RFC 8414) |
+| `POST /oauth/register` | Dynamic client registration (RFC 7591) |
+| `GET /oauth/authorize` | Redirects to Quote's consent page |
+| `POST /oauth/token` | Authorization-code + refresh-token grants, with PKCE |
+
+An unauthenticated call to `/mcp` returns `401` with a `WWW-Authenticate` header pointing at the metadata — which is how clients bootstrap the flow automatically. Refresh tokens rotate on use.
+
+## Headless access (no browser)
+
+For servers and scripts that can't run a browser consent flow, the same tools are exposed over REST under standard [Privy/HMAC auth](/authentication):
+
+```json
+POST /api/mcp/dispatch
+{
+  "tool": "get_price",
+  "arguments": { "symbol": "ETH" }
+}
+```
+
+Returns `{ "result": … }` on success or `{ "error": "…" }` on tool failure. `GET /api/mcp/tools` lists the catalog with input schemas; scope enforcement (`analytics:read` / `account:read`) applies per tool for API-key callers.

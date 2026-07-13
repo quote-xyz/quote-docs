@@ -96,8 +96,8 @@ Some endpoints are gated to Privy sessions and return `403` for API-key callers 
 
 ## Public endpoints
 
-A small read-only group requires no authentication (per-IP rate limited): `/api/info`, `/api/news`, the daily quote, and the root probes `/health`, `/ready`, `/metrics`. Everything else under `/api/*` requires auth.
+A small read-only group requires no authentication (per-IP rate limited): `/api/info` and the root probes `/health`, `/ready`, `/metrics`. Everything else under `/api/*` requires auth.
 
 ## MCP connector auth
 
-The [MCP connector](/guides/mcp-connector) endpoint (`/mcp`) is the one surface that uses neither Privy nor HMAC — it authenticates MCP clients with OAuth 2.1 bearer tokens issued through Quote's own authorization flow.
+The [MCP connector](/mcp/overview) endpoint (`/mcp`) is the one surface that uses neither Privy nor HMAC — it authenticates MCP clients with OAuth 2.1 bearer tokens issued through Quote's own authorization flow.

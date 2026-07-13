@@ -34,8 +34,8 @@ You authorize the agent **once**, by signing Hyperliquid's `approveAgent` action
     }
     ```
   </Step>
-  <Step title="Approve the builder fee">
-    Orders routed through Quote carry Quote's builder code (see [Hyperliquid constraints](/concepts/hyperliquid-constraints#builder-fee)). Your master wallet approves the builder fee once on Hyperliquid; `POST /api/agents/builder-approval` records it (Hyperliquid remains the source of truth).
+  <Step title="Approve the builder fee (required to trade)">
+    Every order routed through Quote carries Quote's builder code (see [Hyperliquid constraints](/concepts/hyperliquid-constraints#builder-fee)), and **Hyperliquid rejects orders from wallets that haven't approved the builder fee** — so this step is mandatory, not optional. Your master wallet signs the `approveBuilderFee` action once on Hyperliquid; `POST /api/agents/builder-approval` records it (Hyperliquid remains the source of truth). Until it's done, every order submission — terminal or API — fails.
   </Step>
   <Step title="Trade">
     Every order submission resolves your wallet's current agent, verifies its registration against Hyperliquid, and signs the exchange action with it.

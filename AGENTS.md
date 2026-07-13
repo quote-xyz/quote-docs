@@ -7,7 +7,7 @@
 
 - Public developer docs for **Quote** (quotemarkets.xyz), a trading terminal for Hyperliquid — built on [Mintlify](https://mintlify.com)
 - Pages are MDX files with YAML frontmatter; configuration lives in `docs.json`
-- The API Reference tab is auto-generated from `api-reference/openapi.yaml`, a copy of `quote-backend/docs/openapi.yaml` (that spec is the source of truth — sync it here after editing it there, and never hand-edit the copy)
+- The API Reference tab is auto-generated from `api-reference/openapi.yaml`, which is **generated** from `quote-backend/docs/openapi.yaml` by `scripts/sync-openapi.py` (that spec is the source of truth). The script strips non-trading surfaces (Quentin/NL-order, Parallel news, daily quote) — never hand-edit the generated file or copy the backend spec over it verbatim; re-run the script instead
 - Use the Mintlify MCP server, `https://mcp.mintlify.com`, to edit content and settings via MCP
 - Use the Mintlify docs MCP server, `https://www.mintlify.com/docs/mcp`, to query information about using Mintlify via MCP
 

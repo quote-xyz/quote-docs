@@ -41,7 +41,7 @@ Hyperliquid has no true market order. A "market" order is an **IOC limit** at a 
 
 ## Builder fee
 
-Orders routed through Quote carry Quote's builder code, which is how Quote monetizes without spread markup. You approve the builder fee once during [agent setup](/concepts/agent-wallets); the fee is denominated in tenths of a basis point and attached server-side. All execution analytics report builder fees separately from exchange fees so you always see the full cost picture.
+Every order routed through Quote carries Quote's builder code — this is how Quote monetizes without spread markup, and it is not optional: **Hyperliquid rejects orders from wallets that haven't approved the builder fee**, so approval is a hard prerequisite for trading via the terminal or the API. You approve it once during [agent setup](/concepts/agent-wallets); the fee is denominated in tenths of a basis point and attached server-side. Check `builderFeeApproved` on `GET /api/agents` before trading programmatically. All execution analytics report builder fees separately from exchange fees so you always see the full cost picture.
 
 ## Time in force
 

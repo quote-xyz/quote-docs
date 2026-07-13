@@ -11,11 +11,14 @@ Public developer documentation for [Quote](https://quotemarkets.xyz) — a profe
 ├── authentication.mdx         # Privy + HMAC, scopes, canonical string
 ├── concepts/                  # Wallet scoping, agent wallets, order lifecycle, venue constraints
 ├── strategies/                # Overview + one page per execution strategy
-├── guides/                    # API keys, orders, algos, triggers, templates, analytics, MCP
+├── guides/                    # API keys, orders, algos, triggers, templates, analytics
+├── mcp/                       # MCP server: overview, client setup, tools reference
 ├── websockets/                # /api/ws/algos telemetry protocol
-└── api-reference/
-    ├── introduction.mdx       # Conventions + error envelope
-    └── openapi.yaml           # Synced from quote-backend/docs/openapi.yaml (endpoint pages are auto-generated)
+├── api-reference/
+│   ├── introduction.mdx       # Conventions + error envelope
+│   └── openapi.yaml           # GENERATED — run scripts/sync-openapi.py, do not hand-edit
+└── scripts/
+    └── sync-openapi.py        # Curated sync from quote-backend/docs/openapi.yaml
 ```
 
 ## Local preview
@@ -33,13 +36,13 @@ The repo is connected to Mintlify — pushes to `main` deploy automatically. Cus
 
 ## Keeping the API reference in sync
 
-The endpoint pages are generated from `api-reference/openapi.yaml`, which is a **copy** of the hand-authored spec in the backend repo. After editing `quote-backend/docs/openapi.yaml`:
+The endpoint pages are generated from `api-reference/openapi.yaml`, which is produced from the hand-authored spec in the backend repo — **curated to the trading surface**: Quentin/NL-order, the Parallel news pipeline, and the daily quote are deliberately excluded. The exclusion list lives in the sync script. After editing `quote-backend/docs/openapi.yaml`:
 
 ```bash
-cp ../quote-backend/docs/openapi.yaml api-reference/openapi.yaml
+scripts/sync-openapi.py    # default source: ../quote-backend/docs/openapi.yaml
 ```
 
-The source of truth is `quote-backend/docs/openapi.yaml`.
+Never hand-edit `api-reference/openapi.yaml` or copy the backend spec over it verbatim — the source of truth is `quote-backend/docs/openapi.yaml`, filtered through the script.
 
 ## Conventions for new pages
 

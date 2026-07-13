@@ -8,7 +8,10 @@
     "light": "#34D399",
     "dark": "#059669"
   },
-  "favicon": "/favicon.svg",
+  "favicon": {
+    "light": "/favicon-light-mode.ico",
+    "dark": "/favicon-dark-mode.ico"
+  },
   "logo": {
     "light": "/logo/light.svg",
     "dark": "/logo/dark.svg"
@@ -55,8 +58,7 @@
               "guides/algo-orders",
               "guides/triggers",
               "guides/templates",
-              "guides/analytics",
-              "guides/mcp-connector"
+              "guides/analytics"
             ]
           },
           {
@@ -79,6 +81,19 @@
           {
             "group": "Endpoints",
             "openapi": "api-reference/openapi.yaml"
+          }
+        ]
+      },
+      {
+        "tab": "MCP",
+        "groups": [
+          {
+            "group": "MCP Server",
+            "pages": [
+              "mcp/overview",
+              "mcp/connect",
+              "mcp/tools"
+            ]
           }
         ]
       }
