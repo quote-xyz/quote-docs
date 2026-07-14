@@ -206,6 +206,12 @@ def main() -> None:
     for name in EXCLUDED_SCHEMAS:
         schemas.pop(name, None)
 
+    # Hide strategy knobs whose names hint at undocumented engine mechanics
+    # (and at the undocumented adaptive_is strategy).
+    strategy_props = schemas.get("StrategyParamsInput", {}).get("properties", {})
+    for prop in ("observationMode", "queueImproveThreshold", "distributionSkew"):
+        strategy_props.pop(prop, None)
+
     # API-key only: drop the Privy scheme entirely.
     spec["security"] = [{"ApiKeyHmac": []}]
     scheme = spec.get("components", {}).get("securitySchemes", {})

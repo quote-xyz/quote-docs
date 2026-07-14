@@ -1485,11 +1485,6 @@ components:
           format: int64
           nullable: true
           description: 0–100.
-        distributionSkew:
-          type: integer
-          format: int64
-          nullable: true
-          description: 0–100.
         randomize:
           type: boolean
           nullable: true
@@ -1506,15 +1501,8 @@ components:
         chaseEnabled:
           type: boolean
           nullable: true
-        observationMode:
-          type: boolean
-          nullable: true
         guaranteedCompletion:
           type: boolean
-          nullable: true
-        queueImproveThreshold:
-          type: integer
-          format: int64
           nullable: true
     SubmitOrderRequest:
       type: object
