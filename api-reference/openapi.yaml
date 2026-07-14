@@ -38,13 +38,12 @@ info:
     - **Minimum order notional ~$10**: Hyperliquid rejects orders below ~$10
       notional; sub-minimum child slices are skipped by strategies.
     - **Builder fee (approval required to trade)**: every order routed through
-      Quote carries Quote's builder code. Hyperliquid rejects orders whose
-      sender has not approved the builder fee, so trading via the API requires
-      a one-time `approveBuilderFee` signature from the master wallet
-      (performed in the terminal; verify via `builderFeeApproved` on
-      `GET /api/agents`). The builder address must be lowercase hex; the fee
-      field is in tenths of a basis point (2 bps = 20). Attachment is handled
-      server-side.
+      Quote carries Quote's builder code, and Quote requires the approval
+      before it will trade for a wallet. Approval is a one-time
+      `approveBuilderFee` signature from the master wallet (performed in the
+      terminal; verify via `builderFeeApproved` on `GET /api/agents`). The
+      builder address must be lowercase hex; the fee field is in tenths of a
+      basis point (2 bps = 20). Attachment is handled server-side.
     - **Price/size precision**: size is rounded to the asset's `szDecimals`;
       price is limited to 5 significant figures and `MAX_DECIMALS - szDecimals`
       decimal places.
@@ -99,9 +98,9 @@ paths:
         through Quote carry Quote's builder fee automatically.
 
         **Prerequisites:** a registered agent wallet AND builder-fee approval
-        on the caller's wallet. Hyperliquid rejects orders from wallets that
-        have not approved Quote's builder fee. Check `builderFeeApproved` via
-        `GET /api/agents` before trading.
+        on the caller's wallet. Quote requires the approval before it will
+        trade for a wallet; submissions without it fail. Check
+        `builderFeeApproved` via `GET /api/agents` before trading.
       operationId: submitOrder
       requestBody:
         required: true
@@ -330,9 +329,8 @@ paths:
         agent yields `success: true` with no `agentAddress`; an expired agent
         yields `expired: true`.
 
-        Before trading, also check `builderFeeApproved`: Hyperliquid rejects
-        Quote-routed orders from wallets that have not approved the builder
-        fee.
+        Before trading, also check `builderFeeApproved`: Quote requires the
+        approval before it will trade for a wallet.
 
         **Auth:** API-key scope: `agents:read`.
       operationId: getAgent
@@ -397,10 +395,10 @@ paths:
       summary: Record builder-fee approval
       description: |
         Record that the caller approved Quote's builder fee on Hyperliquid
-        (HL is the source of truth). Builder-fee approval is **required to
-        trade**: the `approveBuilderFee` action is signed by the master wallet
-        and submitted to Hyperliquid by the terminal; without it Hyperliquid
-        rejects every Quote-routed order.
+        (HL is the source of truth for the approval itself). Builder-fee
+        approval is **required to trade**: the `approveBuilderFee` action is
+        signed by the master wallet and submitted by the terminal; Quote will
+        not trade for a wallet without it.
 
         **Auth:** API-key scope: `agents:write`.
       operationId: recordBuilderApproval

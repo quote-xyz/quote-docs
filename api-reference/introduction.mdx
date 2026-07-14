@@ -27,7 +27,7 @@ Full details, the canonical signing string, and code samples: [Authentication](/
 Order, position, and strategy endpoints require two one-time setup steps on the wallet, both performed in the [terminal](https://quotemarkets.xyz):
 
 1. A **registered [agent wallet](/concepts/agent-wallets)**. Quote signs venue actions with it.
-2. **Builder-fee approval**. Every Quote-routed order carries Quote's builder code, and Hyperliquid rejects orders from wallets that have not approved the fee. Without it, order submission fails.
+2. **Builder-fee approval**. Every Quote-routed order carries Quote's builder code, and Quote requires the approval before it will trade for your wallet. Without it, order submission fails.
 
 Verify both with `GET /api/agents`: you need an `agentAddress` with `expired: false` and `builderFeeApproved: true`.
 

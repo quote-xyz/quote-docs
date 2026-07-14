@@ -112,7 +112,7 @@ This guide takes you from zero to a filled order over the API. You need a Quote 
     Two things must be true before you can trade:
 
     - an `agentAddress` is present and not `expired`: the agent signs your orders;
-    - `builderFeeApproved` is `true`. This is **required**: every Quote-routed order carries Quote's builder code, and Hyperliquid rejects orders from wallets that haven't approved the fee.
+    - `builderFeeApproved` is `true`. This is **required**: every Quote-routed order carries Quote's builder code, and Quote will not trade for a wallet that has not approved the fee.
 
     If either is missing, complete agent setup in the terminal first (both steps require a signature from your main wallet, which API keys can't produce).
   </Step>
