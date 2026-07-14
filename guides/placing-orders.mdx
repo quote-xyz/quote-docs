@@ -7,8 +7,7 @@ This guide covers plain (non-algo) orders. For execution strategies, see [Algo O
 
 ## Limit orders
 
-```json
-POST /api/orders
+```json title="POST /api/orders"
 {
   "symbol": "ETH",
   "side": "buy",
@@ -26,7 +25,7 @@ POST /api/orders
 
 The response returns the venue `orderId`:
 
-```json
+```json title="Response"
 { "success": true, "orderId": "1234567890", "status": "resting", "provider": "hyperliquid" }
 ```
 
@@ -34,8 +33,7 @@ The response returns the venue `orderId`:
 
 Hyperliquid market orders are IOC limits with a slippage bound, so **`limitPrice` is required**. It is the worst price you will accept:
 
-```json
-POST /api/orders
+```json title="POST /api/orders"
 {
   "symbol": "ETH",
   "side": "buy",
@@ -75,8 +73,7 @@ Attach take-profit / stop-loss to any order with `tpsl`:
 
 ## Modifying an order
 
-```json
-POST /api/orders/modify
+```json title="POST /api/orders/modify"
 {
   "symbol": "ETH",
   "orderId": 1234567890,
@@ -92,15 +89,13 @@ This uses Hyperliquid's native modify: the order keeps working, and price and/or
 
 Single order:
 
-```json
-POST /api/orders/cancel
+```json title="POST /api/orders/cancel"
 { "symbol": "ETH", "orderId": "1234567890" }
 ```
 
 All open orders (optionally per symbol):
 
-```json
-POST /api/orders/cancel-all
+```json title="POST /api/orders/cancel-all"
 { "symbol": "ETH" }
 ```
 

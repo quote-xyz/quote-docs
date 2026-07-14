@@ -10,7 +10,7 @@ description: "The async-accept model: what a 200 actually means, how algo parent
 - For a **plain order**, `orderId` is the venue order ID and the order is live on Hyperliquid.
 - For an **algo strategy** (`strategy` set), `orderId` is the **parent strategy ID**. Fills arrive asynchronously as the engine works the order; track progress via [`GET /api/orders/algo`](/guides/algo-orders) or the [algo status WebSocket](/websockets/algo-status).
 
-```json
+```json title="Response"
 {
   "success": true,
   "orderId": "01HZX…",

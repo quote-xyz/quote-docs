@@ -46,7 +46,7 @@ Verify both with `GET /api/agents`: you need an `agentAddress` with `expired: fa
 
 All `4xx`/`5xx` responses (except `413` and bodyless `204`) share one shape:
 
-```json
+```json title="Response"
 { "success": false, "error": "human-readable message" }
 ```
 
@@ -54,7 +54,7 @@ All `4xx`/`5xx` responses (except `413` and bodyless `204`) share one shape:
 |---|---|
 | `400` | Validation error: malformed body, bad UUID, out-of-range parameter |
 | `401` | Missing or invalid credentials (bad signature, stale timestamp) |
-| `403` | Authenticated but not permitted: missing scope, or API key on a Privy-only endpoint |
+| `403` | Authenticated but not permitted: the API key lacks the required scope |
 | `404` | Resource not found **or not owned by your wallet** |
 | `429` | Rate limit exceeded |
 | `502` | Upstream venue (Hyperliquid/Relay) returned an error |

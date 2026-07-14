@@ -55,8 +55,7 @@ An unauthenticated call to `/mcp` returns `401` with a `WWW-Authenticate` header
 
 For servers and scripts that can't run a browser consent flow, the same tools are exposed over REST under standard [Privy/HMAC auth](/authentication):
 
-```json
-POST /api/mcp/dispatch
+```json title="POST /api/mcp/dispatch"
 {
   "tool": "get_price",
   "arguments": { "symbol": "ETH" }

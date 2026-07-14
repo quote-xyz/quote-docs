@@ -7,8 +7,7 @@ An algo order is a plain `POST /api/orders` with `strategy` set. The engine acce
 
 ## Submitting
 
-```json
-POST /api/orders
+```json title="POST /api/orders"
 {
   "symbol": "ETH",
   "side": "buy",
@@ -23,7 +22,7 @@ POST /api/orders
 }
 ```
 
-```json
+```json title="Response"
 { "success": true, "orderId": "01HZX8…", "status": "accepted", "provider": "hyperliquid" }
 ```
 
@@ -40,7 +39,7 @@ List all your algo orders:
 GET /api/orders/algo
 ```
 
-```json
+```json title="Response"
 {
   "success": true,
   "orders": [
@@ -68,8 +67,7 @@ For push-based progress (the terminal's live "Placing child order…" telemetry)
 
 ## Cancelling
 
-```json
-POST /api/orders/cancel
+```json title="POST /api/orders/cancel"
 { "symbol": "ETH", "orderId": "01HZX8…" }
 ```
 
