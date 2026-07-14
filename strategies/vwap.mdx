@@ -37,8 +37,7 @@ POST /api/orders
 
 ## Behavior notes
 
-- **The profile is per-asset and horizon-aware.** Volume curves differ sharply between crypto majors, builder-DEX equities (which follow underlying market hours), and prediction markets. The engine builds the profile from the asset's own history and skips profile-weighting on horizons too short for it to matter.
-- **Weekends are handled.** Weekend volume magnitude differs from weekdays; the forecast scales for it rather than assuming a uniform week.
+- **The profile is per-asset and horizon-aware.** Volume curves differ sharply between crypto majors, builder-DEX equities (which follow underlying market hours), and prediction markets; the engine builds each profile from the asset's own history. How the forecast is built and rebalanced is deliberately not specified here.
 - **Falls back gracefully.** If no usable profile exists for the asset/window, slicing degrades to uniform TWAP behavior rather than stalling.
 - The engine's VWAP forecasting has been verified by walk-forward testing on real Hyperliquid data across all product classes.
 

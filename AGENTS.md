@@ -38,6 +38,7 @@
 
 ## Content boundaries
 
+- Never document execution micro-mechanics: state machines, repricing rules or thresholds, timing defaults, randomization or anti-detection details. Describe each strategy by its objective, its user-set parameters, and its completion semantics only. Publishing mechanics helps adversaries detect and trade against user orders
 - Document actual backend behavior, grounded in `quote-backend` source or the OpenAPI spec, not roadmap or intent
 - Never document internal/admin surfaces (`/api/admin/*`, ops tooling, infrastructure) or reproduce content from `quote-backend/docs/` internal notes
 - Every page must be listed in `docs.json` navigation; unlisted pages are still publicly served, so no drafts of sensitive material in this repo

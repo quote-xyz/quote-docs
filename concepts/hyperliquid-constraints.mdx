@@ -26,7 +26,7 @@ ALO (Add Liquidity Only / post-only) orders are rejected by the venue if the pri
 - Buy ALO: price must be strictly **below** the best ask.
 - Sell ALO: price must be strictly **above** the best bid.
 
-The book can move between your snapshot and your order arriving on-chain. Quote's strategies guard for this by clamping passive prices inside the spread. On one-tick-spread assets (like SOL) that guard fires constantly, which is normal.
+The book can move between your snapshot and your order arriving on-chain, so guard your own ALO prices accordingly. Quote's strategies handle this automatically for their child orders.
 
 ## Market orders are IOC limits with a slippage bound
 

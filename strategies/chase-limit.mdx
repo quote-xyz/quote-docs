@@ -1,11 +1,11 @@
 ---
 title: "Chase Limit"
-description: "A limit order that follows the best bid/offer, tightening with each attempt, within a hard time and attempt budget."
+description: "A limit order that follows the best bid/offer within a hard time and attempt budget."
 ---
 
-`chase_limit` is for when you want **one fill near the touch, soon**, without paying the full spread of a market order. It places a limit order at an offset from the BBO. When the market moves away, it cancels and re-pegs at the new level. Each successive attempt tightens the offset, converging toward the touch, until the order fills or the attempt/time budget runs out.
+`chase_limit` is for when you want **one fill near the touch, soon**, without paying the full spread of a market order. It places a limit order near the BBO and follows the market as it moves, converging toward the touch until the order fills or the attempt/time budget runs out.
 
-It is a patient version of a marketable limit: it chases price moves, but only within a bound you set.
+It is a patient version of a marketable limit: it chases price moves, but only within bounds you set.
 
 ## Example
 
@@ -19,28 +19,24 @@ POST /api/orders
   "strategy": "chase_limit",
   "params": {
     "maxAttempts": 8,
-    "attemptTimeoutSecs": 3,
-    "maxTotalSecs": 30,
-    "initialOffsetBps": "5",
-    "tightenBps": "1"
+    "maxTotalSecs": 30
   }
 }
 ```
 
-Attempt 1 rests 5 bps behind the touch for up to 3 seconds; each re-peg tightens by 1 bp, for at most 8 attempts or 30 seconds total.
+This chases for at most 8 attempts or 30 seconds, whichever comes first.
 
 ## Parameters
 
 | Parameter | Type | Default | Description |
 |---|---|---|---|
 | `maxAttempts` | integer | `8` | Maximum number of placements/re-pegs |
-| `attemptTimeoutSecs` | integer | `3` | How long each attempt rests before re-pegging |
 | `maxTotalSecs` | integer | `30` | Hard wall-clock budget for the whole chase |
-| `initialOffsetBps` | decimal | `5` | Starting offset behind the touch |
-| `tightenBps` | decimal | `1` | Offset reduction per attempt |
+| `initialOffsetBps` | decimal | server default | Starting offset behind the touch |
 | `minOffsetBps` | decimal | `0` | Floor for the offset (0 = allowed to reach the touch) |
-| `repriceThresholdBps` | decimal | `0` | Minimum BBO move before re-pegging mid-attempt |
 | `reduceOnly` | boolean | `false` | Only reduce an existing position |
+
+The re-peg cadence and how quickly the chase converges toward the touch are managed by the engine and vary with market conditions; they are deliberately not specified here.
 
 ## Behavior notes
 

@@ -38,18 +38,14 @@ This works 2.5 ETH over 30 minutes in 30 slices, spending 80% of each minute res
 | `minSpreadBps` | decimal | none | Skip passive placement when the spread is tighter than this (go straight to schedule) |
 | `guaranteedCompletion` | boolean | `false` | Sweep all remaining size with one wide-tolerance IOC at the end of the window |
 | `completionSlippageBps` | decimal | `100` | Slippage tolerance for the guaranteed-completion sweep |
-| `queueImproveThreshold` | integer | `0` | Queue-jump feature. Leave at `0` (see note) |
 | `reduceOnly` | boolean | `false` | Children only reduce an existing position |
 | `attachedTpsl` | object | none | Attach TP/SL to the resulting position |
 
-<Warning>
-  Leave `queueImproveThreshold` at `0`. Placing one tick inside the spread to jump the queue backfires on tight-spread assets: on one-tick spreads the improved price is clamped back to the BBO, and on wider books it measurably reduced fill rates in production testing.
-</Warning>
+How passive orders are placed, repriced, and converted is managed by the engine and varies with market conditions; those mechanics are deliberately not specified here.
 
 ## Behavior notes
 
-- **Slice sizing vs. the $10 minimum.** Slices below Hyperliquid's ~$10 minimum notional are skipped, and near-complete slices are folded into the remainder. Choose `numSlices` so each slice clears the minimum comfortably; see [Hyperliquid constraints](/concepts/hyperliquid-constraints#minimum-order-notional-10).
-- **Repricing.** If the BBO moves more than a tick while a passive order rests, the order is cancelled and re-placed at the new touch rather than converting to aggressive.
+- **Slice sizing vs. the $10 minimum.** Slices below Hyperliquid's ~$10 minimum notional are skipped. Choose `numSlices` so each slice clears the minimum comfortably; see [Hyperliquid constraints](/concepts/hyperliquid-constraints#minimum-order-notional-10).
 - **Behind schedule?** If passive fills lag, the aggressive fallback per slice keeps the schedule. With `guaranteedCompletion`, any final remainder is swept at window end within `completionSlippageBps`.
 - **Restart-safe.** Slice state is reconstructed on engine restart; resting children are recovered from the venue rather than duplicated.
 

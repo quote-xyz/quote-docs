@@ -37,18 +37,11 @@ Quote's execution engine runs five strategies. You select one by setting `strate
 
 ### The passive → aggressive cycle
 
-Time-sliced strategies work each slice through the same state machine:
+Time-sliced strategies share one principle: rest passively first, take liquidity only when the schedule demands it. Passive child orders sit on the book earning the spread and maker fees; if a slice falls behind, the engine takes liquidity to keep the order on schedule.
 
-```
-idle → passive → cancelling → aggressive → idle → …
-```
+The `passivePct` parameter sets the balance: higher values wait longer for passive fills before taking liquidity; lower values trade cost for completion certainty.
 
-1. **Passive**: an ALO (post-only) order rests at the best bid/offer, earning the spread and maker fees.
-2. **Cancelling**: the slice's passive deadline has expired. The resting order is cancelled, confirmed via the venue stream before proceeding.
-3. **Aggressive**: an IOC order takes liquidity to complete the slice on schedule.
-4. If the BBO moves more than a tick while passive, the order **reprices**: it is re-placed passively at the new level rather than going aggressive.
-
-The `passivePct` parameter controls how much of each slice interval is spent resting passively before the aggressive fallback.
+How and when child orders are placed, repriced, and converted is managed by the engine and adapts to market conditions. Those mechanics are deliberately not documented: publishing them would help others detect and trade against your orders.
 
 ### Common parameters
 
