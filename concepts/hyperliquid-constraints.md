@@ -1,11 +1,13 @@
 ---
-title: "Hyperliquid Constraints"
-description: "Venue rules that shape every order: minimum notional, price and size precision, ALO crossing, builder fees, and market-order slippage prices."
+description: 'Venue rules that shape every order: minimum notional, price and size precision,
+  ALO crossing, builder fees, and market-order slippage prices.'
 ---
+
+# Hyperliquid Constraints
 
 Hyperliquid enforces several non-obvious rules. Quote handles most of them server-side, but they explain behavior you will see: skipped slices, adjusted prices, rejected orders.
 
-## Minimum order notional: ~$10
+## Minimum order notional: ~$10 <a href="#minimum-order-notional-10" id="minimum-order-notional-10"></a>
 
 Hyperliquid rejects any order below roughly **$10 notional**. Consequences:
 
@@ -35,15 +37,15 @@ Hyperliquid has no true market order. A "market" order is an **IOC limit** at a 
 - Buy: anchor to the best **ask** (e.g. `bestAsk × 1.05` for 5% max slippage).
 - Sell: anchor to the best **bid** (e.g. `bestBid × 0.95`).
 
-<Warning>
-  Anchor slippage to the best opposing quote, **not** the mid price. On wide-spread books (outcome markets can quote `0.00126 / 0.01013`), `mid × 1.05` sits *below* the best ask, so the IOC crosses nothing and silently fills zero.
-</Warning>
+{% hint style="warning" %}
+Anchor slippage to the best opposing quote, **not** the mid price. On wide-spread books (outcome markets can quote `0.00126 / 0.01013`), `mid × 1.05` sits *below* the best ask, so the IOC crosses nothing and silently fills zero.
+{% endhint %}
 
 ## Builder fee
 
 Quote monetizes through Hyperliquid's builder-code mechanism, not through spread markup or subscriptions. Every order routed through Quote carries Quote's builder code; the fee is attached server-side and denominated in tenths of a basis point.
 
-**Quote requires builder-fee approval before it will trade for your wallet.** You sign the approval once with your master wallet during [agent setup](/concepts/agent-wallets); until then, every order submission fails, from the terminal and the API alike. Before trading programmatically, confirm that `builderFeeApproved` is `true` on `GET /api/agents`.
+**Quote requires builder-fee approval before it will trade for your wallet.** You sign the approval once with your master wallet during [agent setup](agent-wallets.md); until then, every order submission fails, from the terminal and the API alike. Before trading programmatically, confirm that `builderFeeApproved` is `true` on `GET /api/agents`.
 
 The fee is never hidden: execution analytics report builder fees separately from exchange fees, so you always see the full cost of every fill.
 

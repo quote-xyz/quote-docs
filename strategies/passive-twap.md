@@ -1,13 +1,15 @@
 ---
-title: "Passive TWAP"
-description: "Time-sliced execution that rests passively at the touch and falls back to aggressive orders to stay on schedule. Guaranteed completion."
+description: Time-sliced execution that rests passively at the touch and falls back to aggressive orders to stay on schedule. Guaranteed completion.
 ---
+
+# Passive TWAP
 
 `passive_twap` splits your order into equal slices over a fixed window. Each slice first rests as a post-only (ALO) order at the best bid/offer, capturing the spread and earning maker fees. If a slice has not filled by its deadline, it converts to an aggressive IOC order. The result is TWAP scheduling at better prices than naive market-order slicing, with completion by end of window when `guaranteedCompletion` is set.
 
 ## Example
 
-```json title="POST /api/orders"
+{% code title="POST /api/orders" %}
+```json
 {
   "symbol": "ETH",
   "side": "buy",
@@ -22,6 +24,7 @@ description: "Time-sliced execution that rests passively at the touch and falls 
   }
 }
 ```
+{% endcode %}
 
 This works 2.5 ETH over 30 minutes in 30 slices, spending 80% of each minute resting passively before taking liquidity.
 
@@ -44,11 +47,11 @@ How passive orders are placed, repriced, and converted is managed by the engine 
 
 ## Behavior notes
 
-- **Slice sizing vs. the $10 minimum.** Slices below Hyperliquid's ~$10 minimum notional are skipped. Choose `numSlices` so each slice clears the minimum comfortably; see [Hyperliquid constraints](/concepts/hyperliquid-constraints#minimum-order-notional-10).
+- **Slice sizing vs. the $10 minimum.** Slices below Hyperliquid's ~$10 minimum notional are skipped. Choose `numSlices` so each slice clears the minimum comfortably; see [Hyperliquid constraints](../concepts/hyperliquid-constraints.md#minimum-order-notional-10).
 - **Behind schedule?** If passive fills lag, the aggressive fallback per slice keeps the schedule. With `guaranteedCompletion`, any final remainder is swept at window end within `completionSlippageBps`.
 - **Restart-safe.** Slice state is reconstructed on engine restart; resting children are recovered from the venue rather than duplicated.
 
 ## When to use something else
 
-- You're benchmarked to volume, not time → [VWAP](/strategies/vwap).
-- No deadline, and hiding size matters most → [Iceberg](/strategies/iceberg).
+- You're benchmarked to volume, not time → [VWAP](vwap.md).
+- No deadline, and hiding size matters most → [Iceberg](iceberg.md).

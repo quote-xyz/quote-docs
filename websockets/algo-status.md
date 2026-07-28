@@ -1,7 +1,9 @@
 ---
-title: "Algo Status WebSocket"
-description: "Live strategy-engine telemetry: parent lifecycle, child order activity, and progress, pushed per wallet."
+description: 'Live strategy-engine telemetry: parent lifecycle, child order activity, and
+  progress, pushed per wallet.'
 ---
+
+# Algo Status WebSocket
 
 The algo status WebSocket streams the execution engine's live telemetry for **your wallet's running strategies**. It is the same feed that powers the terminal's animated "Placing child order…" status. Use it instead of polling `GET /api/orders/algo` when you want real-time progress.
 
@@ -9,9 +11,9 @@ The algo status WebSocket streams the execution engine's live telemetry for **yo
 wss://api.quotemarkets.xyz/api/ws/algos
 ```
 
-<Note>
-  This socket is **telemetry, not a ledger**. It is the right source for progress UX. For authoritative fills, positions, and balances, use the REST API and Hyperliquid's own data. If a client lags, the server drops the oldest frames rather than disconnecting; the current state is always re-derivable.
-</Note>
+{% hint style="info" %}
+This socket is **telemetry, not a ledger**. It is the right source for progress UX. For authoritative fills, positions, and balances, use the REST API and Hyperliquid's own data. If a client lags, the server drops the oldest frames rather than disconnecting; the current state is always re-derivable.
+{% endhint %}
 
 ## Connecting and authenticating
 
@@ -23,9 +25,9 @@ The upgrade itself is unauthenticated. The **first client frame** must be an aut
 
 On success, the server immediately **hydrates** the session: it replays a `parent_created` frame for every strategy currently active on your wallet, then streams live events. On reconnect you get the same hydration, so no running algo is ever missing from your view.
 
-<Warning>
-  Authentication is identity-token only (a terminal session credential). HMAC API keys are not accepted on this socket. API-key clients should poll [`GET /api/orders/algo`](/guides/algo-orders#tracking-progress).
-</Warning>
+{% hint style="warning" %}
+Authentication is identity-token only (a terminal session credential). HMAC API keys are not accepted on this socket. API-key clients should poll [`GET /api/orders/algo`](../guides/algo-orders.md#tracking-progress).
+{% endhint %}
 
 ## Frame format
 
@@ -60,7 +62,7 @@ Decimals are strings; `timestamp` is epoch milliseconds.
 | `parent_completed` | `Done` / `Cancelled` | Strategy reached a terminal success/cancel state | `{ status }` |
 | `parent_failed` | `Failed` / `Expired` | Terminal failure. `Expired` means it ended with no fill (benign for no-deadline strategies) | `{ error, expired }` |
 
-Frames may also carry an optional `benchmark` snapshot with provisional execution-quality numbers as the strategy runs (same [conventions](/guides/analytics#the-benchmark-convention) as the analytics API).
+Frames may also carry an optional `benchmark` snapshot with provisional execution-quality numbers as the strategy runs (same [conventions](../guides/analytics.md#the-benchmark-convention) as the analytics API).
 
 ## Client pattern
 

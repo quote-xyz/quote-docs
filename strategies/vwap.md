@@ -1,15 +1,18 @@
 ---
-title: "VWAP"
-description: "Volume-proportional execution: slice sizes follow the asset's intraday volume profile instead of the clock."
+description: 'Volume-proportional execution: slice sizes follow the asset''s intraday volume
+  profile instead of the clock.'
 ---
+
+# VWAP
 
 `vwap` executes your order in proportion to how the market actually trades through the day. Instead of equal time slices, each slice's size follows a volume profile built from historical candle data for the asset: larger slices when the market is typically busy, smaller when it is quiet. Use it when your benchmark is the market VWAP over your window.
 
-Each slice still runs the standard [passive → aggressive cycle](/strategies/overview#the-passive--aggressive-cycle), so you're capturing spread within the volume schedule.
+Each slice still runs the standard [passive → aggressive cycle](overview.md#the-passive-aggressive-cycle), so you're capturing spread within the volume schedule.
 
 ## Example
 
-```json title="POST /api/orders"
+{% code title="POST /api/orders" %}
+```json
 {
   "symbol": "BTC",
   "side": "buy",
@@ -22,6 +25,7 @@ Each slice still runs the standard [passive → aggressive cycle](/strategies/ov
   }
 }
 ```
+{% endcode %}
 
 ## Parameters
 
@@ -42,5 +46,5 @@ Each slice still runs the standard [passive → aggressive cycle](/strategies/ov
 
 ## When to use something else
 
-- Deadline matters more than tracking volume → [Passive TWAP](/strategies/passive-twap) with `guaranteedCompletion`.
-- You want to scale with *live* volume rather than the historical curve → [Participation Rate](/strategies/participation-rate).
+- Deadline matters more than tracking volume → [Passive TWAP](passive-twap.md) with `guaranteedCompletion`.
+- You want to scale with *live* volume rather than the historical curve → [Participation Rate](participation-rate.md).

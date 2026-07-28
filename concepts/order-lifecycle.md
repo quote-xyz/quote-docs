@@ -1,16 +1,19 @@
 ---
-title: "Order Lifecycle"
-description: "The async-accept model: what a 200 actually means, how algo parents relate to child orders, and the exact semantics of cancellation."
+description: 'The async-accept model: what a 200 actually means, how algo parents relate to
+  child orders, and the exact semantics of cancellation.'
 ---
+
+# Order Lifecycle
 
 ## Async-accept: what a 200 means
 
 `POST /api/orders` returns `200` when your order (or strategy) is **accepted into the execution engine**, *not* when it fills.
 
 - For a **plain order**, `orderId` is the venue order ID and the order is live on Hyperliquid.
-- For an **algo strategy** (`strategy` set), `orderId` is the **parent strategy ID**. Fills arrive asynchronously as the engine works the order; track progress via [`GET /api/orders/algo`](/guides/algo-orders) or the [algo status WebSocket](/websockets/algo-status).
+- For an **algo strategy** (`strategy` set), `orderId` is the **parent strategy ID**. Fills arrive asynchronously as the engine works the order; track progress via [`GET /api/orders/algo`](../guides/algo-orders.md) or the [algo status WebSocket](../websockets/algo-status.md).
 
-```json title="Response"
+{% code title="Response" %}
+```json
 {
   "success": true,
   "orderId": "01HZX…",
@@ -18,6 +21,7 @@ description: "The async-accept model: what a 200 actually means, how algo parent
   "provider": "hyperliquid"
 }
 ```
+{% endcode %}
 
 ## Parents and children
 
@@ -44,21 +48,29 @@ Key properties:
 
 Cancelling an algo parent is a **request**, not an instant state change:
 
-<Steps>
-  <Step title="Cancel accepted">
-    `POST /api/orders/cancel` with the parent `orderId` returns `200` once the cancel request is durably recorded. The engine stops scheduling new strategy work immediately.
-  </Step>
-  <Step title="Children reconciled">
-    The engine cancels the strategy's open child orders on Hyperliquid and confirms none remain open. Fills that landed before cancellation are yours.
-  </Step>
-  <Step title="Terminal state recorded">
-    Only after no known child order remains open does the strategy record terminal `cancelled`.
-  </Step>
-</Steps>
+{% stepper %}
+{% step %}
+#### Cancel accepted
 
-<Warning>
-  Parent-cancel HTTP success means the cancel was **durably accepted**, not that the strategy is already terminal. Poll `GET /api/orders/algo/{order_id}` (or watch the WebSocket) if you need to confirm the terminal state before, say, submitting a replacement order.
-</Warning>
+`POST /api/orders/cancel` with the parent `orderId` returns `200` once the cancel request is durably recorded. The engine stops scheduling new strategy work immediately.
+{% endstep %}
+
+{% step %}
+#### Children reconciled
+
+The engine cancels the strategy's open child orders on Hyperliquid and confirms none remain open. Fills that landed before cancellation are yours.
+{% endstep %}
+
+{% step %}
+#### Terminal state recorded
+
+Only after no known child order remains open does the strategy record terminal `cancelled`.
+{% endstep %}
+{% endstepper %}
+
+{% hint style="warning" %}
+Parent-cancel HTTP success means the cancel was **durably accepted**, not that the strategy is already terminal. Poll `GET /api/orders/algo/{order_id}` (or watch the WebSocket) if you need to confirm the terminal state before, say, submitting a replacement order.
+{% endhint %}
 
 Plain (non-algo) orders cancel synchronously: `200` means the venue confirmed the cancel.
 

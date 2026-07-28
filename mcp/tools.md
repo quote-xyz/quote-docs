@@ -1,7 +1,8 @@
 ---
-title: "Tools Reference"
-description: "Every tool the Quote MCP server exposes, its required scope, and what it returns."
+description: Every tool the Quote MCP server exposes, its required scope, and what it returns.
 ---
+
+# Tools Reference
 
 The authoritative, always-current catalog, including full input schemas, is served by the API itself:
 
@@ -30,16 +31,16 @@ GET /api/mcp/guide    # an operating guide written for agents (markdown)
 
 | Tool | What it returns |
 |---|---|
-| `get_execution_report` | Your execution quality: benchmarks, slippage, savings ([conventions](/guides/analytics#the-benchmark-convention)) |
+| `get_execution_report` | Your execution quality: benchmarks, slippage, savings ([conventions](../guides/analytics.md#the-benchmark-convention)) |
 | `get_portfolio_report` | Portfolio analytics: equity, PnL decomposition |
 | `get_funding_carry` | Funding economics of your current positions |
 | `list_triggers` | Your conditional triggers |
 | `get_fee_info` | Your fee tier and builder-fee status |
 | `get_referral_summary` | Referral rewards and discount status |
 
-<Note>
-  Account tools answer only for the wallet the token was issued for. Tool listings are scope-filtered: a token without `account:read` never sees these tools at all.
-</Note>
+{% hint style="info" %}
+Account tools answer only for the wallet the token was issued for. Tool listings are scope-filtered: a token without `account:read` never sees these tools at all.
+{% endhint %}
 
 ## Example prompts
 

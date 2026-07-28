@@ -1,7 +1,8 @@
 ---
-title: "Agent Wallets"
-description: "How Quote trades on your behalf without ever holding your funds."
+description: How Quote trades on your behalf without ever holding your funds.
 ---
+
+# Agent Wallets
 
 Quote is **non-custodial**. It never holds your keys or your funds. Instead, trading happens through Hyperliquid's native agent-wallet mechanism: a separate secp256k1 key that can *sign orders* for your account but can **never withdraw**.
 
@@ -18,33 +19,44 @@ You authorize the agent **once**, by signing Hyperliquid's `approveAgent` action
 
 ## Lifecycle
 
-<Steps>
-  <Step title="Create">
-    `POST /api/agents` generates a fresh agent keypair server-side. The private key is encrypted at rest; the response returns only the public `agentAddress`.
-  </Step>
-  <Step title="Approve on Hyperliquid">
-    Your master wallet signs an `approveAgent` action over the agent address and a nonce (a millisecond timestamp). The terminal handles this signature; then `POST /api/agents/register` submits it to Hyperliquid.
+{% stepper %}
+{% step %}
+#### Create
 
-    ```json
-    {
-      "agentAddress": "0x…",
-      "signature": "0x…",
-      "nonce": 1752402000000,
-      "agentName": "quote-terminal"
-    }
-    ```
-  </Step>
-  <Step title="Approve the builder fee (required to trade)">
-    Every order routed through Quote carries Quote's builder code (see [Builder fee](/concepts/hyperliquid-constraints#builder-fee)), and **Quote requires the approval before it will trade for your wallet**. Your master wallet signs the `approveBuilderFee` action once; `POST /api/agents/builder-approval` records it (Hyperliquid remains the source of truth for the approval itself). Until this step is done, every order submission fails, from the terminal and the API alike.
-  </Step>
-  <Step title="Trade">
-    Every order submission resolves your wallet's current agent, verifies its registration against Hyperliquid, and signs the exchange action with it.
-  </Step>
-</Steps>
+`POST /api/agents` generates a fresh agent keypair server-side. The private key is encrypted at rest; the response returns only the public `agentAddress`.
+{% endstep %}
 
-<Note>
-  Steps 2 and 3 require signatures from your **master wallet**, which only a terminal session can produce. API-key clients can create and read agents (`agents:write` / `agents:read`) but the initial approval happens in the [terminal](https://quotemarkets.xyz).
-</Note>
+{% step %}
+#### Approve on Hyperliquid
+
+Your master wallet signs an `approveAgent` action over the agent address and a nonce (a millisecond timestamp). The terminal handles this signature; then `POST /api/agents/register` submits it to Hyperliquid.
+
+```json
+{
+  "agentAddress": "0x…",
+  "signature": "0x…",
+  "nonce": 1752402000000,
+  "agentName": "quote-terminal"
+}
+```
+{% endstep %}
+
+{% step %}
+#### Approve the builder fee (required to trade)
+
+Every order routed through Quote carries Quote's builder code (see [Builder fee](hyperliquid-constraints.md#builder-fee)), and **Quote requires the approval before it will trade for your wallet**. Your master wallet signs the `approveBuilderFee` action once; `POST /api/agents/builder-approval` records it (Hyperliquid remains the source of truth for the approval itself). Until this step is done, every order submission fails, from the terminal and the API alike.
+{% endstep %}
+
+{% step %}
+#### Trade
+
+Every order submission resolves your wallet's current agent, verifies its registration against Hyperliquid, and signs the exchange action with it.
+{% endstep %}
+{% endstepper %}
+
+{% hint style="info" %}
+Steps 2 and 3 require signatures from your **master wallet**, which only a terminal session can produce. API-key clients can create and read agents (`agents:write` / `agents:read`) but the initial approval happens in the [terminal](https://quotemarkets.xyz).
+{% endhint %}
 
 ## Signing flow
 
@@ -63,7 +75,8 @@ Before signing, Quote verifies with Hyperliquid that the agent is still register
 GET /api/agents
 ```
 
-```json title="Response"
+{% code title="Response" %}
+```json
 {
   "success": true,
   "agentAddress": "0x…",
@@ -74,6 +87,7 @@ GET /api/agents
   "termsVersion": "1.0"
 }
 ```
+{% endcode %}
 
 - A missing/unregistered agent returns `success: true` with no `agentAddress`.
 - An expired agent returns `expired: true`. Re-run the approval flow in the terminal.

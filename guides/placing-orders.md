@@ -1,13 +1,16 @@
 ---
-title: "Placing Orders"
-description: "Limit and market orders, TP/SL attachment, modify, and cancel: the plain-order surface."
+description: 'Limit and market orders, TP/SL attachment, modify, and cancel: the plain-order
+  surface.'
 ---
 
-This guide covers plain (non-algo) orders. For execution strategies, see [Algo Orders](/guides/algo-orders).
+# Placing Orders
+
+This guide covers plain (non-algo) orders. For execution strategies, see [Algo Orders](algo-orders.md).
 
 ## Limit orders
 
-```json title="POST /api/orders"
+{% code title="POST /api/orders" %}
+```json
 {
   "symbol": "ETH",
   "side": "buy",
@@ -17,23 +20,27 @@ This guide covers plain (non-algo) orders. For execution strategies, see [Algo O
   "timeInForce": "GTC"
 }
 ```
+{% endcode %}
 
-- `size` and `limitPrice` are decimal **strings**, never floats. Quote normalizes them to the asset's [precision rules](/concepts/hyperliquid-constraints#price-and-size-precision).
+- `size` and `limitPrice` are decimal **strings**, never floats. Quote normalizes them to the asset's [precision rules](../concepts/hyperliquid-constraints.md#price-and-size-precision).
 - `timeInForce`: `GTC` (default), `ALO` (post-only), or `IOC`.
 - `clientOrderId` (optional) lets you tag the order with your own identifier.
 - `reduceOnly: true` restricts the order to reducing an existing position.
 
 The response returns the venue `orderId`:
 
-```json title="Response"
+{% code title="Response" %}
+```json
 { "success": true, "orderId": "1234567890", "status": "resting", "provider": "hyperliquid" }
 ```
+{% endcode %}
 
 ## Market orders
 
 Hyperliquid market orders are IOC limits with a slippage bound, so **`limitPrice` is required**. It is the worst price you will accept:
 
-```json title="POST /api/orders"
+{% code title="POST /api/orders" %}
+```json
 {
   "symbol": "ETH",
   "side": "buy",
@@ -42,12 +49,13 @@ Hyperliquid market orders are IOC limits with a slippage bound, so **`limitPrice
   "limitPrice": "3320.0"
 }
 ```
+{% endcode %}
 
 Compute the bound from the best opposing quote. Buy: `bestAsk × (1 + slippage)`. Sell: `bestBid × (1 − slippage)`.
 
-<Warning>
-  Anchor to the best **opposing quote**, not mid. On wide-spread books (prediction markets especially), a mid-anchored bound can sit inside the spread, so the IOC crosses nothing and silently fills zero. See [Hyperliquid constraints](/concepts/hyperliquid-constraints#market-orders-are-ioc-limits-with-a-slippage-bound).
-</Warning>
+{% hint style="warning" %}
+Anchor to the best **opposing quote**, not mid. On wide-spread books (prediction markets especially), a mid-anchored bound can sit inside the spread, so the IOC crosses nothing and silently fills zero. See [Hyperliquid constraints](../concepts/hyperliquid-constraints.md#market-orders-are-ioc-limits-with-a-slippage-bound).
+{% endhint %}
 
 ## Attaching TP/SL
 
@@ -73,7 +81,8 @@ Attach take-profit / stop-loss to any order with `tpsl`:
 
 ## Modifying an order
 
-```json title="POST /api/orders/modify"
+{% code title="POST /api/orders/modify" %}
+```json
 {
   "symbol": "ETH",
   "orderId": 1234567890,
@@ -82,6 +91,7 @@ Attach take-profit / stop-loss to any order with `tpsl`:
   "size": "0.5"
 }
 ```
+{% endcode %}
 
 This uses Hyperliquid's native modify: the order keeps working, and price and/or size change atomically. `orderId` here is the numeric exchange order ID.
 
@@ -89,21 +99,25 @@ This uses Hyperliquid's native modify: the order keeps working, and price and/or
 
 Single order:
 
-```json title="POST /api/orders/cancel"
+{% code title="POST /api/orders/cancel" %}
+```json
 { "symbol": "ETH", "orderId": "1234567890" }
 ```
+{% endcode %}
 
 All open orders (optionally per symbol):
 
-```json title="POST /api/orders/cancel-all"
+{% code title="POST /api/orders/cancel-all" %}
+```json
 { "symbol": "ETH" }
 ```
+{% endcode %}
 
 Omit `symbol` to cancel everything. The response reports how many orders were cancelled.
 
-<Note>
-  Plain-order cancels are synchronous. Cancelling an **algo parent** via the same endpoint is a request with reconciliation semantics; see [Order Lifecycle](/concepts/order-lifecycle#cancellation-semantics).
-</Note>
+{% hint style="info" %}
+Plain-order cancels are synchronous. Cancelling an **algo parent** via the same endpoint is a request with reconciliation semantics; see [Order Lifecycle](../concepts/order-lifecycle.md#cancellation-semantics).
+{% endhint %}
 
 ## Common rejections
 

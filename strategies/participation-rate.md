@@ -1,13 +1,16 @@
 ---
-title: "Participation Rate"
-description: "Execute at a target percentage of real-time market volume: trade when the market trades."
+description: 'Execute at a target percentage of real-time market volume: trade when the market
+  trades.'
 ---
+
+# Participation Rate
 
 `participation_rate` (POV, percentage of volume) keys your execution to **live** market activity. It observes traded volume in real time and submits clips sized to keep you at a target fraction of it. Busy tape → you trade more; quiet tape → you slow down. This bounds your footprint as a share of the market rather than as a schedule.
 
 ## Example
 
-```json title="POST /api/orders"
+{% code title="POST /api/orders" %}
+```json
 {
   "symbol": "ETH",
   "side": "sell",
@@ -20,6 +23,7 @@ description: "Execute at a target percentage of real-time market volume: trade w
   }
 }
 ```
+{% endcode %}
 
 This targets 15% of observed ETH volume until 12 ETH is done or two hours elapse.
 
@@ -39,10 +43,10 @@ This targets 15% of observed ETH volume until 12 ETH is done or two hours elapse
 
 - **Completion is volume-dependent.** If the market goes quiet, so do you. A strategy at 10% participation in a dead market may not finish inside `maxDurationSecs`. Check `filledQty` at terminal state.
 - **Rate vs. footprint.** Higher participation finishes faster but moves the market more. A common institutional range is 10–20%; above ~25% your own flow starts dominating the tape you're measuring.
-- Clips run the standard [passive → aggressive cycle](/strategies/overview#the-passive--aggressive-cycle), so you're still capturing spread within the volume budget.
+- Clips run the standard [passive → aggressive cycle](overview.md#the-passive-aggressive-cycle), so you're still capturing spread within the volume budget.
 
 ## When to use something else
 
-- You must finish by a time regardless of volume → [Passive TWAP](/strategies/passive-twap) with `guaranteedCompletion`.
-- You want the historical volume curve, not live tape → [VWAP](/strategies/vwap).
-- Stealth matters more than pace → [Iceberg](/strategies/iceberg) (which also supports a participation cap).
+- You must finish by a time regardless of volume → [Passive TWAP](passive-twap.md) with `guaranteedCompletion`.
+- You want the historical volume curve, not live tape → [VWAP](vwap.md).
+- Stealth matters more than pace → [Iceberg](iceberg.md) (which also supports a participation cap).

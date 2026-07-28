@@ -1,7 +1,8 @@
 ---
-title: "Iceberg"
-description: "Clip-based, pure-passive execution that hides your size."
+description: Clip-based, pure-passive execution that hides your size.
 ---
+
+# Iceberg
 
 `iceberg` shows the market only a small clip at a time. When a clip fills, the next one is posted; the market never sees your full size on the book. It is **pure passive**: clips are post-only orders that never cross the spread. It has **no time constraint**: it works until filled or cancelled (optionally bounded by `maxDurationSecs`).
 
@@ -9,7 +10,8 @@ A naive iceberg is easy to detect: the same size reappearing at the same level i
 
 ## Example
 
-```json title="POST /api/orders"
+{% code title="POST /api/orders" %}
+```json
 {
   "symbol": "HYPE",
   "side": "buy",
@@ -23,6 +25,7 @@ A naive iceberg is easy to detect: the same size reappearing at the same level i
   }
 }
 ```
+{% endcode %}
 
 ## Parameters
 
@@ -39,11 +42,11 @@ A naive iceberg is easy to detect: the same size reappearing at the same level i
 
 ## Behavior notes
 
-- **No completion guarantee.** Iceberg never takes liquidity. If price runs away from your level, it does not fill. That is the point. Pair it with a [trigger](/guides/triggers) or monitor progress if you need a plan B.
-- **Sizing the clip.** Too small wastes time (and risks the ~$10 [minimum notional](/concepts/hyperliquid-constraints#minimum-order-notional-10) per clip); too large defeats the hiding. A good starting point is the typical top-of-book size for the asset.
+- **No completion guarantee.** Iceberg never takes liquidity. If price runs away from your level, it does not fill. That is the point. Pair it with a [trigger](../guides/triggers.md) or monitor progress if you need a plan B.
+- **Sizing the clip.** Too small wastes time (and risks the ~$10 [minimum notional](../concepts/hyperliquid-constraints.md#minimum-order-notional-10) per clip); too large defeats the hiding. A good starting point is the typical top-of-book size for the asset.
 - **Restart-safe.** Clip state is reconstructed on engine restart; a resting clip is recovered, not duplicated.
 
 ## When to use something else
 
-- You have a deadline → [Passive TWAP](/strategies/passive-twap).
-- You want volume-scaling without the concealment → [Participation Rate](/strategies/participation-rate).
+- You have a deadline → [Passive TWAP](passive-twap.md).
+- You want volume-scaling without the concealment → [Participation Rate](participation-rate.md).

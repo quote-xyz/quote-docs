@@ -1,13 +1,16 @@
 ---
-title: "Algo Orders"
-description: "Submit a strategy, track its progress, and cancel it: the full lifecycle of an execution-engine order."
+description: 'Submit a strategy, track its progress, and cancel it: the full lifecycle of
+  an execution-engine order.'
 ---
 
-An algo order is a plain `POST /api/orders` with `strategy` set. The engine accepts it as a **parent intent** and works it as child orders on the venue. See [Order Lifecycle](/concepts/order-lifecycle) for the model and [Strategies](/strategies/overview) for choosing an algorithm.
+# Algo Orders
+
+An algo order is a plain `POST /api/orders` with `strategy` set. The engine accepts it as a **parent intent** and works it as child orders on the venue. See [Order Lifecycle](../concepts/order-lifecycle.md) for the model and [Strategies](../strategies/overview.md) for choosing an algorithm.
 
 ## Submitting
 
-```json title="POST /api/orders"
+{% code title="POST /api/orders" %}
+```json
 {
   "symbol": "ETH",
   "side": "buy",
@@ -21,10 +24,13 @@ An algo order is a plain `POST /api/orders` with `strategy` set. The engine acce
   }
 }
 ```
+{% endcode %}
 
-```json title="Response"
+{% code title="Response" %}
+```json
 { "success": true, "orderId": "01HZX8…", "status": "accepted", "provider": "hyperliquid" }
 ```
+{% endcode %}
 
 `orderId` is the **parent strategy ID**. Keep it: every status and cancel call uses it.
 
@@ -39,7 +45,8 @@ List all your algo orders:
 GET /api/orders/algo
 ```
 
-```json title="Response"
+{% code title="Response" %}
+```json
 {
   "success": true,
   "orders": [
@@ -56,6 +63,7 @@ GET /api/orders/algo
   ]
 }
 ```
+{% endcode %}
 
 Or fetch one by parent ID:
 
@@ -63,19 +71,21 @@ Or fetch one by parent ID:
 GET /api/orders/algo/{order_id}
 ```
 
-For push-based progress (the terminal's live "Placing child order…" telemetry), use the [algo status WebSocket](/websockets/algo-status) instead of polling.
+For push-based progress (the terminal's live "Placing child order…" telemetry), use the [algo status WebSocket](../websockets/algo-status.md) instead of polling.
 
 ## Cancelling
 
-```json title="POST /api/orders/cancel"
+{% code title="POST /api/orders/cancel" %}
+```json
 { "symbol": "ETH", "orderId": "01HZX8…" }
 ```
+{% endcode %}
 
 A `200` means the cancel was **durably requested**: the engine stops scheduling new children immediately, cancels open child orders on Hyperliquid, and records terminal `cancelled` only after the venue confirms nothing remains open. Fills that landed before the cancel are yours; check `filledQty` on the final state.
 
-<Warning>
-  If double-execution matters, do not submit a replacement order the moment the cancel returns `200`. Confirm the parent is terminal first (one poll of `GET /api/orders/algo/{order_id}` or the `parent_completed`/`parent_failed` WebSocket event).
-</Warning>
+{% hint style="warning" %}
+If double-execution matters, do not submit a replacement order the moment the cancel returns `200`. Confirm the parent is terminal first (one poll of `GET /api/orders/algo/{order_id}` or the `parent_completed`/`parent_failed` WebSocket event).
+{% endhint %}
 
 ## Attaching TP/SL to strategy fills
 
@@ -99,4 +109,4 @@ Strategies accept `attachedTpsl` in `params`: a take-profit/stop-loss placed aga
 
 - **Slices vs. the $10 minimum.** Each child slice must clear ~$10 notional or it is skipped. `size × price / numSlices ≳ $15` is a safe rule of thumb.
 - **Duration vs. price risk.** Longer windows capture more spread but carry more price risk. Start with 15–30 minutes on liquid assets and measure the result.
-- **Measure it.** After a few executions, check [`/api/analytics/execution`](/guides/analytics) to see your realized cost vs. benchmarks.
+- **Measure it.** After a few executions, check [`/api/analytics/execution`](analytics.md) to see your realized cost vs. benchmarks.

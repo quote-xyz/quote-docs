@@ -1,13 +1,14 @@
 ---
-title: "API Keys"
-description: "Mint, scope, rotate, and revoke HMAC API keys for programmatic trading."
+description: Mint, scope, rotate, and revoke HMAC API keys for programmatic trading.
 ---
 
-API keys give bots and scripts scoped access to your account. They authenticate with HMAC-SHA256 request signing; see [Authentication](/authentication#hmac-api-keys) for the signing mechanics.
+# API Keys
 
-<Note>
-  Key management is **Privy-session only**: you mint, list, and revoke keys from a logged-in terminal session. An API key can never mint another API key, so a leaked key cannot escalate itself.
-</Note>
+API keys give bots and scripts scoped access to your account. They authenticate with HMAC-SHA256 request signing; see [Authentication](../authentication.md#hmac-api-keys) for the signing mechanics.
+
+{% hint style="info" %}
+Key management is **Privy-session only**: you mint, list, and revoke keys from a logged-in terminal session. An API key can never mint another API key, so a leaked key cannot escalate itself.
+{% endhint %}
 
 ## Minting a key
 
@@ -22,20 +23,22 @@ Authorization: Bearer <privy-jwt>
 }
 ```
 
-```json title="Response"
+{% code title="Response" %}
+```json
 {
   "keyId": "qk_a1b2c3…",
   "secret": "9f86d081884c7d659a2feaa0c55ad015a3bf4f1b2b0b822cd15d6c15b0f00a08"
 }
 ```
+{% endcode %}
 
-<Warning>
-  The `secret` (a 32-byte hex value used directly as your HMAC-SHA256 signing key) is returned **once**. It is not stored recoverably and cannot be retrieved again. If you lose it, revoke the key and mint a new one.
-</Warning>
+{% hint style="warning" %}
+The `secret` (a 32-byte hex value used directly as your HMAC-SHA256 signing key) is returned **once**. It is not stored recoverably and cannot be retrieved again. If you lose it, revoke the key and mint a new one.
+{% endhint %}
 
 ### Choosing scopes
 
-Grant the minimum the client needs (see the [scope table](/authentication#scopes)). Typical setups:
+Grant the minimum the client needs (see the [scope table](../authentication.md#scopes)). Typical setups:
 
 | Use case | Scopes |
 |---|---|
@@ -66,4 +69,4 @@ Returns `204`. Revocation is immediate: in-flight requests signed with the key w
 - **Rotate by overlap.** Mint the replacement key, deploy it, then revoke the old one. No downtime.
 - **One key per deployment.** Separate keys per bot/environment make `last_used_at` meaningful and blast radius small.
 - **Clock discipline.** Signatures embed a millisecond timestamp with a 30-second tolerance; run NTP on anything that signs requests.
-- **What a leaked key can't do:** withdraw funds (the [agent wallet](/concepts/agent-wallets) can't withdraw), manage keys or invites (Privy-only), or act beyond its scopes. It can still trade within its scopes, so revoke a leaked key immediately.
+- **What a leaked key can't do:** withdraw funds (the [agent wallet](../concepts/agent-wallets.md) can't withdraw), manage keys or invites (Privy-only), or act beyond its scopes. It can still trade within its scopes, so revoke a leaked key immediately.

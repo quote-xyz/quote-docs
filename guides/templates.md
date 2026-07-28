@@ -1,7 +1,8 @@
 ---
-title: "Order Templates"
-description: "Save execution presets (urgency, price discipline, and strategy parameters) and reuse them across orders."
+description: Save execution presets (urgency, price discipline, and strategy parameters) and reuse them across orders.
 ---
+
+# Order Templates
 
 Templates capture an execution *style* you can reapply: how urgent, how price-disciplined, and any strategy parameters that express it. The terminal renders them as one-tap presets; over the API they're a small CRUD surface.
 
@@ -12,11 +13,12 @@ Every template carries two 0–100 dials that summarize execution intent:
 - **`urgency`**: how fast the order should complete. Higher urgency → shorter windows, more aggressive fallbacks.
 - **`priceDiscipline`**: how much price matters vs. completion. Higher discipline → more passive resting, more willingness to miss.
 
-These map to concrete strategy choices (e.g. high urgency + low discipline → a fast, aggressive [TWAP](/strategies/passive-twap); low urgency + high discipline → [Iceberg](/strategies/iceberg)). The optional `parameters` object stores explicit [strategy parameters](/strategies/overview#common-parameters) alongside the dials.
+These map to concrete strategy choices (e.g. high urgency + low discipline → a fast, aggressive [TWAP](../strategies/passive-twap.md); low urgency + high discipline → [Iceberg](../strategies/iceberg.md)). The optional `parameters` object stores explicit [strategy parameters](../strategies/overview.md#common-parameters) alongside the dials.
 
 ## Create
 
-```json title="POST /api/templates"
+{% code title="POST /api/templates" %}
+```json
 {
   "name": "Patient accumulator",
   "description": "Low-urgency passive buildup for size",
@@ -30,6 +32,7 @@ These map to concrete strategy choices (e.g. high urgency + low discipline → a
   }
 }
 ```
+{% endcode %}
 
 Returns `201` with the template (UUID `id`, timestamps).
 
@@ -42,8 +45,8 @@ PUT    /api/templates/{template_id}   # partial update: only provided fields cha
 DELETE /api/templates/{template_id}
 ```
 
-Scopes: `templates:read` for GETs, `templates:write` for mutations. Templates are [wallet-scoped](/concepts/wallet-scoped-api); another wallet's template UUID is a `404` to you.
+Scopes: `templates:read` for GETs, `templates:write` for mutations. Templates are [wallet-scoped](../concepts/wallet-scoped-api.md); another wallet's template UUID is a `404` to you.
 
 ## Using a template
 
-Templates are a client-side convenience: fetch the template, merge its `parameters` (and whatever your `urgency`/`priceDiscipline` mapping implies) into the [order submission](/guides/algo-orders), and send. The order API itself takes explicit parameters (there is no `templateId` field on `POST /api/orders`), so templates never constrain what you can submit.
+Templates are a client-side convenience: fetch the template, merge its `parameters` (and whatever your `urgency`/`priceDiscipline` mapping implies) into the [order submission](algo-orders.md), and send. The order API itself takes explicit parameters (there is no `templateId` field on `POST /api/orders`), so templates never constrain what you can submit.

@@ -1,7 +1,8 @@
 ---
-title: "Authentication"
-description: "Two auth paths, Privy identity tokens and HMAC API keys, both resolve to your wallet address."
+description: Two auth paths, Privy identity tokens and HMAC API keys, both resolve to your wallet address.
 ---
+
+# Authentication
 
 Every authenticated request is resolved to a single normalized **wallet address**. All of your resources (orders, strategies, agent wallets, templates, triggers, analytics) are keyed by that wallet. The caller's identity always comes from the credential, never from the request payload: there is no `walletAddress` field to pass (or spoof) in a body or query string.
 
@@ -25,7 +26,7 @@ Privy sessions carry **all scopes implicitly**, so they need no scope management
 
 ## HMAC API keys
 
-Programmatic clients authenticate with an API key minted from a Privy session (see [API Keys](/guides/api-keys)). Three headers are sent on every request:
+Programmatic clients authenticate with an API key minted from a Privy session (see [API Keys](guides/api-keys.md)). Three headers are sent on every request:
 
 | Header | Value |
 |---|---|
@@ -48,8 +49,9 @@ Join four components with literal `\n` (newline) characters:
 
 The 32-byte secret returned at mint time (hex-encoded) is used **directly** as the HMAC-SHA256 key. Decode the hex to bytes first.
 
-<CodeGroup>
-```typescript TypeScript
+{% tabs %}
+{% tab title="TypeScript" %}
+```typescript
 import { createHmac } from "node:crypto";
 
 const canonical = `${timestamp}\nPOST\n/api/orders\n${rawBody}`;
@@ -57,22 +59,25 @@ const signature = createHmac("sha256", Buffer.from(secret, "hex"))
   .update(canonical)
   .digest("hex");
 ```
+{% endtab %}
 
-```python Python
+{% tab title="Python" %}
+```python
 import hashlib, hmac
 
 canonical = f"{timestamp}\nPOST\n/api/orders\n{raw_body}"
 signature = hmac.new(bytes.fromhex(secret), canonical.encode(), hashlib.sha256).hexdigest()
 ```
-</CodeGroup>
+{% endtab %}
+{% endtabs %}
 
-<Warning>
-  The timestamp must be within **30 seconds** of server time. If your clock drifts, requests fail with `401`. Sign the exact bytes you transmit: re-serializing JSON with different whitespace or key order after signing will invalidate the signature.
-</Warning>
+{% hint style="warning" %}
+The timestamp must be within **30 seconds** of server time. If your clock drifts, requests fail with `401`. Sign the exact bytes you transmit: re-serializing JSON with different whitespace or key order after signing will invalidate the signature.
+{% endhint %}
 
 ### Scopes
 
-API keys carry only the scopes granted at mint time. Each endpoint's required scope is noted in the [Trader API Reference](/api-reference/introduction).
+API keys carry only the scopes granted at mint time. Each endpoint's required scope is noted in the [Trader API Reference](api-reference/introduction.md).
 
 | Scope | Grants |
 |---|---|
@@ -84,7 +89,7 @@ API keys carry only the scopes granted at mint time. Each endpoint's required sc
 | `templates:read` | List/read order templates |
 | `templates:write` | Create/update/delete order templates |
 
-Requests missing a required scope return `403` with the standard [error envelope](/api-reference/introduction#error-envelope).
+Requests missing a required scope return `403` with the standard [error envelope](api-reference/introduction.md#error-envelope).
 
 ### Privy-only endpoints
 
@@ -99,4 +104,4 @@ A small read-only group requires no authentication (per-IP rate limited): `/api/
 
 ## MCP connector auth
 
-The [MCP connector](/mcp/overview) endpoint (`/mcp`) is the one surface that uses neither Privy nor HMAC. It authenticates MCP clients with OAuth 2.1 bearer tokens issued through Quote's own authorization flow.
+The [MCP connector](mcp/overview.md) endpoint (`/mcp`) is the one surface that uses neither Privy nor HMAC. It authenticates MCP clients with OAuth 2.1 bearer tokens issued through Quote's own authorization flow.

@@ -1,9 +1,10 @@
 ---
-title: "Trader API Reference"
-description: "Base URLs, conventions, and the error envelope. Read this before the endpoint pages."
+description: Base URLs, conventions, and the error envelope. Read this before the endpoint pages.
 ---
 
-This reference covers the trading surface: orders, agents, positions, templates, triggers, analytics, funding, portfolio, and the [algo status WebSocket](/websockets/algo-status). The [MCP server](/mcp/overview) is documented in its own section.
+# Trader API Reference
+
+This reference covers the trading surface: orders, agents, positions, templates, triggers, analytics, funding, portfolio, and the [algo status WebSocket](../websockets/algo-status.md). The [MCP server](../mcp/overview.md) is documented in its own section.
 
 ## Base URL
 
@@ -20,13 +21,13 @@ Every request carries an HMAC API key in three headers: `X-Quote-Key`, `X-Quote-
 
 A few endpoints are **public** and need no key: `/api/info` and the health probes.
 
-Full details, the canonical signing string, and code samples: [Authentication](/authentication).
+Full details, the canonical signing string, and code samples: [Authentication](../authentication.md).
 
 ## Prerequisites for trading
 
 Order, position, and strategy endpoints require two one-time setup steps on the wallet, both performed in the [terminal](https://quotemarkets.xyz):
 
-1. A **registered [agent wallet](/concepts/agent-wallets)**. Quote signs venue actions with it.
+1. A **registered [agent wallet](../concepts/agent-wallets.md)**. Quote signs venue actions with it.
 2. **Builder-fee approval**. Every Quote-routed order carries Quote's builder code, and Quote requires the approval before it will trade for your wallet. Without it, order submission fails.
 
 Verify both with `GET /api/agents`: you need an `agentAddress` with `expired: false` and `builderFeeApproved: true`.
@@ -40,15 +41,17 @@ Verify both with `GET /api/agents`: you need an `agentAddress` with `expired: fa
 
 ## The async-accept model
 
-`POST /api/orders` returns `200` when the order or strategy is **accepted into the execution engine**, not when it fills. Parent cancel success means the cancel was durably accepted; the terminal state is recorded only after venue reconciliation. Internalize this before integrating: see [Order Lifecycle](/concepts/order-lifecycle).
+`POST /api/orders` returns `200` when the order or strategy is **accepted into the execution engine**, not when it fills. Parent cancel success means the cancel was durably accepted; the terminal state is recorded only after venue reconciliation. Internalize this before integrating: see [Order Lifecycle](../concepts/order-lifecycle.md).
 
 ## Error envelope
 
 All `4xx`/`5xx` responses (except `413` and bodyless `204`) share one shape:
 
-```json title="Response"
+{% code title="Response" %}
+```json
 { "success": false, "error": "human-readable message" }
 ```
+{% endcode %}
 
 | Status | Meaning |
 |---|---|
@@ -60,9 +63,9 @@ All `4xx`/`5xx` responses (except `413` and bodyless `204`) share one shape:
 | `502` | Upstream venue (Hyperliquid/Relay) returned an error |
 | `503` | A required dependency is unavailable, or a circuit breaker to Hyperliquid is open |
 
-<Note>
-  `503` responses are usually transient. Quote wraps its Hyperliquid clients in circuit breakers that recover automatically within ~30 seconds. Retry with backoff.
-</Note>
+{% hint style="info" %}
+`503` responses are usually transient. Quote wraps its Hyperliquid clients in circuit breakers that recover automatically within ~30 seconds. Retry with backoff.
+{% endhint %}
 
 ## Request size limit
 

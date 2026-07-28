@@ -1,7 +1,8 @@
 ---
-title: "The Wallet-Scoped Model"
-description: "Every resource in Quote belongs to a wallet address, and your credential, not your request, decides which wallet you are."
+description: Every resource in Quote belongs to a wallet address, and your credential, not your request, decides which wallet you are.
 ---
+
+# The Wallet-Scoped Model
 
 Quote's API is **wallet-scoped**: the unit of ownership for everything is a normalized EVM wallet address.
 
@@ -17,7 +18,7 @@ Quote's API is **wallet-scoped**: the unit of ownership for everything is a norm
 
 **One wallet, many credentials.** A Privy session and any number of API keys minted from it all resolve to the same wallet and see the same account. Revoking a key doesn't affect the others.
 
-**Analytics are per-wallet.** Execution quality, volume, fees, funding, and equity time-series all answer for *your* wallet only. The [MCP connector](/mcp/overview) follows the same rule: an `account:read` token only ever sees the account it was issued for.
+**Analytics are per-wallet.** Execution quality, volume, fees, funding, and equity time-series all answer for *your* wallet only. The [MCP connector](../mcp/overview.md) follows the same rule: an `account:read` token only ever sees the account it was issued for.
 
 ## Identity resolution
 
@@ -29,8 +30,8 @@ flowchart LR
     D --> E["Orders / Agents / Templates /<br/>Triggers / Analytics / Keys"]
 ```
 
-Both auth paths converge on the same normalized `wallet_address`; see [Authentication](/authentication) for the mechanics of each.
+Both auth paths converge on the same normalized `wallet_address`; see [Authentication](../authentication.md) for the mechanics of each.
 
 ## Trading identity vs. auth identity
 
-The wallet address from your credential is your **master account** on Hyperliquid. Orders are not signed by that wallet directly. They are signed by its registered [agent wallet](/concepts/agent-wallets), which Quote resolves per-wallet at signing time and verifies against Hyperliquid (`userRole(agent).data.user` must equal your wallet) immediately before every signature.
+The wallet address from your credential is your **master account** on Hyperliquid. Orders are not signed by that wallet directly. They are signed by its registered [agent wallet](agent-wallets.md), which Quote resolves per-wallet at signing time and verifies against Hyperliquid (`userRole(agent).data.user` must equal your wallet) immediately before every signature.

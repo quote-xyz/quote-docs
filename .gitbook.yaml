@@ -1,0 +1,10 @@
+root: ./
+
+structure:
+  readme: introduction.md
+  summary: SUMMARY.md
+
+redirects:
+  # Mintlify served the landing page at /introduction; in GitBook it is the
+  # site root. Add an entry here for any other path that moves.
+  introduction: introduction.md

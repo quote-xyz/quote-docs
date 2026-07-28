@@ -1,9 +1,11 @@
 ---
-title: "Analytics"
-description: "Execution quality, volume, fees, funding, and portfolio equity: measured, benchmarked, and queryable."
+description: 'Execution quality, volume, fees, funding, and portfolio equity: measured, benchmarked,
+  and queryable.'
 ---
 
-Quote measures every execution so you can hold the engine (and yourself) to account. All analytics endpoints are [wallet-scoped](/concepts/wallet-scoped-api), require `orders:read` for API-key callers, and take a common `range` query parameter: `1d`, `7d`, `30d`, or `all`.
+# Analytics
+
+Quote measures every execution so you can hold the engine (and yourself) to account. All analytics endpoints are [wallet-scoped](../concepts/wallet-scoped-api.md), require `orders:read` for API-key callers, and take a common `range` query parameter: `1d`, `7d`, `30d`, or `all`.
 
 ## The benchmark convention
 
@@ -55,7 +57,7 @@ GET /api/analytics/volume?range=30d   # { "cumulativeVolume": 1250000.0 }
 GET /api/analytics/fees?range=30d     # { "totalFee": 312.5, "builderFee": 25.0 }
 ```
 
-`totalFee` is exchange + builder fees on Quote-routed fills; `builderFee` breaks out Quote's [builder fee](/concepts/hyperliquid-constraints#builder-fee) so the platform's cut is always visible.
+`totalFee` is exchange + builder fees on Quote-routed fills; `builderFee` breaks out Quote's [builder fee](../concepts/hyperliquid-constraints.md#builder-fee) so the platform's cut is always visible.
 
 ## Funding
 
@@ -107,4 +109,4 @@ Two things to handle when charting:
 
 ## Programmatic access for AI agents
 
-All of the above is also exposed as read-only tools over the [MCP connector](/mcp/overview), so an AI agent can pull your execution report or funding carry without handling HMAC signing.
+All of the above is also exposed as read-only tools over the [MCP connector](../mcp/overview.md), so an AI agent can pull your execution report or funding carry without handling HMAC signing.

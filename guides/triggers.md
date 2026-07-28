@@ -1,9 +1,10 @@
 ---
-title: "Conditional Triggers"
-description: "Fire an order automatically when a price, funding, open-interest, copy-trade, or time condition is met."
+description: Fire an order automatically when a price, funding, open-interest, copy-trade, or time condition is met.
 ---
 
-Triggers are server-side conditions that submit an order for you when they fire. Unlike venue-native trigger orders, Quote triggers can watch conditions Hyperliquid cannot express: funding rates, open-interest changes, another wallet's trades, or the clock. The resulting order can be anything the [order API](/guides/placing-orders) accepts, including a full [algo strategy](/guides/algo-orders).
+# Conditional Triggers
+
+Triggers are server-side conditions that submit an order for you when they fire. Unlike venue-native trigger orders, Quote triggers can watch conditions Hyperliquid cannot express: funding rates, open-interest changes, another wallet's trades, or the clock. The resulting order can be anything the [order API](placing-orders.md) accepts, including a full [algo strategy](algo-orders.md).
 
 ## Trigger types
 
@@ -17,7 +18,8 @@ Triggers are server-side conditions that submit an order for you when they fire.
 
 ## Creating a trigger
 
-```json title="POST /api/triggers"
+{% code title="POST /api/triggers" %}
+```json
 {
   "name": "ETH breakout entry",
   "triggerType": "price",
@@ -36,6 +38,7 @@ Triggers are server-side conditions that submit an order for you when they fire.
   "expiresAt": "2026-08-01T00:00:00Z"
 }
 ```
+{% endcode %}
 
 Returns `201` with the trigger (UUID `id`, `status: "active"`).
 
@@ -76,4 +79,4 @@ DELETE /api/triggers/{trigger_id}
 - **One-shot.** A trigger fires once, submits its execution order, and moves to `triggered`. Recreate it if you want it re-armed.
 - **The order still has to pass.** When a trigger fires, the execution order goes through the normal order path: agent signing, venue constraints, minimum notional. A failed submission is recorded in the trigger's history.
 - **Triggers survive restarts.** They're durable server-side state, not a client session feature.
-- **Ownership.** Like everything else, triggers are [wallet-scoped](/concepts/wallet-scoped-api): you only ever see and manage your own.
+- **Ownership.** Like everything else, triggers are [wallet-scoped](../concepts/wallet-scoped-api.md): you only ever see and manage your own.

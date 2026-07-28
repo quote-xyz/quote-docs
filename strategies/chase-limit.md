@@ -1,7 +1,8 @@
 ---
-title: "Chase Limit"
-description: "A limit order that follows the best bid/offer within a hard time and attempt budget."
+description: A limit order that follows the best bid/offer within a hard time and attempt budget.
 ---
+
+# Chase Limit
 
 `chase_limit` is for when you want **one fill near the touch, soon**, without paying the full spread of a market order. It places a limit order near the BBO and follows the market as it moves, converging toward the touch until the order fills or the attempt/time budget runs out.
 
@@ -9,7 +10,8 @@ It is a patient version of a marketable limit: it chases price moves, but only w
 
 ## Example
 
-```json title="POST /api/orders"
+{% code title="POST /api/orders" %}
+```json
 {
   "symbol": "BTC",
   "side": "buy",
@@ -22,6 +24,7 @@ It is a patient version of a marketable limit: it chases price moves, but only w
   }
 }
 ```
+{% endcode %}
 
 This chases for at most 8 attempts or 30 seconds, whichever comes first.
 
@@ -39,11 +42,11 @@ The re-peg cadence and how quickly the chase converges toward the touch are mana
 
 ## Behavior notes
 
-- **It can miss.** If price runs away faster than the chase converges, the strategy ends `completed`-with-partial or unfilled at the budget limit. Check `filledQty`. If you need certainty, use a market order with a slippage bound (see [placing orders](/guides/placing-orders#market-orders)); chase limit is the *cheaper but not guaranteed* alternative.
+- **It can miss.** If price runs away faster than the chase converges, the strategy ends `completed`-with-partial or unfilled at the budget limit. Check `filledQty`. If you need certainty, use a market order with a slippage bound (see [placing orders](../guides/placing-orders.md#market-orders)); chase limit is the *cheaper but not guaranteed* alternative.
 - **Best on liquid books.** On thin books, each re-peg competes with a moving, sparse touch. Consider a wider `initialOffsetBps` or a different strategy.
 - Good default for "get me in around here" order entry from a bot: bounded latency, bounded slippage, no spread crossing unless the chase converges to the touch.
 
 ## When to use something else
 
-- Larger size to work over time → [Passive TWAP](/strategies/passive-twap).
+- Larger size to work over time → [Passive TWAP](passive-twap.md).
 - Must fill *now* whatever the cost → plain market order with a slippage-bounded `limitPrice`.

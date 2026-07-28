@@ -1,7 +1,8 @@
 ---
-title: "Connecting Clients"
-description: "Add Quote's MCP server to Claude, Claude Code, Cursor, or any client that supports remote MCP servers."
+description: Add Quote's MCP server to Claude, Claude Code, Cursor, or any client that supports remote MCP servers.
 ---
+
+# Connecting Clients
 
 The server speaks **Streamable HTTP** at `https://api.quotemarkets.xyz/mcp` and authenticates with **OAuth 2.1**. Discovery is standards-compliant (RFC 9728 / 8414 metadata, dynamic client registration, PKCE), so for most clients the setup is the URL alone. The client discovers the auth flow, opens Quote's consent page in your browser, and you approve the scopes once.
 
@@ -53,13 +54,15 @@ An unauthenticated call to `/mcp` returns `401` with a `WWW-Authenticate` header
 
 ## Headless access (no browser)
 
-For servers and scripts that can't run a browser consent flow, the same tools are exposed over REST under standard [Privy/HMAC auth](/authentication):
+For servers and scripts that can't run a browser consent flow, the same tools are exposed over REST under standard [Privy/HMAC auth](../authentication.md):
 
-```json title="POST /api/mcp/dispatch"
+{% code title="POST /api/mcp/dispatch" %}
+```json
 {
   "tool": "get_price",
   "arguments": { "symbol": "ETH" }
 }
 ```
+{% endcode %}
 
 Returns `{ "result": … }` on success or `{ "error": "…" }` on tool failure. `GET /api/mcp/tools` lists the catalog with input schemas; scope enforcement (`analytics:read` / `account:read`) applies per tool for API-key callers.
