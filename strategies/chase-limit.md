@@ -8,6 +8,8 @@ description: A limit order that follows the best bid/offer within a hard time an
 
 It is a patient version of a marketable limit: it chases price moves, but only within bounds you set.
 
+<figure><img src="../.gitbook/assets/Screenshot 2026-04-06 at 3.39.24 pm.png" alt=""><figcaption><p>Chase limit: following the touch within a bounded budget.</p></figcaption></figure>
+
 ## Example
 
 {% code title="POST /api/orders" %}

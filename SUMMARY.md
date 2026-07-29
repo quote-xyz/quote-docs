@@ -2,6 +2,11 @@
 
 * [Introduction](introduction.md)
 
+## About Quote
+
+* [Welcome to Quote](about-quote/welcome-to-quote.md)
+* [Core Contributors](about-quote/core-contributors.md)
+
 ## Getting started
 
 * [Quickstart](quickstart.md)
@@ -29,6 +34,7 @@
 * [Iceberg](strategies/iceberg.md)
 * [Participation Rate](strategies/participation-rate.md)
 * [Chase Limit](strategies/chase-limit.md)
+* [Execution Safeguards](strategies/safeguards.md)
 
 ## Guides
 

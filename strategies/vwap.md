@@ -9,6 +9,8 @@ description: 'Volume-proportional execution: slice sizes follow the asset''s int
 
 Each slice still runs the standard [passive → aggressive cycle](overview.md#the-passive-aggressive-cycle), so you're capturing spread within the volume schedule.
 
+<figure><img src="../.gitbook/assets/Screenshot 2026-04-06 at 3.45.15 pm.png" alt=""><figcaption><p>VWAP: slices shaped by the volume profile.</p></figcaption></figure>
+
 ## Example
 
 {% code title="POST /api/orders" %}

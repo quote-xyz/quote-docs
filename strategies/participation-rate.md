@@ -7,6 +7,8 @@ description: 'Execute at a target percentage of real-time market volume: trade w
 
 `participation_rate` (POV, percentage of volume) keys your execution to **live** market activity. It observes traded volume in real time and submits clips sized to keep you at a target fraction of it. Busy tape → you trade more; quiet tape → you slow down. This bounds your footprint as a share of the market rather than as a schedule.
 
+<figure><img src="../.gitbook/assets/Screenshot 2026-04-06 at 3.50.04 pm.png" alt=""><figcaption><p>Participation rate: pacing against live market volume.</p></figcaption></figure>
+
 ## Example
 
 {% code title="POST /api/orders" %}

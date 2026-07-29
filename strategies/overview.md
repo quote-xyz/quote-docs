@@ -14,6 +14,8 @@ Quote's execution engine runs five strategies. You select one by setting `strate
 | [Participation Rate](participation-rate.md) | `participation_rate` | Staying a fixed % of real-time market volume |
 | [Chase Limit](chase-limit.md) | `chase_limit` | A limit order that follows the BBO within a bound |
 
+<figure><img src="../.gitbook/assets/Screenshot 2026-04-06 at 3.29.51 pm.png" alt=""><figcaption><p>The five strategies at a glance.</p></figcaption></figure>
+
 ## Choosing a strategy
 
 <details>
@@ -93,5 +95,5 @@ Every strategy execution is measured against three benchmarks (see [Analytics](.
 All benchmark values are signed basis points with the convention **positive = worse, negative = better**.
 
 {% hint style="info" %}
-Strategies are a closed, curated set. Each ships with recovery logic that survives engine restarts (see [Order Lifecycle](../concepts/order-lifecycle.md)).
+Strategies are a closed, curated set, and every one runs under the same [execution safeguards](safeguards.md): price bounds, overfill protection, and recovery that survives an engine restart.
 {% endhint %}

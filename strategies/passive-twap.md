@@ -6,6 +6,8 @@ description: Time-sliced execution that rests passively at the touch and falls b
 
 `passive_twap` splits your order into equal slices over a fixed window. Each slice first rests as a post-only (ALO) order at the best bid/offer, capturing the spread and earning maker fees. If a slice has not filled by its deadline, it converts to an aggressive IOC order. The result is TWAP scheduling at better prices than naive market-order slicing, with completion by end of window when `guaranteedCompletion` is set.
 
+<figure><img src="../.gitbook/assets/Screenshot 2026-04-06 at 3.42.47 pm.png" alt=""><figcaption><p>Passive TWAP: equal slices across the window.</p></figcaption></figure>
+
 ## Example
 
 {% code title="POST /api/orders" %}
