@@ -13,7 +13,7 @@ Every template carries two 0–100 dials that summarize execution intent:
 - **`urgency`**: how fast the order should complete. Higher urgency → shorter windows, more aggressive fallbacks.
 - **`priceDiscipline`**: how much price matters vs. completion. Higher discipline → more passive resting, more willingness to miss.
 
-These map to concrete strategy choices (e.g. high urgency + low discipline → a fast, aggressive [TWAP](../strategies/passive-twap.md); low urgency + high discipline → [Iceberg](../strategies/iceberg.md)). The optional `parameters` object stores explicit [strategy parameters](../strategies/overview.md#common-parameters) alongside the dials.
+These map to concrete strategy choices (e.g. high urgency + low discipline → a fast, aggressive [TWAP](../strategies/passive-twap.md); low urgency + high discipline → [Iceberg](../strategies/iceberg.md)). See [urgency and price discipline](../strategies/overview.md#urgency-and-price-discipline) for what each dial does. The optional `parameters` object stores explicit [strategy parameters](../strategies/overview.md#common-parameters) alongside the dials.
 
 ## Create
 

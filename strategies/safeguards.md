@@ -24,6 +24,16 @@ The engine reconciles against the venue after a disconnect or restart, retrievin
 
 [Order Lifecycle](../concepts/order-lifecycle.md) covers what this means for you: the venue is the source of truth, and a strategy reaches a terminal state only when its own logic and the venue agree.
 
+## Pacing discipline
+
+A strategy that falls behind schedule does not chase to catch up. If the market moves outside your limit price, the engine stays at your levels and finishes short rather than paying up to hit the original timetable.
+
+That is a deliberate choice about which promise to keep: you get the price you asked for, not the completion. When completion is what you need, set `guaranteedCompletion` on [Passive TWAP](passive-twap.md), which sweeps the remainder at the end of the window within a slippage tolerance you set. Otherwise, check `filledQty` at terminal state.
+
+## Error handling
+
+If a child order fails or does not fill within its allotted interval, the engine regenerates it rather than dropping that slice. A transient venue error costs you time, not size, and the schedule stays intact.
+
 ## Runaway and duplicate protection
 
 Order rates are monitored in both directions. If a configured threshold is breached, new orders are blocked until the window resets. Identical orders repeated at high frequency, matching on symbol, side, price, and size, are blocked in the same way.

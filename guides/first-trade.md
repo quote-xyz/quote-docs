@@ -67,7 +67,7 @@ The selector offers eight, and the first three behave like order types anywhere:
 |---|---|
 | **Limit** | Rests on the book at your price |
 | **Market** | Fills right away by sweeping the book |
-| **Scale** | Spreads limit orders across a price range |
+| **Scale** | Spreads limit orders across a price range ([more](placing-orders.md#scale-orders)) |
 
 The other five hand the order to the execution engine, which works it over time instead of sending it to the book in one piece. This is what Quote is for, and on any size that would move the market it is usually cheaper.
 

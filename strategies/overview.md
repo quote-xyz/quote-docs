@@ -70,6 +70,17 @@ The `passivePct` parameter sets the balance: higher values wait longer for passi
 
 How and when child orders are placed, repriced, and converted is managed by the engine and adapts to market conditions. Those mechanics are deliberately not documented: publishing them would help others detect and trade against your orders.
 
+### Urgency and price discipline
+
+The terminal does not make you set slice counts and passive percentages by hand. Two dials, each 0 to 100, express the trade-off instead:
+
+- **Urgency**: how aggressively to interact with market liquidity. Higher urgency means larger orders posted to the book and less waiting for a fill.
+- **Price discipline**: how much price matters against completion. Higher discipline means resting more passively and accepting a greater chance of not finishing.
+
+Urgency resolves into concrete parameters for whichever strategy you picked: how many intervals the order is split into, how much of each interval is spent passive, and the target participation rate. The terminal previews those values as you move the dial, so you can see what a setting will actually do before submitting.
+
+The two dials are what an [order template](../guides/templates.md) stores. Over the API you skip them and set the underlying parameters directly.
+
 ### Common parameters
 
 These appear across multiple strategies (all optional; camelCase and snake_case are both accepted):
