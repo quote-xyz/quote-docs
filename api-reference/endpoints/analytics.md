@@ -27,3 +27,9 @@ description: Execution-quality, volume, and fee analytics.
 {% openapi src="../openapi.yaml" path="/api/analytics/fees" method="get" %}
 [openapi.yaml](../openapi.yaml)
 {% endopenapi %}
+
+## Fee stack
+
+{% openapi src="../openapi.yaml" path="/api/fees/summary" method="get" %}
+[openapi.yaml](../openapi.yaml)
+{% endopenapi %}

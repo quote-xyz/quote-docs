@@ -88,8 +88,16 @@ API keys carry only the scopes granted at mint time. Each endpoint's required sc
 | `positions:write` | Update leverage, isolated margin, spot↔perp transfers |
 | `templates:read` | List/read order templates |
 | `templates:write` | Create/update/delete order templates |
+| `account:read` | Read quest and badge progress; account tools over the MCP REST surface |
+| `account:write` | Submit a quest quote, acknowledge a badge unlock |
+| `analytics:read` | Market-wide tools over the MCP REST surface |
+| `bridge:write` | Request a bridge quote for a deposit or withdrawal |
 
 Requests missing a required scope return `403` with the standard [error envelope](api-reference/introduction.md#error-envelope).
+
+{% hint style="info" %}
+Grant only what a client needs. A key minted without `account:read` cannot read [quest progress](account/quests-and-badges.md), and one without `analytics:read` cannot call the market tools described in the [MCP overview](mcp/overview.md), in both cases returning `403` rather than an empty result.
+{% endhint %}
 
 ### Privy-only endpoints
 
