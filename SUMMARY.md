@@ -1,11 +1,6 @@
 # Table of contents
 
-* [Introduction](introduction.md)
-
-## About Quote
-
 * [Welcome to Quote](about-quote/welcome-to-quote.md)
-* [Core Contributors](about-quote/core-contributors.md)
 
 ## Getting started
 
@@ -83,3 +78,4 @@
 * [Risks](support/risks.md)
 * [Contact Us](support/contact-us.md)
 * [Official Links](support/official-links.md)
+* [Core Contributors](about-quote/core-contributors.md)

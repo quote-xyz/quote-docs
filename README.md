@@ -7,7 +7,7 @@ Public developer documentation for [Quote](https://quotemarkets.xyz), a trading 
 ```
 ├── .gitbook.yaml              # GitBook Git Sync config: root, structure, redirects
 ├── SUMMARY.md                 # Navigation (table of contents)
-├── introduction.md            # Landing page (structure.readme in .gitbook.yaml)
+├── about-quote/               # Landing page (structure.readme) + core contributors
 ├── quickstart.md              # Key → sign → order in 5 minutes
 ├── authentication.md          # Privy + HMAC, scopes, canonical string
 ├── concepts/                  # Quote's model (wallet scoping, agent wallets, order lifecycle)
@@ -16,6 +16,7 @@ Public developer documentation for [Quote](https://quotemarkets.xyz), a trading 
 ├── guides/                    # API keys, orders, algos, triggers, templates, analytics
 ├── account/                   # Funds, fees, rewards tiers, referrals, quests, access
 ├── support/                   # Troubleshooting, risks, contact, official links
+├── .gitbook/assets/           # Images, written back by the GitBook editor
 ├── mcp/                       # MCP server: overview, client setup, tools reference
 ├── websockets/                # /api/ws/algos telemetry protocol
 ├── api-reference/
@@ -31,7 +32,7 @@ Public developer documentation for [Quote](https://quotemarkets.xyz), a trading 
 
 The repo is connected to a GitBook space with bi-directional Git Sync: pushes to `main` publish, and edits made in the GitBook editor come back as commits. `.gitbook.yaml` tells GitBook how to read the repo:
 
-- `structure.readme: introduction.md` makes `introduction.md` the site's landing page, so this file stays a contributor README rather than becoming a docs page.
+- `structure.readme: about-quote/welcome-to-quote.md` makes that page the site's landing page, so this file stays a contributor README rather than becoming a docs page. GitBook defaults to the root `README.md`, which is why the key is set explicitly.
 - `structure.summary: SUMMARY.md` is the navigation. **A page that is not listed in `SUMMARY.md` is not published**, which is also how drafts stay out of the site.
 - `redirects` maps old paths to pages. A redirect only fires if no page already exists at that path.
 
