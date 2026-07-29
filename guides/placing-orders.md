@@ -57,6 +57,23 @@ Compute the bound from the best opposing quote. Buy: `bestAsk × (1 + slippage)`
 Anchor to the best **opposing quote**, not mid. On wide-spread books (prediction markets especially), a mid-anchored bound can sit inside the spread, so the IOC crosses nothing and silently fills zero. See [Hyperliquid constraints](../concepts/hyperliquid-constraints.md#market-orders-are-ioc-limits-with-a-slippage-bound).
 {% endhint %}
 
+## Scale orders
+
+A scale order spreads a set of limit orders evenly across a price range instead of resting the whole size at one price. It is a way to build a position into a move without picking a single level.
+
+In the terminal you set four things:
+
+| Field | What it does |
+|---|---|
+| **Start price** | One end of the range |
+| **End price** | The other end |
+| **Total orders** | How many limit orders to spread across it |
+| **Size skew** | How size is weighted across the range, rather than split evenly |
+
+Skew is what makes it more than a loop. Weight size toward the far end and you buy more the further price falls, which lowers your average entry if it keeps going and leaves you smaller if it does not.
+
+Two things to watch. Each individual order still has to clear the roughly $10 [minimum notional](../concepts/hyperliquid-constraints.md), so a small order split many ways will have levels skipped. And a scale order is a set of resting limits, not a worked strategy: nothing repositions them if the market leaves the range. If you want the engine to adapt, use an [execution strategy](../strategies/overview.md) instead.
+
 ## Attaching TP/SL
 
 Attach take-profit / stop-loss to any order with `tpsl`:

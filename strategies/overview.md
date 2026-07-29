@@ -4,15 +4,17 @@ description: Five execution algorithms, how to choose between them, and the mech
 
 # Strategies Overview
 
-Quote's execution engine runs five strategies. You select one by setting `strategy` on [`POST /api/orders`](../guides/algo-orders.md) and tuning it via `params`.
+Quote's execution engine runs five strategies. In the terminal you pick one from the order type selector; over the API you set `strategy` on [`POST /api/orders`](../guides/algo-orders.md) and tune it via `params`.
 
-| Strategy | `strategy` value | Best for |
-|---|---|---|
-| [Passive TWAP](passive-twap.md) | `passive_twap` | Time-sliced execution with guaranteed completion |
-| [VWAP](vwap.md) | `vwap` | Tracking the market's volume profile over a window |
-| [Iceberg](iceberg.md) | `iceberg` | Hiding large size; pure-passive, no deadline |
-| [Participation Rate](participation-rate.md) | `participation_rate` | Staying a fixed % of real-time market volume |
-| [Chase Limit](chase-limit.md) | `chase_limit` | A limit order that follows the BBO within a bound |
+| Strategy | In the terminal | `strategy` value | Best for |
+|---|---|---|---|
+| [Passive TWAP](passive-twap.md) | TWAP | `passive_twap` | Time-sliced execution with guaranteed completion |
+| [VWAP](vwap.md) | VWAP | `vwap` | Tracking the market's volume profile over a window |
+| [Iceberg](iceberg.md) | Iceberg | `iceberg` | Hiding large size; pure-passive, no deadline |
+| [Participation Rate](participation-rate.md) | POV | `participation_rate` | Staying a fixed % of real-time market volume |
+| [Chase Limit](chase-limit.md) | Chase | `chase_limit` | A limit order that follows the BBO within a bound |
+
+The terminal's names are shorter than the API's. Where they differ, the middle column is what you will see in the order form.
 
 <figure><img src="../.gitbook/assets/Screenshot 2026-04-06 at 3.29.51 pm.png" alt=""><figcaption><p>The five strategies at a glance.</p></figcaption></figure>
 
@@ -67,6 +69,17 @@ Time-sliced strategies share one principle: rest passively first, take liquidity
 The `passivePct` parameter sets the balance: higher values wait longer for passive fills before taking liquidity; lower values trade cost for completion certainty.
 
 How and when child orders are placed, repriced, and converted is managed by the engine and adapts to market conditions. Those mechanics are deliberately not documented: publishing them would help others detect and trade against your orders.
+
+### Urgency and price discipline
+
+The terminal does not make you set slice counts and passive percentages by hand. Two dials, each 0 to 100, express the trade-off instead:
+
+- **Urgency**: how aggressively to interact with market liquidity. Higher urgency means larger orders posted to the book and less waiting for a fill.
+- **Price discipline**: how much price matters against completion. Higher discipline means resting more passively and accepting a greater chance of not finishing.
+
+Urgency resolves into concrete parameters for whichever strategy you picked: how many intervals the order is split into, how much of each interval is spent passive, and the target participation rate. The terminal previews those values as you move the dial, so you can see what a setting will actually do before submitting.
+
+The two dials are what an [order template](../guides/templates.md) stores. Over the API you skip them and set the underlying parameters directly.
 
 ### Common parameters
 
