@@ -67,6 +67,8 @@ tags:
   description: Saved order templates (CRUD).
 - name: Triggers
   description: Conditional triggers (CRUD + history).
+- name: Quests
+  description: Tiered new-user quest progress and the favorite-quote submission.
 - name: Analytics
   description: Execution-quality, volume, and fee analytics.
 - name: Funding
@@ -382,6 +384,15 @@ paths:
           $ref: '#/components/responses/Forbidden'
         '404':
           $ref: '#/components/responses/NotFound'
+        '422':
+          description: |
+            Hyperliquid rejected `approveAgent` because the account has never
+            been funded. Body carries `code: HL_NOT_FUNDED`. Deposit to the
+            account, then retry registration.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
         '429':
           $ref: '#/components/responses/RateLimited'
         '502':
@@ -892,6 +903,133 @@ paths:
           $ref: '#/components/responses/RateLimited'
         '503':
           $ref: '#/components/responses/ServiceUnavailable'
+  /api/quests:
+    get:
+      tags:
+      - Quests
+      summary: Quest and badge progress
+      description: |
+        The caller's quest progress (`quests`), the badges those quests earn
+        (`badges`), and the incomplete quests ranked best-first for a
+        "next up" prompt (`next`). Derived quests (funded account, first trade,
+        X connect, Telegram link, referrals, algo volume) are re-evaluated on
+        each read; completion is sticky.
+
+        Badges partition the quest catalog into thematic sets and are earned by
+        completing every member quest. `isNew` is true for a badge that has been
+        earned but not yet acknowledged via
+        `POST /api/quests/badges/{key}/seen`. Use it to fire an unlock
+        celebration exactly once.
+
+        **Auth:** API-key scope: `account:read` (the X-connect
+        quest can only complete via a terminal session, whose identity token
+        attests the link).
+      operationId: getQuests
+      responses:
+        '200':
+          description: Quests, badges, and recommended next quests.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/QuestsResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+        '503':
+          $ref: '#/components/responses/ServiceUnavailable'
+  /api/quests/quote:
+    post:
+      tags:
+      - Quests
+      summary: Submit a favorite quote
+      description: |
+        Store the caller's favorite quote and complete the matching quest.
+        Re-submitting overwrites the stored quote.
+
+        **Auth:** API-key scope: `account:write`.
+      operationId: submitQuestQuote
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SubmitQuoteRequest'
+      responses:
+        '200':
+          description: Quote stored.
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                - success
+                properties:
+                  success:
+                    type: boolean
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+        '503':
+          $ref: '#/components/responses/ServiceUnavailable'
+  /api/quests/badges/{key}/seen:
+    post:
+      tags:
+      - Quests
+      summary: Acknowledge a badge unlock
+      description: |
+        Mark a badge's unlock as seen, clearing its `isNew` flag on subsequent
+        `GET /api/quests` reads so an unlock celebration never replays.
+
+        Idempotent: acknowledging an already-seen or never-earned badge is a
+        no-op.
+
+        **Auth:** API-key scope: `account:write`.
+      operationId: markQuestBadgeSeen
+      parameters:
+      - name: key
+        in: path
+        required: true
+        description: Badge key, as returned in `badges[].key`.
+        schema:
+          type: string
+          enum:
+          - setup
+          - operator
+          - strategist
+          - cartographer
+          - editor
+          - typesetter
+          - advocate
+      responses:
+        '200':
+          description: Acknowledged.
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                - success
+                properties:
+                  success:
+                    type: boolean
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+        '503':
+          $ref: '#/components/responses/ServiceUnavailable'
   /api/analytics/execution:
     get:
       tags:
@@ -1010,6 +1148,57 @@ paths:
           $ref: '#/components/responses/Forbidden'
         '429':
           $ref: '#/components/responses/RateLimited'
+        '503':
+          $ref: '#/components/responses/ServiceUnavailable'
+  /api/fees/summary:
+    get:
+      tags:
+      - Analytics
+      summary: Fee stack
+      description: |
+        The complete fee stack behind one trade for the calling wallet: the
+        Hyperliquid leg (net taker/maker rates for perps and spot, plus the
+        volume tier, HYPE-staking discount, and HL referral discount that
+        produced them), Quote's builder fee and whether this wallet has
+        approved it, the loyalty tier's cashback and referral rates, and the
+        all-in effective rate.
+
+        Rates are quoted in **basis points** (1 bp = 0.01%).
+
+        `effective = hyperliquid + builder fee − the rewards rebate on that
+        fee`. The rebate accrues as claimable USDC rather than an on-chain
+        discount, so a fill still costs `hyperliquid + builder` at the moment
+        it happens.
+
+        `volumeTier` is derived from the wallet's actual rate, not from
+        `volume14dUsd`: Hyperliquid tiers on 14-day volume weighted
+        `perps + 2× spot`, and the daily rows don't split spot from perp, so
+        `volume14dUsd` reads low for a wallet with spot volume. A `null`
+        `volumeTier` means the rate didn't match the published ladder. Treat
+        it as unknown, not as tier 0.
+
+        Only the Hyperliquid leg is load-bearing. An unconfigured rewards
+        program leaves `rewards` `null`, and a builder-fee approval that
+        can't be read resolves toward `builderFeeCharged: true`, so an
+        unreadable answer overstates the cost rather than understating it.
+
+        **Auth:** API-key scope: `orders:read`.
+      operationId: feeSummary
+      responses:
+        '200':
+          description: The wallet's fee stack.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FeeSummaryResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+        '502':
+          $ref: '#/components/responses/BadGateway'
         '503':
           $ref: '#/components/responses/ServiceUnavailable'
   /api/funding:
@@ -1365,6 +1554,12 @@ components:
           - false
         error:
           type: string
+        code:
+          type: string
+          description: |
+            Stable machine-readable error code, present only on errors a client
+            is expected to branch on (currently `HL_NOT_FUNDED` on 422 from
+            `POST /api/agents/register`).
     SuccessResponse:
       type: object
       required:
@@ -1550,6 +1745,11 @@ components:
           allOf:
           - $ref: '#/components/schemas/TpslParams'
           nullable: true
+        source:
+          type: string
+          nullable: true
+          description: Originating product surface, when not the plain order form (e.g. `quentin` for
+            orders dispatched by the NL assistant). Attribution only, never affects execution.
     SubmitOrderResponse:
       type: object
       required:
@@ -2064,6 +2264,147 @@ components:
             $ref: '#/components/schemas/TriggerEventInfo'
         error:
           type: string
+    TierView:
+      type: object
+      required:
+      - name
+      - min30dVolumeUsd
+      - referralRatePct
+      - l2RatePct
+      - cashbackPct
+      properties:
+        name:
+          type: string
+          description: Tier name (Wood, Bronze, Silver, Gold, Platinum, Diamond, Obsidian).
+        min30dVolumeUsd:
+          type: number
+          format: double
+          description: Minimum rolling 30-day Quote volume (USD) to enter this tier.
+        referralRatePct:
+          type: number
+          format: double
+          description: Direct (L1) referral rate at this tier, % of referees' fees.
+        l2RatePct:
+          type: number
+          format: double
+          description: Indirect (L2) override rate at this tier, % of referees' referees' fees.
+        cashbackPct:
+          type: number
+          format: double
+          description: Cashback rate at this tier, % of own fees (uncapped).
+    QuestStatus:
+      type: object
+      required:
+      - id
+      - progress
+      - target
+      properties:
+        id:
+          type: string
+          description: 'Quest identifier from the closed catalog: `fund_account`, `first_trade`, `connect_x`,
+            `join_telegram`, `first_algo_order`, `quentin_trades`, `tpsl_set`, `conditional_order`, `all_strategies`,
+            `algo_position_exit`, `trigger_variety`, `algo_speedup`, `trade_spot`, `trade_builder_dex`,
+            `trade_prediction`, `market_variety`, `saved_vs_market`, `maker_fill`, `funding_collected`,
+            `trade_days`, `api_key_minted`, `mcp_connected`, `cli_order`, `invite_friends`, `submit_quote`,
+            `claim_rewards`. Read the ids rather than hard-coding a list: quests are added and retired
+            as the product changes.'
+        progress:
+          type: number
+          format: double
+          description: Progress toward `target`, capped at `target`.
+        target:
+          type: number
+          format: double
+        tier:
+          type: integer
+          description: Catalog tier. An internal grouping key retained for analytics; not a user-facing
+            progression axis (badges are). Unrelated to the volume-based loyalty tiers on `/api/referrals/summary`.
+        completedAt:
+          type: string
+          format: date-time
+          description: Present once the quest is complete (sticky).
+    BadgeStatus:
+      type: object
+      required:
+      - key
+      - quests
+      - earned
+      - completed
+      - total
+      - isNew
+      properties:
+        key:
+          type: string
+          enum:
+          - setup
+          - operator
+          - strategist
+          - cartographer
+          - editor
+          - typesetter
+          - advocate
+          description: Stable badge identifier. Badges partition the quest catalog into thematic sets,
+            independently of `QuestStatus.tier`.
+        quests:
+          type: array
+          description: Member quest ids, in display order.
+          items:
+            type: string
+        earned:
+          type: boolean
+          description: True once every member quest is complete.
+        earnedAt:
+          type: string
+          format: date-time
+          description: 'Present once earned: the completion time of the last member quest, not the time
+            the award was first observed.'
+        completed:
+          type: integer
+        total:
+          type: integer
+        isNew:
+          type: boolean
+          description: Earned but not yet acknowledged via `POST /api/quests/badges/{key}/seen`. Fire
+            an unlock celebration on this flag, then acknowledge so it does not replay.
+    QuestsResponse:
+      type: object
+      required:
+      - success
+      - quests
+      - badges
+      - next
+      properties:
+        success:
+          type: boolean
+        quests:
+          type: array
+          description: Every quest in the catalog, in display order.
+          items:
+            $ref: '#/components/schemas/QuestStatus'
+        badges:
+          type: array
+          description: Every badge, in display order.
+          items:
+            $ref: '#/components/schemas/BadgeStatus'
+        next:
+          type: array
+          description: 'Incomplete quest ids ranked best-first: nearest to completion, then belonging
+            to the nearest-complete badge, then catalog order. Quests the wallet cannot currently act
+            on are omitted. Deterministic, so the head is safe to render as a persistent "next up" prompt.'
+          items:
+            type: string
+    SubmitQuoteRequest:
+      type: object
+      required:
+      - quoteText
+      properties:
+        quoteText:
+          type: string
+          maxLength: 280
+        author:
+          type: string
+          nullable: true
+          maxLength: 80
     ExecutionMetrics:
       type: object
       required:
@@ -2149,6 +2490,151 @@ components:
           type: number
           format: double
         builderFee:
+          type: number
+          format: double
+    FeeSummaryResponse:
+      type: object
+      required:
+      - hyperliquid
+      - quote
+      - effective
+      properties:
+        hyperliquid:
+          $ref: '#/components/schemas/HyperliquidFees'
+        quote:
+          $ref: '#/components/schemas/QuoteFees'
+        rewards:
+          allOf:
+          - $ref: '#/components/schemas/RewardsFees'
+          nullable: true
+          description: Null when the loyalty program isn't configured.
+        effective:
+          $ref: '#/components/schemas/EffectiveFees'
+    HyperliquidFees:
+      type: object
+      required:
+      - volume14dUsd
+      - stakingDiscountPct
+      - referralDiscountPct
+      properties:
+        takerBps:
+          type: number
+          format: double
+          nullable: true
+          description: Net perp taker rate, with tier, staking, and referral applied.
+        makerBps:
+          type: number
+          format: double
+          nullable: true
+        spotTakerBps:
+          type: number
+          format: double
+          nullable: true
+        spotMakerBps:
+          type: number
+          format: double
+          nullable: true
+        volumeTier:
+          type: integer
+          nullable: true
+          description: 'Volume-tier index (0 = base). Null means the rate didn''t match the published
+            ladder: unknown, not tier 0.'
+        volumeTierFloorUsd:
+          type: number
+          format: double
+          nullable: true
+        nextVolumeTierFloorUsd:
+          type: number
+          format: double
+          nullable: true
+          description: Null at the top tier.
+        volume14dUsd:
+          type: number
+          format: double
+          description: Own taker + maker volume over the last 14 daily rows. An approximation of the figure
+            HL tiers on, which weights spot 2×; prefer `volumeTier`.
+        stakingDiscountPct:
+          type: number
+          format: double
+          description: HYPE-staking discount as a percent off HL fees (40.0 = 40% off).
+        referralDiscountPct:
+          type: number
+          format: double
+    QuoteFees:
+      type: object
+      required:
+      - builderFeeBpsPerp
+      - builderFeeBpsSpot
+      - builderFeeCharged
+      properties:
+        builderFeeBpsPerp:
+          type: number
+          format: double
+        builderFeeBpsSpot:
+          type: number
+          format: double
+        builderFeeCharged:
+          type: boolean
+          description: Enabled and approved. Drives the `effective` block.
+    RewardsFees:
+      type: object
+      required:
+      - tier
+      - cashbackPct
+      - invitedRebatePct
+      - invitedRebateActive
+      properties:
+        tier:
+          type: string
+          description: Loyalty tier name, from rolling 30-day Quote volume.
+        cashbackPct:
+          type: number
+          format: double
+        invitedRebatePct:
+          type: number
+          format: double
+        invitedRebateActive:
+          type: boolean
+    EffectiveFees:
+      type: object
+      required:
+      - perpBuilderBps
+      - spotBuilderBps
+      - perpRebateBps
+      - spotRebateBps
+      properties:
+        perpTakerBps:
+          type: number
+          format: double
+          nullable: true
+        perpMakerBps:
+          type: number
+          format: double
+          nullable: true
+        spotTakerBps:
+          type: number
+          format: double
+          nullable: true
+          description: Spot **sell** rate. Hyperliquid collects builder fees in the quote asset, which
+            a spot buy never yields, so a spot buy costs the Hyperliquid rate alone.
+        spotMakerBps:
+          type: number
+          format: double
+          nullable: true
+          description: 'Spot **sell** rate: see `spotTakerBps`.'
+        perpBuilderBps:
+          type: number
+          format: double
+          description: Builder bps added to the perp rates (0 when not charged).
+        spotBuilderBps:
+          type: number
+          format: double
+          description: Builder bps added to the spot rates (0 when not charged). Paid on a spot sell only.
+        perpRebateBps:
+          type: number
+          format: double
+          description: Rebate subtracted from the perp rates.
+        spotRebateBps:
           type: number
           format: double
     CoinFunding:

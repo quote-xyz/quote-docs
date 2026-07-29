@@ -1,73 +1,65 @@
----
-description: Explore permissionless optimal trading execution.
-cover: .gitbook/assets/gitbook cover.png
-coverY: 0
-layout:
-  width: default
-  cover:
-    visible: true
-    size: hero
-    mask: none
-  title:
-    visible: true
-  description:
-    visible: true
-  tableOfContents:
-    visible: true
-  outline:
-    visible: true
-  pagination:
-    visible: true
-  metadata:
-    visible: true
-  tags:
-    visible: true
-  actions:
-    visible: true
----
+# Quote Docs
 
-# Welcome to Quote
+Public developer documentation for [Quote](https://quotemarkets.xyz), a trading terminal for Hyperliquid. Built with [GitBook](https://gitbook.com) Git Sync; `SUMMARY.md` defines navigation, pages are Markdown.
 
-### Introduction to Quote
+## Layout
 
-Quote is a perpetuals execution layer. Traders' orders submitted via Quote are routed through the Quote Execution Engine (QEE) before being submitted to Hyperliquid, with the parents' orders optimized down to the child order level, guaranteeing privacy for standing orders.
+```
+├── .gitbook.yaml              # GitBook Git Sync config: root, structure, redirects
+├── SUMMARY.md                 # Navigation (table of contents)
+├── about-quote/               # Landing page (structure.readme) + core contributors
+├── quickstart.md              # Key → sign → order in 5 minutes
+├── authentication.md          # Privy + HMAC, scopes, canonical string
+├── concepts/                  # Quote's model (wallet scoping, agent wallets, order lifecycle)
+│                              #   and the venue's (constraints, margin, liquidation, funding)
+├── strategies/                # Overview + one page per execution strategy
+├── guides/                    # API keys, orders, algos, triggers, templates, analytics
+├── account/                   # Funds, fees, rewards tiers, referrals, quests, access
+├── support/                   # Troubleshooting, risks, contact, official links
+├── .gitbook/assets/           # Images, written back by the GitBook editor
+├── mcp/                       # MCP server: overview, client setup, tools reference
+├── websockets/                # /api/ws/algos telemetry protocol
+├── api-reference/
+│   ├── introduction.md        # Conventions + error envelope
+│   ├── openapi.yaml           # GENERATED: run scripts/sync-openapi.py, do not hand-edit
+│   └── endpoints/             # GENERATED: run scripts/gen-endpoint-pages.py
+└── scripts/
+    ├── sync-openapi.py        # Curated sync from quote-backend/docs/openapi.yaml
+    └── gen-endpoint-pages.py  # OpenAPI spec → one endpoint page per tag
+```
 
-<figure><img src=".gitbook/assets/Screenshot 2026-02-20 at 6.04.44 pm.png" alt=""><figcaption><p>Figure 1. Quote Order Flow through the Quote Execution Engine.</p></figcaption></figure>
+## How Git Sync works
 
-The QEE minimizes the Implementation Shortfall (or the cost of completing trades) by:
+The repo is connected to a GitBook space with bi-directional Git Sync: pushes to `main` publish, and edits made in the GitBook editor come back as commits. `.gitbook.yaml` tells GitBook how to read the repo:
 
-* Prioritizing passive execution to optimize for fees
-* Pacing execution dynamically based on real-time volumes, target participation rates, or pre-defined schedules
-* Sizing orders according to real-time orderbook depth
-* Turning aggressive fills when liquidity is favorable
+- `structure.readme: about-quote/welcome-to-quote.md` makes that page the site's landing page, so this file stays a contributor README rather than becoming a docs page. GitBook defaults to the root `README.md`, which is why the key is set explicitly.
+- `structure.summary: SUMMARY.md` is the navigation. **A page that is not listed in `SUMMARY.md` is not published**, which is also how drafts stay out of the site.
+- `redirects` maps old paths to pages. A redirect only fires if no page already exists at that path.
 
-More information about the Quote order types can be found in the [Algorithmic Execution Suite](trading/algorithmic-execution-suite/) section.
+Site-level settings live in the [GitBook dashboard](https://app.gitbook.com), not in this repo: theme and colors, logo, favicon, the custom domain (e.g. `docs.quotemarkets.xyz`), and header links. The brand assets to upload are in `logo/` and `favicon-*.ico`.
 
-### The problem
+## Local preview
 
-<figure><img src=".gitbook/assets/Screenshot 2026-02-20 at 6.09.48 pm.png" alt=""><figcaption><p>Figure 2. Hidden costs of trading perpetual derivatives</p></figcaption></figure>
+GitBook has no local dev server. Preview a change by opening a pull request: GitBook builds a preview for the PR and comments with the link. Any Markdown previewer is good enough for prose, but GitBook block syntax (`{% hint %}`, `{% tabs %}`, `{% stepper %}`, `{% openapi %}`) only renders in GitBook.
 
-Quote aims to solve several problems for traders in the perpetuals market, including:
+## Keeping the API reference in sync
 
-* Spread crossing
-* Slippage and adverse selection
-* High exchange fees
-* Lack of professional services for pro-retail
+The endpoint pages are generated from `api-reference/openapi.yaml`, which is produced from the hand-authored spec in the backend repo. The output is **curated to the trading surface**: Quentin/NL-order, the Parallel news pipeline, and the daily quote are deliberately excluded. The exclusion list lives in the sync script. After editing `quote-backend/docs/openapi.yaml`:
 
+```bash
+scripts/sync-openapi.py         # default source: ../quote-backend/docs/openapi.yaml
+scripts/gen-endpoint-pages.py   # rewrite api-reference/endpoints/ from the spec
+```
 
+Then add any new page to `SUMMARY.md` (the second script prints the entries).
 
-### The Solution <a href="#technical-overview" id="technical-overview"></a>
+Never hand-edit `api-reference/openapi.yaml`, the files in `api-reference/endpoints/`, or copy the backend spec over the curated one verbatim. The source of truth is `quote-backend/docs/openapi.yaml`, filtered through the script.
 
-The Beta version of Quote was developed from first principles. The QEE leverages battle-tested algorithmic logic and a HyperCore specialized Data Engine to execute trades. The Data Engine was tailor-built to leverage the rich HyperCore data streams.
+## Conventions for new pages
 
-Once an order is submitted through the Quote UI or via the Traders API, trader order data is routed through the QEE, which uses recorded market data to optimize the parent order by breaking it into child orders and submitting them to Hyperliquid via Builder Codes.
-
-<figure><img src=".gitbook/assets/Screenshot 2026-02-20 at 6.14.36 pm.png" alt=""><figcaption><p>Figure 3. Quote Execution Engine Flow.</p></figcaption></figure>
-
-Quote addresses the structural inefficiencies of the perpetuals market by introducing a permissionless trading desk. Our platform puts institutional-grade algorithms and trading execution strategies at anyone's fingertips, leveraging liquidity from Hyperliquid.
-
-* Executions are continuously optimized with real-time market data from the Quote Data Engine, to capture the best possible prices, inclusive of exchange fees
-* Instead of sending a naive order to the book, the QEE breaks parent trades into multiple optimized child orders
-* Orders are routed through Hyperliquid via Builder Codes, maintaining a non-custodial environment that enables us to deliver professional execution while traders retain control of their assets
-
-By using Quote, we expand an institutional service to on-chain traders, internalizing part of the value leakage from Market Makers, Sophisticated Traders, and Exchanges.
+- Add every new page to `SUMMARY.md`. Unlisted pages are not published at all, so `SUMMARY.md` is the only thing that decides what is public.
+- Pages are Markdown with YAML frontmatter carrying `description`; the page title is the first `#` heading.
+- Use GitBook block syntax for callouts (`{% hint %}`), tabbed code (`{% tabs %}`), numbered walkthroughs (`{% stepper %}`), titled code blocks (`{% code title="…" %}`), and collapsible sections (`<details>`).
+- Link between pages with relative Markdown paths ending in `.md` (`../concepts/agent-wallets.md`), not absolute site paths.
+- Ground claims in the backend source or the OpenAPI spec; this site documents actual behavior, not intent.
+- Follow the platform conventions already documented: decimals as strings, signed-bps benchmarks (positive = worse), async-accept order semantics.

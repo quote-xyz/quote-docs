@@ -1,0 +1,82 @@
+---
+description: 'Live strategy-engine telemetry: parent lifecycle, child order activity, and
+  progress, pushed per wallet.'
+---
+
+# Algo Status WebSocket
+
+The algo status WebSocket streams the execution engine's live telemetry for **your wallet's running strategies**. It is the same feed that powers the terminal's animated "Placing child order…" status. Use it instead of polling `GET /api/orders/algo` when you want real-time progress.
+
+```
+wss://api.quotemarkets.xyz/api/ws/algos
+```
+
+{% hint style="info" %}
+This socket is **telemetry, not a ledger**. It is the right source for progress UX. For authoritative fills, positions, and balances, use the REST API and Hyperliquid's own data. If a client lags, the server drops the oldest frames rather than disconnecting; the current state is always re-derivable.
+{% endhint %}
+
+## Connecting and authenticating
+
+The upgrade itself is unauthenticated. The **first client frame** must be an auth handshake with a terminal session token, sent within a few seconds of connecting:
+
+```json
+{ "type": "auth", "identity_token": "<privy-jwt>" }
+```
+
+On success, the server immediately **hydrates** the session: it replays a `parent_created` frame for every strategy currently active on your wallet, then streams live events. On reconnect you get the same hydration, so no running algo is ever missing from your view.
+
+{% hint style="warning" %}
+Authentication is identity-token only (a terminal session credential). HMAC API keys are not accepted on this socket. API-key clients should poll [`GET /api/orders/algo`](../guides/algo-orders.md#tracking-progress).
+{% endhint %}
+
+## Frame format
+
+Every server frame is an `algo_status` envelope:
+
+```json
+{
+  "type": "algo_status",
+  "event": "child_submit",
+  "parent_id": "01HZX8…",
+  "symbol": "ETH",
+  "strategy": "passive_twap",
+  "side": "buy",
+  "verb": "Placing child order",
+  "filled_size": "0.85",
+  "total_size": "2.0",
+  "timestamp": 1752402131000,
+  "details": { "size": "0.066", "price": "3151.5" }
+}
+```
+
+Decimals are strings; `timestamp` is epoch milliseconds.
+
+## Events
+
+| `event` | `verb` | When | `details` |
+|---|---|---|---|
+| `parent_created` | `Planning` | Strategy accepted (also replayed on hydration). `timestamp` is the strategy's **true start time**, so you can derive elapsed time across reconnects | `{}` |
+| `child_submit` | `Placing child order` | A child order was sent to the venue | `{ size, price }` |
+| `child_cancel` | `Adjusting` | A child was cancelled (reprice, phase change) | `{}` |
+| `wake` | `Working` | Progress heartbeat with fresh `filled_size` | strategy diagnostics |
+| `parent_completed` | `Done` / `Cancelled` | Strategy reached a terminal success/cancel state | `{ status }` |
+| `parent_failed` | `Failed` / `Expired` | Terminal failure. `Expired` means it ended with no fill (benign for no-deadline strategies) | `{ error, expired }` |
+
+Frames may also carry an optional `benchmark` snapshot with provisional execution-quality numbers as the strategy runs (same [conventions](../guides/analytics.md#the-benchmark-convention) as the analytics API).
+
+## Client pattern
+
+1. Connect, send the auth frame, buffer frames by `parent_id`.
+2. Treat `parent_created` as upsert (hydration replays it), `parent_completed`/`parent_failed` as removal.
+3. Track progress from the latest `filled_size` / `total_size` on any frame.
+4. On disconnect, reconnect with backoff. Hydration rebuilds state; optionally reconcile against `GET /api/orders/algo`.
+
+## Latency probe
+
+A separate public, stateless socket exists purely for latency measurement:
+
+```
+wss://api.quotemarkets.xyz/api/ws/ping
+```
+
+Send `{ "type": "ping", "t": <anything> }`; the server replies `{ "type": "pong", "t": <echoed> }` immediately. This drives the latency readout in the terminal footer.

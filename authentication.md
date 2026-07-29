@@ -1,0 +1,115 @@
+---
+description: Two auth paths, Privy identity tokens and HMAC API keys, both resolve to your wallet address.
+---
+
+# Authentication
+
+Every authenticated request is resolved to a single normalized **wallet address**. All of your resources (orders, strategies, agent wallets, templates, triggers, analytics) are keyed by that wallet. The caller's identity always comes from the credential, never from the request payload: there is no `walletAddress` field to pass (or spoof) in a body or query string.
+
+There are two ways to authenticate, and they converge on the same wallet:
+
+| Method | Used by | Credential | Scopes |
+|---|---|---|---|
+| **Privy identity token** | The Quote terminal | `Authorization: Bearer <jwt>` | All scopes, implicitly |
+| **HMAC API key** | Bots, scripts, integrations | `X-Quote-Key` + `X-Quote-Timestamp` + `X-Quote-Signature` | Only the scopes granted at mint time |
+
+## Privy identity tokens
+
+The terminal authenticates with [Privy](https://privy.io). The identity JWT is sent as a standard bearer token and verified offline against Privy's JWKS endpoint; your embedded EVM wallet is read from the token's `linked_accounts` claim.
+
+```bash
+curl https://api.quotemarkets.xyz/api/agents \
+  -H "Authorization: Bearer $PRIVY_TOKEN"
+```
+
+Privy sessions carry **all scopes implicitly**, so they need no scope management.
+
+## HMAC API keys
+
+Programmatic clients authenticate with an API key minted from a Privy session (see [API Keys](guides/api-keys.md)). Three headers are sent on every request:
+
+| Header | Value |
+|---|---|
+| `X-Quote-Key` | The public key ID |
+| `X-Quote-Timestamp` | Request time in **milliseconds** since epoch |
+| `X-Quote-Signature` | Hex HMAC-SHA256 over the canonical string |
+
+### The canonical signing string
+
+Join four components with literal `\n` (newline) characters:
+
+```
+<timestamp>\n<METHOD>\n<path_with_query>\n<body>
+```
+
+- `<timestamp>`: the exact value sent in `X-Quote-Timestamp`
+- `<METHOD>`: the uppercase HTTP method (`GET`, `POST`, `DELETE`, …)
+- `<path_with_query>`: the request path **including any query string** (e.g. `/api/triggers?status=active`), no host
+- `<body>`: the raw request body bytes, or the empty string for bodyless requests
+
+The 32-byte secret returned at mint time (hex-encoded) is used **directly** as the HMAC-SHA256 key. Decode the hex to bytes first.
+
+{% tabs %}
+{% tab title="TypeScript" %}
+```typescript
+import { createHmac } from "node:crypto";
+
+const canonical = `${timestamp}\nPOST\n/api/orders\n${rawBody}`;
+const signature = createHmac("sha256", Buffer.from(secret, "hex"))
+  .update(canonical)
+  .digest("hex");
+```
+{% endtab %}
+
+{% tab title="Python" %}
+```python
+import hashlib, hmac
+
+canonical = f"{timestamp}\nPOST\n/api/orders\n{raw_body}"
+signature = hmac.new(bytes.fromhex(secret), canonical.encode(), hashlib.sha256).hexdigest()
+```
+{% endtab %}
+{% endtabs %}
+
+{% hint style="warning" %}
+The timestamp must be within **30 seconds** of server time. If your clock drifts, requests fail with `401`. Sign the exact bytes you transmit: re-serializing JSON with different whitespace or key order after signing will invalidate the signature.
+{% endhint %}
+
+### Scopes
+
+API keys carry only the scopes granted at mint time. Each endpoint's required scope is noted in the [Trader API Reference](api-reference/introduction.md).
+
+| Scope | Grants |
+|---|---|
+| `orders:read` | List/read orders, algo status, triggers, analytics, funding, portfolio |
+| `orders:write` | Submit, modify, cancel orders; create/cancel triggers |
+| `agents:read` | Read agent wallet status |
+| `agents:write` | Create/register agent wallets, record approvals, accept terms |
+| `positions:write` | Update leverage, isolated margin, spot↔perp transfers |
+| `templates:read` | List/read order templates |
+| `templates:write` | Create/update/delete order templates |
+| `account:read` | Read quest and badge progress; account tools over the MCP REST surface |
+| `account:write` | Submit a quest quote, acknowledge a badge unlock |
+| `analytics:read` | Market-wide tools over the MCP REST surface |
+| `bridge:write` | Request a bridge quote for a deposit or withdrawal |
+
+Requests missing a required scope return `403` with the standard [error envelope](api-reference/introduction.md#error-envelope).
+
+{% hint style="info" %}
+Grant only what a client needs. A key minted without `account:read` cannot read [quest progress](account/quests-and-badges.md), and one without `analytics:read` cannot call the market tools described in the [MCP overview](mcp/overview.md), in both cases returning `403` rather than an empty result.
+{% endhint %}
+
+### Privy-only endpoints
+
+Some endpoints are gated to Privy sessions and return `403` for API-key callers regardless of scope:
+
+- **API key management** (`/api/keys*`): API keys cannot mint, list, or revoke other API keys.
+- **Invites and referrals** (`/api/invites*`, `/api/referrals/summary`).
+
+## Public endpoints
+
+A small read-only group requires no authentication (per-IP rate limited): `/api/info` and the root probes `/health`, `/ready`, `/metrics`. Everything else under `/api/*` requires auth.
+
+## MCP connector auth
+
+The [MCP connector](mcp/overview.md) endpoint (`/mcp`) is the one surface that uses neither Privy nor HMAC. It authenticates MCP clients with OAuth 2.1 bearer tokens issued through Quote's own authorization flow.

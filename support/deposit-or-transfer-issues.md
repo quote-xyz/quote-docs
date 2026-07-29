@@ -1,28 +1,39 @@
+---
+description: Why a deposit or a spot-to-perps transfer can look smaller than the amount you sent.
+---
+
 # Deposit or Transfer Issues
 
-## Deposited via Arbitrum network (USDC)
+Almost every "my funds are missing" report resolves to one of the cases below. Work through them before raising it.
 
-Description: You deposited via the Arbitrum network
+## The balance is smaller than what I sent
 
-#### Important note <a href="#important-note" id="important-note"></a>
+This is the most common case by a wide margin, and the funds are not lost.
 
-* Only USDC deposits from the Arbitrum network are supported. If you transferred USDT, ETH, ARB or any other token, your funds will not have been deposited.
+**What you see.** You transfer 1,000 USDC from spot to perps, or deposit 1,000 USDC, the transaction succeeds, and your available balance rises by less than 1,000, or not at all.
 
-#### What to do (for email accounts only) <a href="#what-to-do-for-email-accounts-only" id="what-to-do-for-email-accounts-only"></a>
+**Why.** If you hold cross-margin positions with negative unrealized profit and loss, incoming funds are applied as collateral against those positions first. The money is in your account. It is backing your open risk rather than sitting available to trade.
 
-* Wrong deposit: If you deposited anything other than USDC on the Arbitrum network, you can retrieve the funds yourself by following the steps here: [https://hyperliquid.gitbook.io/hyperliquid-docs/onboarding/export-your-email-wallet](https://hyperliquid.gitbook.io/hyperliquid-docs/onboarding/export-your-email-wallet)
-* Deposited <5 USDC, which is the minimum: If your deposit was less than 5 USDC, then it will not be credited. If you logged in with an email, you can send more USDC and the whole amount will be credited. If you are not an email wallet user, your funds are lost.
+Close or reduce the losing positions and the collateral is released back to your available balance. See [Margin](../concepts/margin.md) for how cross collateral is pooled.
 
+## I sent the wrong token, or used the wrong chain
 
+Only the token and chain in the route you quoted are credited. Anything else does not arrive in your Quote account.
 
-## Transfer or deposit to USDC (Perps) missing
+Quote deposits are cross-chain and support several networks, so check what the deposit screen actually quoted rather than assuming a particular chain. If you sent something outside that route, the funds are still in your own wallet on the sending chain and recovering them is a wallet operation you perform yourself.
 
-Description: You transferred USDC from your Spot to Perps balance or deposited USDC via Arbitrum and can’t figure out where it went or why you are not able to use the USDC in your Perps balance.
+## The amount was too small
 
-Situation 1: Transferred 1,000 from USDC (Spot) to USDC (Perps). When I checked, I see <1,000 USDC in my Available Balance. Where did it go?
+Bridge routes have minimums, and a small transfer can fall under one and not be credited. The quote shown before you sign is what tells you the amount that will arrive, so check it rather than assuming you receive what you sent.
 
-Situation 2: Deposited 1,000 USDC from Arbitrum, and the deposit was successful. When I checked, I see <1,000 USDC in my Available Balance. Where did it go?
+Bridging small amounts is poor value in any case, because the route fee is a fixed-ish cost against a small principal.
 
-#### Reasoning <a href="#reasoning" id="reasoning"></a>
+## I withdrew and the amount was not available
 
-* If you have open positions on cross margin with negative unrealized P\&L, your deposits and Spot to Perp transfers will go toward collateral for those open positions. Please refer to the Docs to understand how margining works: [https://hyperliquid.gitbook.io/hyperliquid-docs/trading/margining#unrealized-pnl-and-transfer-margin-requirements](https://hyperliquid.gitbook.io/hyperliquid-docs/trading/margining#unrealized-pnl-and-transfer-margin-requirements)[<br>](https://hyperliquid.gitbook.io/hyperliquid-docs/support/faq/withdrawal-issues)
+Withdrawals draw from one balance, and you pick which: your perps (cross-margin) balance or your spot balance. Only the **withdrawable** portion of the perps balance is available, so collateral backing open positions is excluded from it.
+
+If the figure looks short, check you selected the right source and that your positions are not holding the collateral. See [Deposits and Withdrawals](../account/deposits-and-withdrawals.md).
+
+## Still stuck
+
+If none of the above explains it, bring the transaction hash and the approximate time to the [Telegram community](https://t.me/quotemarkets). See [Contact Us](contact-us.md).

@@ -1,28 +1,63 @@
+---
+description: What to do if you see activity you did not authorize, and how to avoid it happening again.
+---
+
 # Account Compromised
 
-If you notice unauthorized transactions, missing funds, or an unknown multi-sig on your Quote account, your wallet was likely compromised.
+If you see transactions you did not make, funds missing, or a multi-sig on your account that you did not set up, treat your wallet as compromised.
 
-Quote (and Hyperliquid in the backend) is non-custodial. Only someone with access to your private key or seed phrase can sign transactions on your address’ behalf. If you see activity you didn’t initiate, it’s highly likely that your key was compromised, meaning someone else has control of your address.
+Quote and Hyperliquid are both non-custodial. Only someone holding your private key or seed phrase can sign on your address's behalf. Activity you did not initiate therefore means your key is in someone else's hands, not that a service was breached.
 
-#### What to do <a href="#what-to-do" id="what-to-do"></a>
+{% hint style="danger" %}
+Act immediately. An attacker with your key keeps it, and anything you leave in that address stays reachable by them indefinitely.
+{% endhint %}
 
-* Stop using the compromised address. Treat it as permanently unsafe ("burned")
-* Create a new wallet address using a trusted wallet provider
-* Transfer any remaining funds from your old wallet to your new one—this applies across all apps, not just Quote
-* Send any assets you may have on the HyperEVM to your new address (This is also applicable if your HyperCore address has been converted into a multi-sig you do not control)
-* Revoke smart contract permissions via [https://revoke.cash](https://revoke.cash/) to limit further access to your wallet
-* Clear your browser's cache and cookies, especially if you suspect there may be malware or phishing
-* Identify how you were compromised and determine if your device has malware. This helps ensure you do not repeat the same mistakes again
+## What to do now
 
-#### Best practices moving forward <a href="#best-practices-moving-forward" id="best-practices-moving-forward"></a>
+{% stepper %}
+{% step %}
+#### Stop using the address
 
-Being in DeFi means being responsible for self-custody and keeping your own assets safe. Remember to always be vigilant
+Treat it as permanently unsafe. Do not deposit to it again, however small the amount.
+{% endstep %}
 
-* Never share your seed phrase and private key (Never input it into a website and never share it with a 'support' person)
-* Consider using a hardware wallet for a more secure setup (e.g., Ledger, Trezor, Keystone). Hardware wallets can be paired with browser wallets like Rabby to keep your private key off the browser
-* Never rush to perform actions. Always read and double-check any transaction you sign (Review warnings or alerts from your wallet, if there is insufficient information, do not sign)
-* Never click on unknown links, and beware of sponsored links on your search engine, always verify (cross-reference links against official Twitter accounts, DefiLlama, CoinGecko etc.). Bookmark frequently visited sites to avoid phishing attempts
-* Never download unknown or unverified applications
-* Never download PDFs from unknown users or sources
-* Assume most DMs are scams. Be suspicious if someone asks you to install software or sends a link out of context
-* Keep your browsers and extensions up to date; delete any extensions that are no longer maintained
+{% step %}
+#### Create a new wallet
+
+Use a trusted wallet provider and generate a fresh address.
+{% endstep %}
+
+{% step %}
+#### Move what remains
+
+Transfer any remaining funds to the new address, across every application, not only Quote. Include anything on HyperEVM, which also applies if your HyperCore address has been converted into a multi-sig you do not control.
+{% endstep %}
+
+{% step %}
+#### Revoke contract permissions
+
+Use [revoke.cash](https://revoke.cash) to withdraw approvals you granted from the old address, limiting what an attacker can still reach.
+{% endstep %}
+
+{% step %}
+#### Clean up and find the cause
+
+Clear your browser cache and cookies, then work out how the key leaked and whether the device has malware. Without this step you will repeat the mistake on the new address.
+{% endstep %}
+{% endstepper %}
+
+## Staying safe afterwards
+
+Self-custody means the safeguards are yours to run. The habits that matter most:
+
+- **Never share your seed phrase or private key.** Never type it into a website, and never give it to anyone claiming to be support. No legitimate support person will ask.
+- **Use a hardware wallet** for anything meaningful (Ledger, Trezor, Keystone). Pair one with a browser wallet such as Rabby to keep the key off the browser entirely.
+- **Never rush a signature.** Read every transaction before signing, and heed your wallet's warnings. If it does not tell you enough to be sure, do not sign.
+- **Verify links.** Beware sponsored search results, cross-check against official accounts, and bookmark the sites you use. Quote's canonical addresses are listed in [Official Links](official-links.md).
+- **Do not install unverified software**, and do not open PDFs from unknown senders.
+- **Assume unsolicited direct messages are scams**, particularly any that ask you to install something or follow a link out of context.
+- **Keep browsers and extensions updated**, and remove extensions that are no longer maintained.
+
+## Reporting it
+
+Quote cannot reverse a signed transaction or freeze an address, because neither Quote nor Hyperliquid holds custody. Telling the team is still worth doing, since it helps warn others if an attack is spreading through a shared route such as a fake site. See [Contact Us](contact-us.md).

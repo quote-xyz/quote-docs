@@ -1,0 +1,59 @@
+---
+description: Time-sliced execution that rests passively at the touch and falls back to aggressive orders to stay on schedule. Guaranteed completion.
+---
+
+# Passive TWAP
+
+`passive_twap` splits your order into equal slices over a fixed window. Each slice first rests as a post-only (ALO) order at the best bid/offer, capturing the spread and earning maker fees. If a slice has not filled by its deadline, it converts to an aggressive IOC order. The result is TWAP scheduling at better prices than naive market-order slicing, with completion by end of window when `guaranteedCompletion` is set.
+
+<figure><img src="../.gitbook/assets/Screenshot 2026-04-06 at 3.42.47 pm.png" alt=""><figcaption><p>Passive TWAP: equal slices across the window.</p></figcaption></figure>
+
+## Example
+
+{% code title="POST /api/orders" %}
+```json
+{
+  "symbol": "ETH",
+  "side": "buy",
+  "size": "2.5",
+  "orderType": "limit",
+  "strategy": "passive_twap",
+  "params": {
+    "durationSecs": 1800,
+    "numSlices": 30,
+    "passivePct": 80,
+    "guaranteedCompletion": true
+  }
+}
+```
+{% endcode %}
+
+This works 2.5 ETH over 30 minutes in 30 slices, spending 80% of each minute resting passively before taking liquidity.
+
+## Parameters
+
+| Parameter | Type | Default | Description |
+|---|---|---|---|
+| `durationSecs` | integer | `300` | Total execution window in seconds |
+| `numSlices` | integer | `10` | Number of equal child slices |
+| `passivePct` | integer 0–100 | `80` | Percent of each slice interval spent resting passively before the IOC fallback |
+| `limitOffsetBps` | decimal | `0` | Offset from the touch for passive placement (0 = at BBO) |
+| `randomize` | boolean | `false` | Jitter slice timing/sizing to avoid a detectable cadence |
+| `minSpreadBps` | decimal | none | Skip passive placement when the spread is tighter than this (go straight to schedule) |
+| `guaranteedCompletion` | boolean | `false` | Sweep all remaining size with one wide-tolerance IOC at the end of the window |
+| `completionSlippageBps` | decimal | `100` | Slippage tolerance for the guaranteed-completion sweep |
+| `reduceOnly` | boolean | `false` | Children only reduce an existing position |
+| `attachedTpsl` | object | none | Attach TP/SL to the resulting position |
+
+How passive orders are placed, repriced, and converted is managed by the engine and varies with market conditions; those mechanics are deliberately not specified here.
+
+## Behavior notes
+
+- **Slice sizing vs. the $10 minimum.** Slices below Hyperliquid's ~$10 minimum notional are skipped. Choose `numSlices` so each slice clears the minimum comfortably; see [Hyperliquid constraints](../concepts/hyperliquid-constraints.md#minimum-order-notional-10).
+- **Behind schedule?** If passive fills lag, the aggressive fallback per slice keeps the schedule. With `guaranteedCompletion`, any final remainder is swept at window end within `completionSlippageBps`.
+- **Restart-safe.** Slice state is reconstructed on engine restart; resting children are recovered from the venue rather than duplicated.
+
+## When to use something else
+
+- You're benchmarked to volume, not time → [VWAP](vwap.md).
+- No deadline, and hiding size matters most → [Iceberg](iceberg.md).

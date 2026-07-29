@@ -1,0 +1,11 @@
+root: ./
+
+structure:
+  readme: about-quote/welcome-to-quote.md
+  summary: SUMMARY.md
+
+redirects:
+  # Mintlify served a landing page at /introduction; in GitBook the landing
+  # page is Welcome to Quote at the site root. Add an entry here for any
+  # other path that moves.
+  introduction: about-quote/welcome-to-quote.md

@@ -20,6 +20,7 @@ Usage:
     # default: ../quote-backend/docs/openapi.yaml
 """
 
+import re
 import sys
 from pathlib import Path
 
@@ -133,6 +134,33 @@ GLOBAL_TEXT_REPLACEMENTS = [
     ("**Auth:** authenticated. API-key scope:", "**Auth:** API-key scope:"),
     # adaptive_is is deliberately undocumented in the public reference.
     ("passive_twap, adaptive_is, vwap", "passive_twap, vwap"),
+    # Privy is a terminal-internal credential and is never named publicly. Some
+    # operations legitimately need to say an action is terminal-only, so rename
+    # the credential rather than dropping the sentence. Kept generic (not tied
+    # to one operation's wording) so a re-worded or re-wrapped source line does
+    # not silently stop matching.
+    ("Privy session", "terminal session"),
+    ("Privy-session only", "terminal-session only"),
+]
+
+# Applied as regexes to every string, after the literal replacements above.
+#
+# The public docs never use em dashes (see the docs AGENTS.md style rules), but
+# the backend spec is written without that constraint, so each one has to be
+# rewritten into a colon, a comma, or two sentences depending on what the
+# sentence is doing. Patterns are anchored on a few distinctive words either
+# side and treat whitespace as `\\s+`, so re-wrapping the source line does not
+# stop them matching. If the em dash guard in main() fails, add a rule here.
+GLOBAL_REGEX_REPLACEMENTS = [
+    (r"`code: HL_NOT_FUNDED`\s*—\s*deposit", "`code: HL_NOT_FUNDED`. Deposit"),
+    (r"badges/\{key\}/seen`\s*—\s*use it", "badges/{key}/seen`. Use it"),
+    (r"published ladder\s*—\s*treat", "published ladder. Treat"),
+    (r"published ladder\s*—\s*unknown", "published ladder: unknown"),
+    (r"Attribution only\s*—\s*never", "Attribution only, never"),
+    (r"still accrues\s*—\s*referred", "still accrues: referred"),
+    (r"Present once earned\s*—\s*the completion", "Present once earned: the completion"),
+    (r"taker rate\s*—\s*tier, staking", "taker rate, with tier, staking"),
+    (r"\*\*sell\*\* rate\s*—\s*see", "**sell** rate: see"),
 ]
 
 APIKEY_SCHEME_DESCRIPTION = """\
@@ -176,16 +204,25 @@ def _str_representer(dumper, data):
 BlockDumper.add_representer(str, _str_representer)
 
 
-def replace_everywhere(node, pairs):
+def replace_everywhere(node, pairs, regex_pairs=()):
     if isinstance(node, dict):
-        return {k: replace_everywhere(v, pairs) for k, v in node.items()}
+        return {k: replace_everywhere(v, pairs, regex_pairs) for k, v in node.items()}
     if isinstance(node, list):
-        return [replace_everywhere(v, pairs) for v in node]
+        return [replace_everywhere(v, pairs, regex_pairs) for v in node]
     if isinstance(node, str):
         for old, new in pairs:
             node = node.replace(old, new)
+        for pattern, new in regex_pairs:
+            node = re.sub(pattern, new, node)
         return node
     return node
+
+
+def fail(message: str, text: str, needle: str) -> None:
+    """Exit with the offending lines, so the fix is obvious from the error."""
+    lines = [l.strip() for l in text.splitlines() if needle in l]
+    detail = "\n".join(f"    {l}" for l in lines[:5])
+    sys.exit(f"error: {message}\n{detail}")
 
 
 def main() -> None:
@@ -236,7 +273,7 @@ def main() -> None:
             desc = desc_n.replace(old_n, new_n)
     spec["info"]["description"] = desc
 
-    spec = replace_everywhere(spec, GLOBAL_TEXT_REPLACEMENTS)
+    spec = replace_everywhere(spec, GLOBAL_TEXT_REPLACEMENTS, GLOBAL_REGEX_REPLACEMENTS)
 
     text = yaml.dump(spec, Dumper=BlockDumper, sort_keys=False, allow_unicode=True, width=100)
 
@@ -247,12 +284,11 @@ def main() -> None:
     # The public reference must never mention Privy or use em dashes. If the
     # backend spec grows new mentions, extend the replacement lists above.
     if "Privy" in text or "privy" in text:
-        line = next(l for l in text.splitlines() if "rivy" in l)
-        sys.exit(f"error: Privy mention survived curation: {line.strip()!r}")
+        fail("Privy mention survived curation; extend the replacement lists", text, "rivy")
     if "adaptive_is" in text:
-        sys.exit("error: adaptive_is mention survived curation")
+        fail("adaptive_is mention survived curation", text, "adaptive_is")
     if "—" in text:
-        sys.exit("error: em dash in generated spec")
+        fail("em dash in generated spec; add a GLOBAL_REGEX_REPLACEMENTS rule", text, "—")
 
     target.write_text(text)
     print(f"wrote {target} ({len(spec['paths'])} paths, {len(schemas)} schemas)")

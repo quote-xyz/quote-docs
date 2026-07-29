@@ -1,22 +1,43 @@
+---
+description: Wallet connection loops, failed signing, and wallet-specific fixes.
+---
+
 # Connectivity Issues
 
-Description: I can’t connect my wallet to Quote / I'm stuck in a loop when trying to sign / My wallet isn’t responding. What should I do?
+Symptoms this page covers: you cannot connect your wallet, you are stuck in a repeating "establish connection" loop, signing fails silently, or the wallet extension does not respond.
 
-If you’re experiencing issues connecting your wallet to Quote, such as a recursive "Establish Connection" loop, failed transaction signing, or your wallet extension not loading, try the following troubleshooting steps.
+## Quick fixes
 
-#### Quick fixes <a href="#quick-fixes" id="quick-fixes"></a>
+Try these in order. They resolve most cases.
 
-* Update your wallet extension to the latest version and make sure it’s enabled
-* Hard refresh your browser (on most browsers: Ctrl+Shift+R or Cmd+Shift+R) and clear cache
-* Disconnect and reconnect your wallet
-* Switch networks (e.g., to Ethereum) and then switch back to Arbitrum if you’re trying to deposit USDC on Arbitrum or the HyperEVM if you’re trying to use the HyperEVM
+1. **Update your wallet extension** to the latest version, and check it is enabled.
+2. **Hard refresh** the page (`Ctrl+Shift+R`, or `Cmd+Shift+R` on macOS) and clear your cache.
+3. **Disconnect and reconnect** your wallet.
+4. **Switch networks and switch back.** Move to another network in your wallet, then back to the one you need.
 
-#### Wallet specific compatibility issues with Quote <a href="#wallet-specific-issues" id="wallet-specific-issues"></a>
+## Wallet-specific issues
 
-* Coinbase: Users on mobile may face connection problems. Try using the Coinbase Chrome extension instead
-* Metamask: Some users face issues with MetaMask on the HyperEVM. If this persists, consider migrating to a more compatible wallet like Rabby
-* Trezor forbidden keypath error: This is related to privacy settings within Trezor. In Trezor Suite's Security / Safety Checks change from "Strict" to "Prompt"
-* Ledger "Transfer Failed" error on the HyperEVM: Update to the latest Ledger software/firmware
-* Reinstall your wallet extension: Make sure you have your seed phrase or private key backed up before doing this
+| Wallet | Symptom | Fix |
+|---|---|---|
+| Coinbase Wallet | Connection problems on mobile | Use the Coinbase browser extension instead |
+| MetaMask | Problems on HyperEVM | Migrate to a wallet with better HyperEVM support, such as Rabby |
+| Trezor | "Forbidden keypath" error | In Trezor Suite, under **Security** and **Safety checks**, change **Strict** to **Prompt** |
+| Ledger | "Transfer failed" on HyperEVM | Update to the latest Ledger firmware and software |
 
-Lastly, you can try switching to Rabby Wallet, which often works more smoothly with Quote. Your trades, history, and address remain the same even if you use a new wallet extension. [https://support.rabby.io/hc/en-us/articles/11477459275279-How-to-migrate-from-other-wallets-to-Rabby-Wallet](https://support.rabby.io/hc/en-us/articles/11477459275279-How-to-migrate-from-other-wallets-to-Rabby-Wallet)
+## Reinstalling the extension
+
+Reinstalling clears a surprising number of stuck states.
+
+{% hint style="danger" %}
+Back up your seed phrase or private key **before** you uninstall anything. Removing a wallet extension without a backup means losing access to the account permanently, and nobody can recover it for you.
+{% endhint %}
+
+## Switching wallets
+
+Rabby tends to work most smoothly with Quote. Switching costs you nothing: your address, positions, and history live on-chain and on Hyperliquid, not in the extension, so they are unchanged when you connect with a different wallet to the same address.
+
+Rabby documents [how to migrate from another wallet](https://support.rabby.io/hc/en-us/articles/11477459275279-How-to-migrate-from-other-wallets-to-Rabby-Wallet).
+
+## If trading is blocked rather than connection
+
+If your wallet connects but the order form is disabled with a restriction banner, that is not a connectivity fault. See [Access and Restrictions](../account/access-and-restrictions.md), which covers the geographic restrictions and compliance screening that can block order placement.
