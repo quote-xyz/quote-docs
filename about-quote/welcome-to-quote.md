@@ -8,6 +8,10 @@ coverY: 0
 
 Quote is a perpetuals execution layer for [Hyperliquid](https://hyperliquid.xyz). Orders submitted through Quote are routed to the Quote Execution Engine before they reach the venue, where a parent order is optimized down to the child order level and standing orders stay private until they are placed.
 
+{% hint style="info" %}
+Quote is in **private Alpha** and access is invite-only, through an invite code, the Telegram whitelist, or a partner program. See [Access and Restrictions](../account/access-and-restrictions.md).
+{% endhint %}
+
 <figure><img src="../.gitbook/assets/Screenshot 2026-02-20 at 6.04.44 pm.png" alt=""><figcaption><p>Figure 1. Quote order flow through the Quote Execution Engine.</p></figcaption></figure>
 
 The engine minimizes implementation shortfall, the cost of completing a trade, by:

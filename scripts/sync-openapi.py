@@ -249,6 +249,12 @@ def main() -> None:
     for prop in ("observationMode", "queueImproveThreshold", "distributionSkew"):
         strategy_props.pop(prop, None)
 
+    # The backend spec lists a localhost server for its own development. A
+    # public reference has no use for it, and GitBook renders the server list
+    # in the "test it" selector, where it is an invitation to call a machine
+    # the reader does not have.
+    spec["servers"] = [s for s in spec.get("servers", []) if "localhost" not in s.get("url", "")]
+
     # API-key only: drop the Privy scheme entirely.
     spec["security"] = [{"ApiKeyHmac": []}]
     scheme = spec.get("components", {}).get("securitySchemes", {})
