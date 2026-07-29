@@ -1,5 +1,7 @@
 ---
-description: What a Hyperliquid perpetual actually is: collateral, denomination, and the quanto quirk.
+description: >-
+  What a Hyperliquid perpetual actually is: collateral, denomination, and the
+  quanto quirk.
 ---
 
 # Contract Specifications
