@@ -32,6 +32,15 @@
 * [Order Templates](guides/templates.md)
 * [Analytics](guides/analytics.md)
 
+## Account and rewards
+
+* [Deposits and Withdrawals](account/deposits-and-withdrawals.md)
+* [Fees](account/fees.md)
+* [Rewards Tiers](account/rewards-tiers.md)
+* [Referrals](account/referrals.md)
+* [Quests and Badges](account/quests-and-badges.md)
+* [Access and Restrictions](account/access-and-restrictions.md)
+
 ## Trader API reference
 
 * [Trader API Reference](api-reference/introduction.md)
