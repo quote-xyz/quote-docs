@@ -54,8 +54,6 @@ info:
 servers:
 - url: https://api.quotemarkets.xyz
   description: Production
-- url: http://localhost:3001
-  description: Local development
 tags:
 - name: Orders
   description: Order submission, cancellation, modification, and algo-order status.

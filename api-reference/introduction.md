@@ -8,10 +8,9 @@ This reference covers the trading surface: orders, agents, positions, templates,
 
 ## Base URL
 
-| Environment | URL |
-|---|---|
-| Production | `https://api.quotemarkets.xyz` |
-| Local development | `http://localhost:3001` |
+```
+https://api.quotemarkets.xyz
+```
 
 The active network (Hyperliquid mainnet vs. testnet) is reported by the public `GET /api/info` endpoint.
 
