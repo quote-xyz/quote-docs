@@ -28,7 +28,9 @@ Hyperliquid's staking levels share names with Quote's [rewards tiers](rewards-ti
 
 ## The Quote builder fee
 
-Quote earns through Hyperliquid's builder-code mechanism rather than through subscriptions or spread markup. Every Quote-routed order carries Quote's builder code, and the fee is attached server-side, with separate rates for perps and for spot.
+Quote earns through Hyperliquid's builder-code mechanism rather than through subscriptions or spread markup. Every Quote-routed order carries Quote's builder code, and the fee is attached server-side.
+
+The rate is **2 bps (0.02%) on perpetuals and 4 bps (0.04%) on spot**. There are no fixed subscriptions and no monthly minimums: if you do not trade, you pay Quote nothing. The rate sits on top of [Hyperliquid's own fees](https://hyperliquid.gitbook.io/hyperliquid-docs/trading/fees), as the builder-code design intends.
 
 Two conditions decide whether it is actually charged on a given fill: fee collection has to be switched on for the deployment, and your wallet has to have approved the builder fee on Hyperliquid. Approval is a one-time signature during [agent setup](../concepts/agent-wallets.md), and Quote will not trade for a wallet that has not given it.
 

@@ -10,9 +10,12 @@ Public developer documentation for [Quote](https://quotemarkets.xyz), a trading 
 ├── introduction.md            # Landing page (structure.readme in .gitbook.yaml)
 ├── quickstart.md              # Key → sign → order in 5 minutes
 ├── authentication.md          # Privy + HMAC, scopes, canonical string
-├── concepts/                  # Wallet scoping, agent wallets, order lifecycle, venue constraints
+├── concepts/                  # Quote's model (wallet scoping, agent wallets, order lifecycle)
+│                              #   and the venue's (constraints, margin, liquidation, funding)
 ├── strategies/                # Overview + one page per execution strategy
 ├── guides/                    # API keys, orders, algos, triggers, templates, analytics
+├── account/                   # Funds, fees, rewards tiers, referrals, quests, access
+├── support/                   # Troubleshooting, risks, contact, official links
 ├── mcp/                       # MCP server: overview, client setup, tools reference
 ├── websockets/                # /api/ws/algos telemetry protocol
 ├── api-reference/

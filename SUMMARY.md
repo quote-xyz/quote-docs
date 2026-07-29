@@ -12,7 +12,14 @@
 * [The Wallet-Scoped Model](concepts/wallet-scoped-api.md)
 * [Agent Wallets](concepts/agent-wallets.md)
 * [Order Lifecycle](concepts/order-lifecycle.md)
+
+## Trading on Hyperliquid
+
 * [Hyperliquid Constraints](concepts/hyperliquid-constraints.md)
+* [Contract Specifications](concepts/contract-specifications.md)
+* [Margin](concepts/margin.md)
+* [Liquidation](concepts/liquidation.md)
+* [Funding Rate](concepts/funding-rate.md)
 
 ## Execution strategies
 
@@ -61,3 +68,12 @@
 * [MCP Overview](mcp/overview.md)
 * [Connecting Clients](mcp/connect.md)
 * [Tools Reference](mcp/tools.md)
+
+## Support and resources
+
+* [Deposit or Transfer Issues](support/deposit-or-transfer-issues.md)
+* [Connectivity Issues](support/connectivity-issues.md)
+* [Account Compromised](support/account-compromised.md)
+* [Risks](support/risks.md)
+* [Contact Us](support/contact-us.md)
+* [Official Links](support/official-links.md)

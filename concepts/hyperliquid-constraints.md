@@ -43,11 +43,19 @@ Anchor slippage to the best opposing quote, **not** the mid price. On wide-sprea
 
 ## Builder fee
 
-Quote monetizes through Hyperliquid's builder-code mechanism, not through spread markup or subscriptions. Every order routed through Quote carries Quote's builder code; the fee is attached server-side and denominated in tenths of a basis point.
+Every order routed through Quote carries Quote's builder code, and the fee is attached server-side.
 
-**Quote requires builder-fee approval before it will trade for your wallet.** You sign the approval once with your master wallet during [agent setup](agent-wallets.md); until then, every order submission fails, from the terminal and the API alike. Before trading programmatically, confirm that `builderFeeApproved` is `true` on `GET /api/agents`.
+The constraint this places on you is the approval. **Quote requires builder-fee approval before it will trade for your wallet.** You sign it once with your master wallet during [agent setup](agent-wallets.md); until then every order submission fails, from the terminal and the API alike. Before trading programmatically, confirm that `builderFeeApproved` is `true` on `GET /api/agents`.
 
-The fee is never hidden: execution analytics report builder fees separately from exchange fees, so you always see the full cost of every fill.
+For the rate and how it sits against Hyperliquid's own fees, see [Fees](../account/fees.md).
+
+## Resting orders must stay within 1% of the oracle
+
+An order cannot rest further than **1% from the oracle price**. The venue rejects anything priced outside that band, and Hyperliquid's own HLP is exempt so that it can keep quoting.
+
+This bites on strategies that quote well away from the touch, and on resting orders left far out as a cheap limit. Price inside the band, or accept that the order will be rejected rather than sitting where you left it.
+
+The band exists alongside **open interest caps**, set from a combination of liquidity, basis, and leverage. An asset at its cap accepts no new positions at all. See [Risks](../support/risks.md).
 
 ## Time in force
 

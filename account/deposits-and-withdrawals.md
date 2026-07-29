@@ -35,7 +35,7 @@ If you connected an external wallet such as Rabby or MetaMask, the onramp is not
 
 A deposit credits your perps balance, but that does not always mean it is available to trade. If you hold cross-margin positions with negative unrealized PnL, incoming funds are absorbed as collateral for those positions first. Your available balance can therefore rise by less than you deposited, or not at all.
 
-This is Hyperliquid margin behavior, not a Quote rule, and it is the single most common reason a deposit looks like it went missing.
+This is Hyperliquid margin behavior, not a Quote rule, and it is the single most common reason a deposit looks like it went missing. See [Margin](../concepts/margin.md).
 
 ## Withdraw
 
@@ -62,18 +62,10 @@ Send transfers USDC from your Hyperliquid balance directly to another address on
 Check the destination address before confirming. Sends are irreversible, and an address typo cannot be undone by Quote or by Hyperliquid.
 {% endhint %}
 
-## Unified and portfolio-margin accounts
-
-Hyperliquid offers account modes that unify spot and perp collateral. If your account is in one of these modes, the split between "spot balance" and "perps balance" stops describing how your collateral actually works, and balance figures shown as perp-only are incomplete.
-
-Quote detects the mode and adapts the transfer flows, but if you run a unified account, treat any spot-versus-perp balance split in the terminal as a display convenience rather than the underlying truth.
+{% hint style="info" %}
+On a [unified or portfolio-margin account](../concepts/margin.md#unified-accounts), the spot-versus-perps split above stops describing how your collateral actually works. Quote detects the mode and adapts these flows, but treat the balance split as a display convenience rather than the underlying truth.
+{% endhint %}
 
 ## If a deposit or transfer looks wrong
 
-Three causes account for most cases, in order of how often they come up:
-
-1. **The balance went to collateral.** You have cross-margin positions with negative unrealized PnL, and the funds were absorbed backing them. Nothing is lost, but nothing is spendable either.
-2. **The amount was below the route's minimum.** Small amounts can fall under a bridge route's floor and are not credited. The quote you see before signing is what tells you.
-3. **The wrong token or chain was used.** Only the token and chain in the quoted route are credited. Anything else has to be recovered from the sending wallet yourself.
-
-If none of those explain it, the [Telegram community](https://t.me/quotemarkets) is where the team picks up account questions.
+Usually the funds went to collateral, the amount fell under a route minimum, or the wrong token or chain was used. [Deposit or transfer issues](../support/deposit-or-transfer-issues.md) works through each case.

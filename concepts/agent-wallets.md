@@ -17,6 +17,17 @@ Quote is **non-custodial**. It never holds your keys or your funds. Instead, tra
 
 You authorize the agent **once**, by signing Hyperliquid's `approveAgent` action with your master wallet. From then on, Quote signs orders with the agent key. That is why algo strategies can work an order for hours without asking you to sign every child slice.
 
+## What the agent can and cannot do
+
+| The agent wallet can | The agent wallet cannot |
+|---|---|
+| Trade perpetuals, against your perps balance | Withdraw funds |
+| Trade spot, against your spot balance | Transfer funds out |
+| Swap spot tokens | Deposit, via Arbitrum or HyperEVM |
+| | Transact on HyperEVM |
+
+The permissions are enforced by Hyperliquid, not by Quote, which is what makes the guarantee worth something: a leaked [API key](../guides/api-keys.md) can trade within its scopes but cannot move your money anywhere you did not authorize.
+
 ## Lifecycle
 
 {% stepper %}

@@ -35,6 +35,8 @@ Quote sits between you and Hyperliquid as an execution layer:
 | [Execution analytics](guides/analytics.md) | Implementation shortfall, slippage, fees, funding, and portfolio equity time-series |
 | [MCP server](mcp/overview.md) | Read-only analytics for AI agents over the Model Context Protocol |
 | [Real-time telemetry](websockets/algo-status.md) | WebSocket stream of live strategy progress |
+| [Funds](account/deposits-and-withdrawals.md) | Cross-chain deposits and withdrawals, spot-perp transfers, direct sends |
+| [Fees and rewards](account/fees.md) | The full fee stack, the volume-based tier ladder, referrals, and cashback |
 
 ## Markets
 
