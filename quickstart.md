@@ -2,7 +2,7 @@
 description: Mint an API key, sign your first request, and submit an order in five minutes.
 ---
 
-# Quickstart
+# API Quickstart
 
 This guide takes you from zero to a filled order over the API. You need a Quote account with a registered agent wallet. If you have traded in the [terminal](https://quotemarkets.xyz), you already have one.
 

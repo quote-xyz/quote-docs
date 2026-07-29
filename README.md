@@ -13,7 +13,7 @@ Public developer documentation for [Quote](https://quotemarkets.xyz), a trading 
 ├── concepts/                  # Quote's model (wallet scoping, agent wallets, order lifecycle)
 │                              #   and the venue's (constraints, margin, liquidation, funding)
 ├── strategies/                # Overview + one page per execution strategy
-├── guides/                    # API keys, orders, algos, triggers, templates, analytics
+├── guides/                    # First trade, triggers, templates, analytics, and the API guides
 ├── account/                   # Funds, fees, rewards tiers, referrals, quests, access
 ├── support/                   # Troubleshooting, risks, contact, official links
 ├── .gitbook/assets/           # Images, written back by the GitBook editor
