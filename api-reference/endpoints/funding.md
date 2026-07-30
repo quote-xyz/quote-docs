@@ -6,18 +6,18 @@ description: 'Funding-payment tracking: totals, timeline, and history.'
 
 ## Funding totals
 
-{% openapi src="../openapi.yaml" path="/api/funding" method="get" %}
-[openapi.yaml](../openapi.yaml)
+{% openapi src="../../.gitbook/assets/openapi.yaml" path="/api/funding" method="get" %}
+[openapi.yaml](../../.gitbook/assets/openapi.yaml)
 {% endopenapi %}
 
 ## Funding timeline
 
-{% openapi src="../openapi.yaml" path="/api/funding/timeline" method="get" %}
-[openapi.yaml](../openapi.yaml)
+{% openapi src="../../.gitbook/assets/openapi.yaml" path="/api/funding/timeline" method="get" %}
+[openapi.yaml](../../.gitbook/assets/openapi.yaml)
 {% endopenapi %}
 
 ## Funding history
 
-{% openapi src="../openapi.yaml" path="/api/funding/history" method="get" %}
-[openapi.yaml](../openapi.yaml)
+{% openapi src="../../.gitbook/assets/openapi.yaml" path="/api/funding/history" method="get" %}
+[openapi.yaml](../../.gitbook/assets/openapi.yaml)
 {% endopenapi %}

@@ -1,18 +1,20 @@
 ---
-description: Five execution algorithms, how to choose between them, and the mechanics they share.
+description: >-
+  Execution algorithms, how to choose between them, and the mechanics they
+  share.
 ---
 
 # Strategies Overview
 
-Quote's execution engine runs five strategies. In the terminal you pick one from the order type selector; over the API you set `strategy` on [`POST /api/orders`](../guides/algo-orders.md) and tune it via `params`.
+Quote's execution engine runs five strategies. In the terminal, you pick one from the order type selector; over the API you set `strategy` on [`POST /api/orders`](../guides/algo-orders.md) and tune it via `params`.
 
-| Strategy | In the terminal | `strategy` value | Best for |
-|---|---|---|---|
-| [Passive TWAP](passive-twap.md) | TWAP | `passive_twap` | Time-sliced execution with guaranteed completion |
-| [VWAP](vwap.md) | VWAP | `vwap` | Tracking the market's volume profile over a window |
-| [Iceberg](iceberg.md) | Iceberg | `iceberg` | Hiding large size; pure-passive, no deadline |
-| [Participation Rate](participation-rate.md) | POV | `participation_rate` | Staying a fixed % of real-time market volume |
-| [Chase Limit](chase-limit.md) | Chase | `chase_limit` | A limit order that follows the BBO within a bound |
+| Strategy                                    | In the terminal | `strategy` value     | Best for                                           |
+| ------------------------------------------- | --------------- | -------------------- | -------------------------------------------------- |
+| [Passive TWAP](passive-twap.md)             | TWAP            | `passive_twap`       | Time-sliced execution with guaranteed completion   |
+| [VWAP](vwap.md)                             | VWAP            | `vwap`               | Tracking the market's volume profile over a window |
+| [Iceberg](iceberg.md)                       | Iceberg         | `iceberg`            | Hiding large size; pure-passive, no deadline       |
+| [Participation Rate](participation-rate.md) | POV             | `participation_rate` | Staying a fixed % of real-time market volume       |
+| [Chase Limit](chase-limit.md)               | Chase           | `chase_limit`        | A limit order that follows the BBO within a bound  |
 
 The terminal's names are shorter than the API's. Where they differ, the middle column is what you will see in the order form.
 
@@ -64,7 +66,7 @@ The terminal's names are shorter than the API's. Where they differ, the middle c
 
 ### The passive → aggressive cycle <a href="#the-passive-aggressive-cycle" id="the-passive-aggressive-cycle"></a>
 
-Time-sliced strategies share one principle: rest passively first, take liquidity only when the schedule demands it. Passive child orders sit on the book earning the spread and maker fees; if a slice falls behind, the engine takes liquidity to keep the order on schedule.
+Time-sliced strategies share one principle: rest passively first, take liquidity only when the schedule demands it. Passive child orders sit on the book, earning the spread and maker fees; if a slice falls behind, the engine takes liquidity to keep the order on schedule.
 
 The `passivePct` parameter sets the balance: higher values wait longer for passive fills before taking liquidity; lower values trade cost for completion certainty.
 
@@ -74,26 +76,18 @@ How and when child orders are placed, repriced, and converted is managed by the 
 
 The terminal does not make you set slice counts and passive percentages by hand. Two dials, each 0 to 100, express the trade-off instead:
 
-- **Urgency**: how aggressively to interact with market liquidity. Higher urgency means larger orders posted to the book and less waiting for a fill.
-- **Price discipline**: how much price matters against completion. Higher discipline means resting more passively and accepting a greater chance of not finishing.
+* **Urgency**: how aggressively to interact with market liquidity. Higher urgency means larger orders posted to the book and less waiting for a fill.
+* **Price discipline**: how much price matters against completion. Higher discipline means resting more passively and accepting a greater chance of not finishing.
 
-Urgency resolves into concrete parameters for whichever strategy you picked: how many intervals the order is split into, how much of each interval is spent passive, and the target participation rate. The terminal previews those values as you move the dial, so you can see what a setting will actually do before submitting.
+Urgency resolves into concrete parameters for whichever strategy you picked: how many intervals the order is split into, how much of each interval is spent passively, and the target participation rate. The terminal previews those values as you move the dial, so you can see what a setting will actually do before submitting.
 
 The two dials are what an [order template](../guides/templates.md) stores. Over the API you skip them and set the underlying parameters directly.
 
 ### Common parameters
 
-These appear across multiple strategies (all optional; camelCase and snake_case are both accepted):
+These appear across multiple strategies (all optional; camelCase and snake\_case are both accepted):
 
-| Parameter | Type | Meaning |
-|---|---|---|
-| `durationSecs` | integer | Total execution window |
-| `numSlices` | integer | Number of child slices |
-| `passivePct` | integer 0–100 | Portion of each slice spent passive before going aggressive |
-| `randomize` | boolean | Jitter slice timing and sizing to avoid detectable patterns |
-| `reduceOnly` | boolean | Children only reduce an existing position |
-| `guaranteedCompletion` | boolean | Sweep any remainder with a wide-tolerance IOC at the end |
-| `attachedTpsl` | object | Attach take-profit/stop-loss to the resulting position |
+<table><thead><tr><th width="230.04296875">Parameter</th><th>Meaning</th></tr></thead><tbody><tr><td><code>durationSecs</code></td><td>Total execution window</td></tr><tr><td><code>numSlices</code></td><td>Number of child slices</td></tr><tr><td><code>passivePct</code></td><td>Portion of each slice spent passive before going aggressive</td></tr><tr><td><code>randomize</code></td><td>Jitter slice timing and sizing to avoid detectable patterns</td></tr><tr><td><code>reduceOnly</code></td><td>Children only reduce an existing position</td></tr><tr><td><code>guaranteedCompletion</code></td><td>Sweep any remainder with a wide-tolerance IOC at the end</td></tr><tr><td><code>attachedTpsl</code></td><td>Attach take-profit/stop-loss to the resulting position</td></tr></tbody></table>
 
 Per-strategy pages document the full parameter set with defaults.
 
@@ -101,9 +95,9 @@ Per-strategy pages document the full parameter set with defaults.
 
 Every strategy execution is measured against three benchmarks (see [Analytics](../guides/analytics.md)):
 
-- **vs. arrival price**: the mid when your parent order started (implementation shortfall).
-- **vs. market VWAP**: all market trades during your execution window.
-- **vs. market order**: a simulated aggressive sweep of the book at each fill time. This is the most actionable benchmark: it measures the spread you captured compared with sweeping the book.
+* **vs. arrival price**: the mid when your parent order started (implementation shortfall).
+* **vs. market VWAP**: all market trades during your execution window.
+* **vs. market order**: a simulated aggressive sweep of the book at each fill time. This is the most actionable benchmark: it measures the spread you captured compared with sweeping the book.
 
 All benchmark values are signed basis points with the convention **positive = worse, negative = better**.
 

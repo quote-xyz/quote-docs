@@ -8,12 +8,12 @@ Quote is non-custodial. Your funds sit in your own Hyperliquid account, and Quot
 
 There are four flows in the terminal, and they do different jobs:
 
-| Flow | Moves funds | Use it to |
-|---|---|---|
-| **Deposit** | Another chain → your Hyperliquid perps balance | Fund your account to start trading |
-| **Withdraw** | Your Hyperliquid balance → another chain | Take money off the venue |
-| **Transfer** | Spot balance ↔ perps balance | Rebalance inside Hyperliquid |
-| **Send** | Your Hyperliquid balance → another address | Pay someone directly in USDC |
+| Flow         | Moves funds                                    | Use it to                          |
+| ------------ | ---------------------------------------------- | ---------------------------------- |
+| **Deposit**  | Another chain → your Hyperliquid perps balance | Fund your account to start trading |
+| **Withdraw** | Your Hyperliquid balance → another chain       | Take money off the venue           |
+| **Transfer** | Spot balance ↔ perps balance                   | Rebalance inside Hyperliquid       |
+| **Send**     | Your Hyperliquid balance → another address     | Pay someone directly in USDC       |
 
 ## Deposit
 
@@ -41,10 +41,8 @@ This is Hyperliquid margin behavior, not a Quote rule, and it is the single most
 
 Withdrawing asks one question the deposit flow does not: **which balance the money comes from**.
 
-- **Perps**: your cross-margin balance. Only the withdrawable portion is available, so collateral backing open positions is excluded.
-- **Spot**: your spot USDC balance.
-
-Pick the wrong source and the amount you expect will not be there. If you have positions open, close or reduce them before withdrawing collateral.
+* **Perps**: your cross-margin balance. Only the withdrawable portion is available, so collateral backing open positions is excluded.
+* **Spot**: your spot USDC balance.
 
 ## Transfer between spot and perps
 

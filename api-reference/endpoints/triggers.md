@@ -6,30 +6,30 @@ description: Conditional triggers (CRUD + history).
 
 ## List conditional triggers
 
-{% openapi src="../openapi.yaml" path="/api/triggers" method="get" %}
-[openapi.yaml](../openapi.yaml)
+{% openapi src="../../.gitbook/assets/openapi.yaml" path="/api/triggers" method="get" %}
+[openapi.yaml](../../.gitbook/assets/openapi.yaml)
 {% endopenapi %}
 
 ## Create a conditional trigger
 
-{% openapi src="../openapi.yaml" path="/api/triggers" method="post" %}
-[openapi.yaml](../openapi.yaml)
+{% openapi src="../../.gitbook/assets/openapi.yaml" path="/api/triggers" method="post" %}
+[openapi.yaml](../../.gitbook/assets/openapi.yaml)
 {% endopenapi %}
 
 ## Get a trigger
 
-{% openapi src="../openapi.yaml" path="/api/triggers/{trigger_id}" method="get" %}
-[openapi.yaml](../openapi.yaml)
+{% openapi src="../../.gitbook/assets/openapi.yaml" path="/api/triggers/{trigger_id}" method="get" %}
+[openapi.yaml](../../.gitbook/assets/openapi.yaml)
 {% endopenapi %}
 
 ## Cancel a trigger
 
-{% openapi src="../openapi.yaml" path="/api/triggers/{trigger_id}" method="delete" %}
-[openapi.yaml](../openapi.yaml)
+{% openapi src="../../.gitbook/assets/openapi.yaml" path="/api/triggers/{trigger_id}" method="delete" %}
+[openapi.yaml](../../.gitbook/assets/openapi.yaml)
 {% endopenapi %}
 
 ## Get trigger history
 
-{% openapi src="../openapi.yaml" path="/api/triggers/{trigger_id}/history" method="get" %}
-[openapi.yaml](../openapi.yaml)
+{% openapi src="../../.gitbook/assets/openapi.yaml" path="/api/triggers/{trigger_id}/history" method="get" %}
+[openapi.yaml](../../.gitbook/assets/openapi.yaml)
 {% endopenapi %}

@@ -1,5 +1,7 @@
 ---
-description: Fire an order automatically when a price, funding, open-interest, copy-trade, or time condition is met.
+description: >-
+  Fire an order automatically when a price, funding, open-interest, copy-trade,
+  or time condition is met.
 ---
 
 # Conditional Triggers
@@ -8,13 +10,12 @@ Triggers are server-side conditions that submit an order for you when they fire.
 
 ## Trigger types
 
-| `triggerType` | Fires when |
-|---|---|
-| `price` | An asset's price crosses a level |
-| `funding` | A funding-rate condition is met |
-| `oi_change` | Open interest moves by a threshold |
-| `copy_trade` | A watched wallet trades |
-| `time` | A scheduled time arrives |
+| `price`      | An asset's price crosses a level   |
+| ------------ | ---------------------------------- |
+| `funding`    | A funding-rate condition is met    |
+| `oi_change`  | Open interest moves by a threshold |
+| `copy_trade` | A watched wallet trades            |
+| `time`       | A scheduled time arrives           |
 
 ## Creating a trigger
 
@@ -42,9 +43,9 @@ Triggers are server-side conditions that submit an order for you when they fire.
 
 Returns `201` with the trigger (UUID `id`, `status: "active"`).
 
-- `condition` and `executionOrder` are JSON payloads interpreted by the trigger evaluator for the given `triggerType`; the shapes above follow the terminal's usage.
-- `expiresAt` is optional; an un-fired trigger flips to `expired` after it.
-- Scope: `orders:write` to create/cancel, `orders:read` to list/read.
+* `condition` and `executionOrder` are JSON payloads interpreted by the trigger evaluator for the given `triggerType`; the shapes above follow the terminal's usage.
+* `expiresAt` is optional; an un-fired trigger flips to `expired` after it.
+* Scope: `orders:write` to create/cancel, `orders:read` to list/read.
 
 ## Lifecycle
 
@@ -76,7 +77,7 @@ DELETE /api/triggers/{trigger_id}
 
 ## Semantics worth knowing
 
-- **One-shot.** A trigger fires once, submits its execution order, and moves to `triggered`. Recreate it if you want it re-armed.
-- **The order still has to pass.** When a trigger fires, the execution order goes through the normal order path: agent signing, venue constraints, minimum notional. A failed submission is recorded in the trigger's history.
-- **Triggers survive restarts.** They're durable server-side state, not a client session feature.
-- **Ownership.** Like everything else, triggers are [wallet-scoped](../concepts/wallet-scoped-api.md): you only ever see and manage your own.
+* **One-shot.** A trigger fires once, submits its execution order, and moves to `triggered`. Recreate it if you want it re-armed.
+* **The order still has to pass.** When a trigger fires, the execution order goes through the normal order path: agent signing, venue constraints, minimum notional. A failed submission is recorded in the trigger's history.
+* **Triggers survive restarts.** They're durable server-side state, not a client session feature.
+* **Ownership.** Like everything else, triggers are [wallet-scoped](../concepts/wallet-scoped-api.md): you only ever see and manage your own.

@@ -1,10 +1,12 @@
 ---
-description: Place your first order in the Quote terminal, and choose the right order type.
+description: >-
+  Place your first order in the Quote application, and choose the right order
+  type.
 ---
 
 # Placing Your First Trade
 
-This walks through a first trade in the [terminal](https://quotemarkets.xyz). You need an account with funds in it: see [Access and Restrictions](../account/access-and-restrictions.md) and [Deposits and Withdrawals](../account/deposits-and-withdrawals.md) first.
+This walks through a first trade in the [application](https://quotemarkets.xyz). You need an account with funds in it: see [Access and Restrictions](../account/access-and-restrictions.md) and [Deposits and Withdrawals](../account/deposits-and-withdrawals.md) first.
 
 ## Before your first order
 
@@ -21,7 +23,7 @@ The terminal prompts for both the first time you try to trade. You only do this 
 {% step %}
 #### Pick a market
 
-Use the symbol selector at the top of the form. Quote trades everything Hyperliquid lists: perpetuals like `BTC` and `ETH`, builder-DEX equities and commodities like `xyz:HOOD`, and prediction markets.
+Use the symbol selector at the top of the form. Quote trades everything Hyperliquid lists: spot, perpetuals like `BTC` and `ETH`, builder-DEX equities and commodities like `xyz:HOOD`, and prediction markets.
 {% endstep %}
 
 {% step %}
@@ -55,7 +57,7 @@ This is the decision that matters most, and it is covered in the next section.
 
 The form summarizes the order before you commit. Confirm, and it goes to the engine.
 
-A confirmation means the order was **accepted**, not that it filled. Watch the positions panel for fills, and for the algorithmic types watch the live progress readout.
+A confirmation means the order was **accepted**, not that it filled. Watch the positions panel for fills, and for the algorithmic types, watch the live progress readout.
 {% endstep %}
 {% endstepper %}
 
@@ -63,21 +65,11 @@ A confirmation means the order was **accepted**, not that it filled. Watch the p
 
 The selector offers eight, and the first three behave like order types anywhere:
 
-| Type | What it does |
-|---|---|
-| **Limit** | Rests on the book at your price |
-| **Market** | Fills right away by sweeping the book |
-| **Scale** | Spreads limit orders across a price range ([more](placing-orders.md#scale-orders)) |
+<table><thead><tr><th width="157.421875">Type</th><th>What it does</th></tr></thead><tbody><tr><td><strong>Limit</strong></td><td>Rests on the book at your price</td></tr><tr><td><strong>Market</strong></td><td>Fills right away by sweeping the book</td></tr><tr><td><strong>Scale</strong></td><td>Spreads limit orders across a price range (<a href="placing-orders.md#scale-orders">more</a>)</td></tr></tbody></table>
 
 The other five hand the order to the execution engine, which works it over time instead of sending it to the book in one piece. This is what Quote is for, and on any size that would move the market it is usually cheaper.
 
-| Type | What it does | Read more |
-|---|---|---|
-| **TWAP** | Slices into steady parts over a set time | [Passive TWAP](../strategies/passive-twap.md) |
-| **VWAP** | Follows market volume to reduce impact | [VWAP](../strategies/vwap.md) |
-| **POV** | Paces at a target share of market volume | [Participation Rate](../strategies/participation-rate.md) |
-| **Iceberg** | Shows only a small slice of your true size | [Iceberg](../strategies/iceberg.md) |
-| **Chase** | Follows the best bid/ask toward a fill | [Chase Limit](../strategies/chase-limit.md) |
+<table><thead><tr><th width="153.859375">Type</th><th>What it does</th><th>Read more</th></tr></thead><tbody><tr><td><strong>TWAP</strong></td><td>Slices into steady parts over a set time</td><td><a href="../strategies/passive-twap.md">Passive TWAP</a></td></tr><tr><td><strong>VWAP</strong></td><td>Follows market volume to reduce impact</td><td><a href="../strategies/vwap.md">VWAP</a></td></tr><tr><td><strong>POV</strong></td><td>Paces at a target share of market volume</td><td><a href="../strategies/participation-rate.md">Participation Rate</a></td></tr><tr><td><strong>Iceberg</strong></td><td>Shows only a small slice of your true size</td><td><a href="../strategies/iceberg.md">Iceberg</a></td></tr><tr><td><strong>Chase</strong></td><td>Follows the best bid/ask toward a fill</td><td><a href="../strategies/chase-limit.md">Chase Limit</a></td></tr></tbody></table>
 
 {% hint style="info" %}
 The terminal and the API use different names for the same strategies. **TWAP** is `passive_twap`, **POV** is `participation_rate`, and **Chase** is `chase_limit`. VWAP and Iceberg match. See [Strategies Overview](../strategies/overview.md).
@@ -85,21 +77,21 @@ The terminal and the API use different names for the same strategies. **TWAP** i
 
 ### A rule of thumb
 
-- **Small order, want it now**: Market. You pay the spread, and on a small size that is fine.
-- **Small order, patient**: Limit. Rest at your price and wait.
-- **Large order with a deadline**: TWAP.
-- **Large order, benchmarked to the market**: VWAP.
-- **Large order, no deadline, and you do not want to be seen**: Iceberg.
-- **Large order, want to stay a fixed share of activity**: POV.
-- **One fill near the touch, soon, without crossing**: Chase.
+* **Small order, want it now**: Market. You pay the spread, and on a small size that is fine.
+* **Small order, patient**: Limit. Rest at your price and wait.
+* **Large order with a deadline**: TWAP.
+* **Large order, benchmarked to the market**: VWAP.
+* **Large order, no deadline, and you do not want to be seen**: Iceberg.
+* **Large order, want to stay a fixed share of activity**: POV.
+* **One fill near the touch, soon, without crossing**: Chase.
 
-"Large" here means large relative to the book, not to your account. On a thin market a few thousand dollars is enough to move the price against you.
+"Large" here means large relative to the book, not to your account. On a thin market, a few thousand dollars is enough to move the price against you.
 
 ## Optional settings
 
-- **Take profit and stop loss**, attached to the order so they are placed against the resulting position.
-- **Reduce only**, which stops an order from accidentally opening or increasing a position.
-- **Time in force** for plain limit orders: `GTC` rests, `ALO` is post-only and rejected if it would cross, `IOC` fills what it can and cancels the rest.
+* **Take profit and stop loss**, attached to the order so they are placed against the resulting position.
+* **Reduce only**, which stops an order from accidentally opening or increasing a position.
+* **Time in force** for plain limit orders: `GTC` rests, `ALO` is post-only and rejected if it would cross, `IOC` fills what it can and cancels the rest.
 
 ## After the order
 

@@ -4,12 +4,12 @@ description: Every official Quote channel. Anything not listed here is not us.
 
 # Official Links
 
-| Channel | Link |
-|---|---|
-| Website | [quotemarkets.xyz](https://quotemarkets.xyz) |
-| API | `https://api.quotemarkets.xyz` |
-| Community | [t.me/quotemarkets](https://t.me/quotemarkets) |
-| X | [@quotemarkets](https://x.com/quotemarkets) |
+| Channel   | Link                                                 |
+| --------- | ---------------------------------------------------- |
+| Website   | [quotemarkets.xyz](https://quotemarkets.xyz)         |
+| API       | `https://api.quotemarkets.xyz`                       |
+| Community | [t.me/quotemarketsxyz](https://t.me/quotemarketsxyz) |
+| X         | [@quotemarkets](https://x.com/quotemarkets)          |
 
 {% hint style="danger" %}
 This list is complete. Quote Labs operates no other websites, social accounts, or communities. Anything else claiming to be Quote is impersonating it, including accounts using the same name and logo.
