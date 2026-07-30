@@ -2,7 +2,7 @@
 
 Quote is in **private Alpha**. Access is invite-only, and until that changes, you will need an invite wall before you can reach the application. This ensures that we scale infrastructure safely and gradually.
 
-<figure><img src="../.gitbook/assets/video_1.5x_postspark_2026-07-30_12-34-08 (1).gif" alt=""><figcaption></figcaption></figure>
+<figure><img src="../.gitbook/assets/screenshot_1.5x_postspark_2026-07-30_12-52-13 (1).png" alt=""><figcaption></figcaption></figure>
 
 ### Invite codes
 
