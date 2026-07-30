@@ -1,24 +1,28 @@
 ---
-description: What a fill actually costs you, from the venue fee through Quote's builder fee to the rebates that come back.
+description: >-
+  What a fill actually costs you, from the venue fee through Quote's builder fee
+  to the rebates that come back.
 ---
 
 # Fees
 
+<figure><img src="../.gitbook/assets/screenshot_1.5x_postspark_2026-07-30_11-30-27.png" alt=""><figcaption></figcaption></figure>
+
 Every fill you make carries three layers of cost. The terminal shows the assembled figure, but it is worth understanding what goes into it, because two of the three layers move with your own activity.
 
-| Layer | Who charges it | Direction |
-|---|---|---|
-| Hyperliquid fee | The venue | You pay |
-| Quote builder fee | Quote | You pay |
-| Rewards rebates | Quote | You get back |
+| Layer             | Who charges it | Direction    |
+| ----------------- | -------------- | ------------ |
+| Hyperliquid fee   | The venue      | You pay      |
+| Quote builder fee | Quote          | You pay      |
+| Rewards rebates   | Quote          | You get back |
 
 ## Hyperliquid fees
 
 Hyperliquid charges separate taker and maker rates for perps and for spot. Your rate is not fixed. It moves with:
 
-- **Your volume tier.** Hyperliquid steps your rate down as your traded volume rises. The ladder is the venue's, not Quote's.
-- **A HYPE staking discount**, expressed as a percentage off your Hyperliquid fees.
-- **A referral discount**, if a Hyperliquid referral applies to your account.
+* **Your volume tier.** Hyperliquid steps your rate down as your traded volume rises. The ladder is the venue's, not Quote's.
+* **A HYPE staking discount**, expressed as a percentage off your Hyperliquid fees.
+* **A referral discount**, if a Hyperliquid referral applies to your account.
 
 Quote reads your net rate after all three, so what you see is the rate you actually pay rather than the published base rate.
 
@@ -40,8 +44,8 @@ The builder fee is never hidden. [Execution analytics](../guides/analytics.md) r
 
 Two rebates act on your own fees, both from the rewards program:
 
-- **Cashback**, a percentage of your own fees returned to you, set by your [rewards tier](rewards-tiers.md).
-- **The invited-user rebate**, a flat rate that applies while you were referred by a real referrer and your volume is under the program cap.
+* **Cashback**, a percentage of your own fees returned to you, set by your [rewards tier](rewards-tiers.md).
+* **The invited-user rebate**, a flat rate that applies while you were referred by a real referrer and your volume is under the program cap.
 
 {% hint style="info" %}
 Rebates accrue as claimable USDC. They do not reduce the fee charged on-chain. A fill still costs the Hyperliquid fee plus the builder fee at the moment it happens, and the rebate arrives separately, to be claimed. See [Referrals](referrals.md) for claiming.

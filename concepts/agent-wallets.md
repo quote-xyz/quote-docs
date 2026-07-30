@@ -4,6 +4,8 @@ description: How Quote trades on your behalf without ever holding your funds.
 
 # Agent Wallets
 
+<figure><img src="../.gitbook/assets/screenshot_1.5x_postspark_2026-07-30_11-34-27.png" alt=""><figcaption></figcaption></figure>
+
 Quote is **non-custodial**. It never holds your keys or your funds. Instead, trading happens through Hyperliquid's native agent-wallet mechanism: a separate secp256k1 key that can _sign orders_ for your account but can **never withdraw**.
 
 ## The model

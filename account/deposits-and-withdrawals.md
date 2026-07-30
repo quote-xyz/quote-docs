@@ -4,6 +4,8 @@ description: Move funds in and out of Quote, and between your spot and perp bala
 
 # Deposits and Withdrawals
 
+<figure><img src="../.gitbook/assets/screenshot_1.5x_postspark_2026-07-30_10-17-51.png" alt=""><figcaption></figcaption></figure>
+
 Quote is non-custodial. Your funds sit in your own Hyperliquid account, and Quote never holds them. Everything below moves value between your wallet, other chains, and the two balances Hyperliquid keeps for you.
 
 There are four flows in the terminal, and they do different jobs:

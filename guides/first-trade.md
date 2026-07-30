@@ -6,6 +6,8 @@ description: >-
 
 # Placing Your First Trade
 
+<figure><img src="../.gitbook/assets/video_1.5x_postspark_2026-07-30_11-23-02.gif" alt=""><figcaption></figcaption></figure>
+
 This walks through a first trade in the [application](https://quotemarkets.xyz). You need an account with funds in it: see [Access and Restrictions](../account/access-and-restrictions.md) and [Deposits and Withdrawals](../account/deposits-and-withdrawals.md) first.
 
 ## Before your first order

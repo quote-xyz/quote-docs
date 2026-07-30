@@ -1,23 +1,26 @@
 ---
-description: 'Venue rules that shape every order: minimum notional, price and size precision,
-  ALO crossing, builder fees, and market-order slippage prices.'
+description: >-
+  Venue rules that shape every order: minimum notional, price and size
+  precision, ALO crossing, builder fees, and market-order slippage prices.
 ---
 
 # Hyperliquid Constraints
 
+<figure><img src="../.gitbook/assets/screenshot_1.5x_postspark_2026-07-30_11-28-14.png" alt=""><figcaption></figcaption></figure>
+
 Hyperliquid enforces several non-obvious rules. Quote handles most of them server-side, but they explain behavior you will see: skipped slices, adjusted prices, rejected orders.
 
-## Minimum order notional: ~$10 <a href="#minimum-order-notional-10" id="minimum-order-notional-10"></a>
+## Minimum order notional: \~$10 <a href="#minimum-order-notional-10" id="minimum-order-notional-10"></a>
 
 Hyperliquid rejects any order below roughly **$10 notional**. Consequences:
 
-- A plain order under $10 notional will be rejected by the venue.
-- Execution strategies **skip** child slices that would fall under the minimum rather than submit doomed orders. If you split a small order into many slices (e.g. $50 over 20 slices), most slices are sub-minimum and the strategy can stall. Size your `numSlices` so each slice clears ~$10 comfortably.
+* A plain order under $10 notional will be rejected by the venue.
+* Execution strategies **skip** child slices that would fall under the minimum rather than submit doomed orders. If you split a small order into many slices (e.g. $50 over 20 slices), most slices are sub-minimum and the strategy can stall. Size your `numSlices` so each slice clears \~$10 comfortably.
 
 ## Price and size precision
 
-- **Size** is rounded to the asset's `szDecimals`, from Hyperliquid's meta (e.g. ETH: 4, BTC: 5, SOL: 2).
-- **Price** allows at most **5 significant figures**, and at most `MAX_DECIMALS − szDecimals` decimal places (`MAX_DECIMALS` = 6 for perps, 8 for spot).
+* **Size** is rounded to the asset's `szDecimals`, from Hyperliquid's meta (e.g. ETH: 4, BTC: 5, SOL: 2).
+* **Price** allows at most **5 significant figures**, and at most `MAX_DECIMALS − szDecimals` decimal places (`MAX_DECIMALS` = 6 for perps, 8 for spot).
 
 Quote normalizes sizes and prices before signing, so a request with excess precision succeeds. But the working price and size may differ slightly from what you sent.
 
@@ -25,8 +28,8 @@ Quote normalizes sizes and prices before signing, so a request with excess preci
 
 ALO (Add Liquidity Only / post-only) orders are rejected by the venue if the price would cross the spread:
 
-- Buy ALO: price must be strictly **below** the best ask.
-- Sell ALO: price must be strictly **above** the best bid.
+* Buy ALO: price must be strictly **below** the best ask.
+* Sell ALO: price must be strictly **above** the best bid.
 
 The book can move between your snapshot and your order arriving on-chain, so guard your own ALO prices accordingly. Quote's strategies handle this automatically for their child orders.
 
@@ -34,11 +37,11 @@ The book can move between your snapshot and your order arriving on-chain, so gua
 
 Hyperliquid has no true market order. A "market" order is an **IOC limit** at a slippage-adjusted price, so `orderType: "market"` still requires `limitPrice`, the worst price you'll accept:
 
-- Buy: anchor to the best **ask** (e.g. `bestAsk × 1.05` for 5% max slippage).
-- Sell: anchor to the best **bid** (e.g. `bestBid × 0.95`).
+* Buy: anchor to the best **ask** (e.g. `bestAsk × 1.05` for 5% max slippage).
+* Sell: anchor to the best **bid** (e.g. `bestBid × 0.95`).
 
 {% hint style="warning" %}
-Anchor slippage to the best opposing quote, **not** the mid price. On wide-spread books (outcome markets can quote `0.00126 / 0.01013`), `mid × 1.05` sits *below* the best ask, so the IOC crosses nothing and silently fills zero.
+Anchor slippage to the best opposing quote, **not** the mid price. On wide-spread books (outcome markets can quote `0.00126 / 0.01013`), `mid × 1.05` sits _below_ the best ask, so the IOC crosses nothing and silently fills zero.
 {% endhint %}
 
 ## Builder fee
@@ -59,10 +62,10 @@ The band exists alongside **open interest caps**, set from a combination of liqu
 
 ## Time in force
 
-| TIF | Behavior |
-|---|---|
-| `GTC` | Good till cancelled: rests on the book |
-| `ALO` | Add liquidity only (post-only): rejected if it would cross |
+| TIF   | Behavior                                                           |
+| ----- | ------------------------------------------------------------------ |
+| `GTC` | Good till cancelled: rests on the book                             |
+| `ALO` | Add liquidity only (post-only): rejected if it would cross         |
 | `IOC` | Immediate or cancel: fills what it can instantly, cancels the rest |
 
 Strategies use ALO for passive slices and IOC for aggressive catch-up; plain orders default to `GTC`.
