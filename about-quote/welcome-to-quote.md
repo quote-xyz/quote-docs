@@ -23,7 +23,7 @@ The engine minimizes implementation shortfall, the cost of completing a trade, b
 
 ## The problem
 
-Most traders overpay to trade. A market order crosses the spread, pays taker fees, and moves the price against itself. A large one also tells the whole book what you are doing, and the book adjusts before you finish. On most venues, the tools that solve this, execution algorithms and transaction-cost analysis, are sold to institutions and denied to everyone else.
+Most CLOB (Central Limit Order Book) traders overpay to trade. A market order crosses the spread, pays taker fees, and moves the price against itself. A large one also tells the whole book what you are doing, and the book adjusts before you finish. On most venues, the tools that solve this, execution algorithms and transaction-cost analysis, are sold to institutions and denied to everyone else.
 
 Four costs do most of the damage: crossing the spread, slippage and adverse selection, exchange fees, and having no access to professional execution.
 
