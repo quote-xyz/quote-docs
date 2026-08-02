@@ -80,3 +80,7 @@
 * [MCP Overview](mcp/overview.md)
 * [Connecting Clients](mcp/connect.md)
 * [Tools Reference](mcp/tools.md)
+
+## Brand kit
+
+* [Branding Kit](brand-kit/branding-kit.md)
