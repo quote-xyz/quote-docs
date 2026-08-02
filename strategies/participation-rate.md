@@ -10,7 +10,7 @@ description: >-
 
 `participation_rate` (POV, percentage of volume) keys your execution to **live** market activity. It observes traded volume in real time and submits clips sized to keep you at a target fraction of it. Busy tape → you trade more; quiet tape → you slow down. This bounds your footprint as a share of the market rather than as a schedule.
 
-<figure><img src="../.gitbook/assets/Quote Docs (3).png" alt=""><figcaption><p>Participation rate: pacing against live market volume.</p></figcaption></figure>
+<figure><img src="../.gitbook/assets/Quote Docs (3).png" alt=""><figcaption></figcaption></figure>
 
 ## Example
 

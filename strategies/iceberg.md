@@ -10,7 +10,7 @@ description: Clip-based, pure-passive execution that hides your size.
 
 A naive iceberg is easy to detect: the same size reappearing at the same level is a pattern anyone can trade against. Quote's implementation randomizes clip sizing, timing, and repricing so no repeating pattern is exposed. The specifics are deliberately undocumented; publishing them would hand detectors a calibration guide.
 
-<figure><img src="../.gitbook/assets/Quote Docs (4).png" alt=""><figcaption><p>Iceberg: one clip visible at a time.</p></figcaption></figure>
+<figure><img src="../.gitbook/assets/Quote Docs (4).png" alt=""><figcaption></figcaption></figure>
 
 ## Example
 

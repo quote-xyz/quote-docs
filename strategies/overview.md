@@ -20,7 +20,7 @@ Quote's execution engine runs five strategies. In the terminal, you pick one fro
 
 The terminal's names are shorter than the API's. Where they differ, the middle column is what you will see in the order form.
 
-<figure><img src="../.gitbook/assets/Screenshot 2026-08-02 at 3.41.35 pm.png" alt=""><figcaption><p>The five strategies at a glance.</p></figcaption></figure>
+<figure><img src="../.gitbook/assets/Screenshot 2026-08-02 at 3.41.35 pm.png" alt=""><figcaption></figcaption></figure>
 
 ## Choosing a strategy
 

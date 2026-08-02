@@ -12,7 +12,7 @@ description: >-
 
 Each slice still runs the standard [passive → aggressive cycle](overview.md#the-passive-aggressive-cycle), so you're capturing spread within the volume schedule.
 
-<figure><img src="../.gitbook/assets/Quote Docs (2).png" alt=""><figcaption><p>VWAP: slices shaped by the volume profile.</p></figcaption></figure>
+<figure><img src="../.gitbook/assets/Quote Docs (2).png" alt=""><figcaption></figcaption></figure>
 
 ## Example
 

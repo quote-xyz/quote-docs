@@ -12,7 +12,7 @@ description: >-
 
 It is a patient version of a marketable limit: it chases price moves, but only within bounds you set.
 
-<figure><img src="../.gitbook/assets/Quote Docs (5).png" alt=""><figcaption><p>Chase limit: following the touch within a bounded budget.</p></figcaption></figure>
+<figure><img src="../.gitbook/assets/Quote Docs (5).png" alt=""><figcaption></figcaption></figure>
 
 ## Example
 
