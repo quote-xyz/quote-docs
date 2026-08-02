@@ -1,15 +1,18 @@
 ---
-description: 'Volume-proportional execution: slice sizes follow the asset''s intraday volume
-  profile instead of the clock.'
+description: >-
+  Volume-proportional execution: slice sizes follow the asset's intraday volume
+  profile instead of the clock.
 ---
 
 # VWAP
+
+<figure><img src="../.gitbook/assets/VWAP.gif" alt=""><figcaption></figcaption></figure>
 
 `vwap` executes your order in proportion to how the market actually trades through the day. Instead of equal time slices, each slice's size follows a volume profile built from historical candle data for the asset: larger slices when the market is typically busy, smaller when it is quiet. Use it when your benchmark is the market VWAP over your window.
 
 Each slice still runs the standard [passive → aggressive cycle](overview.md#the-passive-aggressive-cycle), so you're capturing spread within the volume schedule.
 
-<figure><img src="../.gitbook/assets/Screenshot 2026-04-06 at 3.45.15 pm.png" alt=""><figcaption><p>VWAP: slices shaped by the volume profile.</p></figcaption></figure>
+<figure><img src="../.gitbook/assets/Quote Docs (2).png" alt=""><figcaption><p>VWAP: slices shaped by the volume profile.</p></figcaption></figure>
 
 ## Example
 
@@ -31,22 +34,22 @@ Each slice still runs the standard [passive → aggressive cycle](overview.md#th
 
 ## Parameters
 
-| Parameter | Type | Default | Description |
-|---|---|---|---|
-| `durationSecs` | integer | `300` | Total execution window in seconds |
-| `numSlices` | integer | `10` | Number of child slices (sized by the volume profile) |
-| `passivePct` | integer 0–100 | `80` | Percent of each slice interval spent passive before the IOC fallback |
-| `limitOffsetBps` | decimal | `0` | Offset from the touch for passive placement |
-| `dynamic` | boolean | `true` | Refresh the volume forecast during execution rather than freezing it at start |
-| `reduceOnly` | boolean | `false` | Children only reduce an existing position |
+| Parameter        | Type          | Default | Description                                                                   |
+| ---------------- | ------------- | ------- | ----------------------------------------------------------------------------- |
+| `durationSecs`   | integer       | `300`   | Total execution window in seconds                                             |
+| `numSlices`      | integer       | `10`    | Number of child slices (sized by the volume profile)                          |
+| `passivePct`     | integer 0–100 | `80`    | Percent of each slice interval spent passive before the IOC fallback          |
+| `limitOffsetBps` | decimal       | `0`     | Offset from the touch for passive placement                                   |
+| `dynamic`        | boolean       | `true`  | Refresh the volume forecast during execution rather than freezing it at start |
+| `reduceOnly`     | boolean       | `false` | Children only reduce an existing position                                     |
 
 ## Behavior notes
 
-- **The profile is per-asset and horizon-aware.** Volume curves differ sharply between crypto majors, builder-DEX equities (which follow underlying market hours), and prediction markets; the engine builds each profile from the asset's own history. How the forecast is built and rebalanced is deliberately not specified here.
-- **Falls back gracefully.** If no usable profile exists for the asset/window, slicing degrades to uniform TWAP behavior rather than stalling.
-- The engine's VWAP forecasting has been verified by walk-forward testing on real Hyperliquid data across all product classes.
+* **The profile is per-asset and horizon-aware.** Volume curves differ sharply between crypto majors, builder-DEX equities (which follow underlying market hours), and prediction markets; the engine builds each profile from the asset's own history. How the forecast is built and rebalanced is deliberately not specified here.
+* **Falls back gracefully.** If no usable profile exists for the asset/window, slicing degrades to uniform TWAP behavior rather than stalling.
+* The engine's VWAP forecasting has been verified by walk-forward testing on real Hyperliquid data across all product classes.
 
 ## When to use something else
 
-- Deadline matters more than tracking volume → [Passive TWAP](passive-twap.md) with `guaranteedCompletion`.
-- You want to scale with *live* volume rather than the historical curve → [Participation Rate](participation-rate.md).
+* Deadline matters more than tracking volume → [Passive TWAP](passive-twap.md) with `guaranteedCompletion`.
+* You want to scale with _live_ volume rather than the historical curve → [Participation Rate](participation-rate.md).

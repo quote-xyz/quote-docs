@@ -12,12 +12,12 @@
 ## Execution strategies
 
 * [Strategies Overview](strategies/overview.md)
+* [Execution Safeguards](strategies/safeguards.md)
 * [Passive TWAP](strategies/passive-twap.md)
 * [VWAP](strategies/vwap.md)
+* [Percentage of Volume](strategies/participation-rate.md)
 * [Iceberg](strategies/iceberg.md)
-* [Participation Rate](strategies/participation-rate.md)
 * [Chase Limit](strategies/chase-limit.md)
-* [Execution Safeguards](strategies/safeguards.md)
 
 ## Trading tools
 

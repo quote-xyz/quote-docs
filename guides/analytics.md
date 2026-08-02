@@ -1,9 +1,12 @@
 ---
-description: 'Execution quality, volume, fees, funding, and portfolio equity: measured, benchmarked,
-  and queryable.'
+description: >-
+  Execution quality, volume, fees, funding, and portfolio equity: measured,
+  benchmarked, and queryable.
 ---
 
 # Analytics
+
+<figure><img src="../.gitbook/assets/screenshot_1.5x_postspark_2026-08-02_18-31-11.png" alt=""><figcaption></figcaption></figure>
 
 Quote measures every execution so you can hold the engine (and yourself) to account. All analytics endpoints are [wallet-scoped](../concepts/wallet-scoped-api.md), require `orders:read` for API-key callers, and take a common `range` query parameter: `1d`, `7d`, `30d`, or `all`.
 
@@ -11,16 +14,16 @@ Quote measures every execution so you can hold the engine (and yourself) to acco
 
 All benchmark values are **signed basis points**:
 
-- **Positive = worse**: you paid more (buys) or received less (sells) than the benchmark.
-- **Negative = better**: you beat the benchmark.
+* **Positive = worse**: you paid more (buys) or received less (sells) than the benchmark.
+* **Negative = better**: you beat the benchmark.
 
 Three benchmarks are computed per execution:
 
-| Benchmark | Question it answers |
-|---|---|
+| Benchmark             | Question it answers                                                               |
+| --------------------- | --------------------------------------------------------------------------------- |
 | vs. **arrival price** | How much did price drift from when I decided to trade? (implementation shortfall) |
-| vs. **market VWAP** | Did I beat the average trade in the market during my window? |
-| vs. **market order** | What did working the order save me vs. sweeping the book immediately? |
+| vs. **market VWAP**   | Did I beat the average trade in the market during my window?                      |
+| vs. **market order**  | What did working the order save me vs. sweeping the book immediately?             |
 
 The "vs. market order" benchmark (a simulated L2 sweep at each fill time) is the most actionable: it isolates spread capture from market drift.
 
@@ -41,8 +44,8 @@ GET /api/analytics/execution?range=7d
 }
 ```
 
-- `isBps`: notional-weighted implementation shortfall vs. arrival (negative = you beat arrival).
-- `isSavingsDollars`: dollars saved vs. naive market orders (positive = saved).
+* `isBps`: notional-weighted implementation shortfall vs. arrival (negative = you beat arrival).
+* `isSavingsDollars`: dollars saved vs. naive market orders (positive = saved).
 
 A time-bucketed view comparing cumulative naive-Hyperliquid cost vs. Quote's realized cost (slippage and fees split out):
 
@@ -79,8 +82,8 @@ GET /api/funding?range=7d
 
 Sign convention: `net = received − paid`; `totalPaid`/`totalReceived` are positive magnitudes.
 
-- `GET /api/funding/timeline`: cumulative net/paid/received, bucketed hourly for `1d` and daily otherwise.
-- `GET /api/funding/history`: the raw per-event log, newest first, with position size and rate at each payment.
+* `GET /api/funding/timeline`: cumulative net/paid/received, bucketed hourly for `1d` and daily otherwise.
+* `GET /api/funding/history`: the raw per-event log, newest first, with position size and rate at each payment.
 
 ## Portfolio equity
 
@@ -104,8 +107,8 @@ GET /api/portfolio/equity/latest
 
 Two things to handle when charting:
 
-- `accountValue` may be `null`. That is a **gap** in sampling, never a zero. Skip the point; don't draw it to the axis.
-- PnL over a window is `Δ accountValue − Σ netFlow`: subtract deposits and withdrawals so transfers don't masquerade as performance.
+* `accountValue` may be `null`. That is a **gap** in sampling, never a zero. Skip the point; don't draw it to the axis.
+* PnL over a window is `Δ accountValue − Σ netFlow`: subtract deposits and withdrawals so transfers don't masquerade as performance.
 
 ## Programmatic access for AI agents
 

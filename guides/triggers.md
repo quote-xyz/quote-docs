@@ -6,6 +6,8 @@ description: >-
 
 # Conditional Triggers
 
+<figure><img src="../.gitbook/assets/conditional.gif" alt=""><figcaption></figcaption></figure>
+
 Triggers are server-side conditions that submit an order for you when they fire. Unlike venue-native trigger orders, Quote triggers can watch conditions Hyperliquid cannot express: funding rates, open-interest changes, another wallet's trades, or the clock. The resulting order can be anything the [order API](placing-orders.md) accepts, including a full [algo strategy](algo-orders.md).
 
 ## Trigger types

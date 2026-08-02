@@ -4,11 +4,13 @@ description: Clip-based, pure-passive execution that hides your size.
 
 # Iceberg
 
-`iceberg` shows the market only a small clip at a time. When a clip fills, the next one is posted; the market never sees your full size on the book. It is **pure passive**: clips are post-only orders that never cross the spread. It has **no time constraint**: it works until filled or cancelled (optionally bounded by `maxDurationSecs`).
+<figure><img src="../.gitbook/assets/iceberg.gif" alt=""><figcaption></figcaption></figure>
+
+`iceberg` shows the market only a small clip at a time. When a clip fills, the next one is posted; the market never sees your full size on the book. It is **pure passive**: clips are post-only orders that never cross the spread. It has **no time constraint**: it works until filled or canceled (optionally bounded by `maxDurationSecs`).
 
 A naive iceberg is easy to detect: the same size reappearing at the same level is a pattern anyone can trade against. Quote's implementation randomizes clip sizing, timing, and repricing so no repeating pattern is exposed. The specifics are deliberately undocumented; publishing them would hand detectors a calibration guide.
 
-<figure><img src="../.gitbook/assets/Screenshot 2026-04-06 at 3.53.49 pm.png" alt=""><figcaption><p>Iceberg: one clip visible at a time.</p></figcaption></figure>
+<figure><img src="../.gitbook/assets/Quote Docs (4).png" alt=""><figcaption><p>Iceberg: one clip visible at a time.</p></figcaption></figure>
 
 ## Example
 
@@ -31,24 +33,24 @@ A naive iceberg is easy to detect: the same size reappearing at the same level i
 
 ## Parameters
 
-| Parameter | Type | Default | Description |
-|---|---|---|---|
-| `clipSize` | decimal string | `1` | Visible clip size in base asset. Set this to a size that blends with typical book depth |
-| `clipPct` | number | none | Alternative to `clipSize`: clip as a percent of total order size |
-| `participationRate` | decimal | `0` (off) | Cap execution at a fraction of observed market volume |
-| `priceOffsetBps` | decimal | `0` | Rest this far behind the touch (0 = at BBO) |
-| `randomize` | boolean | `false` | Randomize clip sizing and timing (recommended for size that matters) |
-| `maxSpreadBps` | decimal | `0` (off) | Pause posting when the spread is wider than this |
-| `maxDurationSecs` | integer | `0` (unlimited) | Optional hard stop; remaining size is left unexecuted |
-| `reduceOnly` | boolean | `false` | Clips only reduce an existing position |
+| Parameter           | Type           | Default         | Description                                                                             |
+| ------------------- | -------------- | --------------- | --------------------------------------------------------------------------------------- |
+| `clipSize`          | decimal string | `1`             | Visible clip size in base asset. Set this to a size that blends with typical book depth |
+| `clipPct`           | number         | none            | Alternative to `clipSize`: clip as a percent of total order size                        |
+| `participationRate` | decimal        | `0` (off)       | Cap execution at a fraction of observed market volume                                   |
+| `priceOffsetBps`    | decimal        | `0`             | Rest this far behind the touch (0 = at BBO)                                             |
+| `randomize`         | boolean        | `false`         | Randomize clip sizing and timing (recommended for size that matters)                    |
+| `maxSpreadBps`      | decimal        | `0` (off)       | Pause posting when the spread is wider than this                                        |
+| `maxDurationSecs`   | integer        | `0` (unlimited) | Optional hard stop; remaining size is left unexecuted                                   |
+| `reduceOnly`        | boolean        | `false`         | Clips only reduce an existing position                                                  |
 
 ## Behavior notes
 
-- **No completion guarantee.** Iceberg never takes liquidity. If price runs away from your level, it does not fill. That is the point. Pair it with a [trigger](../guides/triggers.md) or monitor progress if you need a plan B.
-- **Sizing the clip.** Too small wastes time (and risks the ~$10 [minimum notional](../concepts/hyperliquid-constraints.md#minimum-order-notional-10) per clip); too large defeats the hiding. A good starting point is the typical top-of-book size for the asset.
-- **Restart-safe.** Clip state is reconstructed on engine restart; a resting clip is recovered, not duplicated.
+* **No completion guarantee.** Iceberg never takes liquidity. If price runs away from your level, it does not fill. That is the point. Pair it with a [trigger](../guides/triggers.md) or monitor progress if you need a plan B.
+* **Sizing the clip.** Too small wastes time (and risks the \~$10 [minimum notional](../concepts/hyperliquid-constraints.md#minimum-order-notional-10) per clip); too large defeats the hiding. A good starting point is the typical top-of-book size for the asset.
+* **Restart-safe.** Clip state is reconstructed on engine restart; a resting clip is recovered, not duplicated.
 
 ## When to use something else
 
-- You have a deadline → [Passive TWAP](passive-twap.md).
-- You want volume-scaling without the concealment → [Participation Rate](participation-rate.md).
+* You have a deadline → [Passive TWAP](passive-twap.md).
+* You want volume-scaling without the concealment → [Participation Rate](participation-rate.md).
