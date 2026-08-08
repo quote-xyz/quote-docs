@@ -6,9 +6,26 @@ description: >-
 
 # VWAP
 
-<figure><img src="../.gitbook/assets/VWAP.gif" alt=""><figcaption></figcaption></figure>
+<figure><img src="../.gitbook/assets/VWAP (1).gif" alt=""><figcaption></figcaption></figure>
 
 `vwap` executes your order in proportion to how the market actually trades through the day. Instead of equal time slices, each slice's size follows a volume profile built from historical candle data for the asset: larger slices when the market is typically busy, smaller when it is quiet. Use it when your benchmark is the market VWAP over your window.
+
+#### Participation and volume caps
+
+* The "% of volume" figure shown is the _target_ participation rate — the average share of expected market volume the order needs to consume, given its size and duration, to finish on schedule against the forecasted volume curve.
+* The volume cap is a separate, harder ceiling: the max participation allowed in any interval. It isn't set directly by size or duration alone — it also depends on the execution setting (below) and shrinks for tighter windows. In the observed UI, the same passive setting showed a 9% cap on a 30-minute order and a 5% cap on a 1-minute order.
+* If hitting the requested duration would require exceeding the cap, the engine does not raise the cap to compensate. It fills as much as the cap allows inside the window and surfaces the shortfall directly: expected % filled in-window, plus the extra time needed to complete the remainder (e.g. "\~84% fills in-window, \~1m 11s to complete" for a 1-minute order needing 5.9% of volume against a 5% cap).
+
+#### Impact vs fills speed
+
+<figure><img src="../.gitbook/assets/Screenshot 2026-08-08 at 3.37.31 pm.png" alt=""><figcaption></figcaption></figure>
+
+The "Execution" slider trades off market impact against certainty of finishing on time by moving both the cap and the crossing behavior together:
+
+* _Lower impact_ (left end): lowest volume cap, passive placement only. The order never crosses the spread — if the cap binds, it under-fills within the window and finishes late rather than taking liquidity.
+* _Faster fill_ (right end): highest volume cap, crosses to hold schedule. The order is willing to cross the spread to stay on the forecasted curve, trading impact for a higher chance of completing within the requested duration.
+
+
 
 Each slice still runs the standard [passive → aggressive cycle](overview.md#the-passive-aggressive-cycle), so you're capturing spread within the volume schedule.
 
