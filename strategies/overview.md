@@ -89,7 +89,9 @@ The two dials are what an [order template](../guides/templates.md) stores. Over 
 
 These appear across multiple strategies (all optional; camelCase and snake\_case are both accepted):
 
-<table><thead><tr><th width="230.04296875">Parameter</th><th>Meaning</th></tr></thead><tbody><tr><td><code>durationSecs</code></td><td>Total execution window</td></tr><tr><td><code>numSlices</code></td><td>Number of child slices</td></tr><tr><td><code>passivePct</code></td><td>Portion of each slice spent passive before going aggressive</td></tr><tr><td><code>randomize</code></td><td>Jitter slice timing and sizing to avoid detectable patterns</td></tr><tr><td><code>reduceOnly</code></td><td>Children only reduce an existing position</td></tr><tr><td><code>guaranteedCompletion</code></td><td>Sweep any remainder with a wide-tolerance IOC at the end</td></tr><tr><td><code>attachedTpsl</code></td><td>Attach take-profit/stop-loss to the resulting position</td></tr></tbody></table>
+<table><thead><tr><th width="230.04296875">Parameter</th><th>Meaning</th></tr></thead><tbody><tr><td><code>durationSecs</code></td><td>Total execution window</td></tr><tr><td><code>numSlices</code></td><td>Number of child slices</td></tr><tr><td><code>passivePct</code></td><td>Portion of each slice spent passive before going aggressive</td></tr><tr><td><code>randomize</code></td><td>Jitter slice timing and sizing to avoid detectable patterns</td></tr><tr><td><code>reduceOnly</code></td><td>Children only reduce an existing position</td></tr><tr><td><code>guaranteedCompletion</code></td><td>Sweep any remainder with a wide-tolerance IOC at the end</td></tr></tbody></table>
+
+Take-profit and stop-loss are not set here. Send `tpsl` at the top level of the order, alongside `strategy`: see [attaching TP/SL to strategy fills](../guides/algo-orders.md).
 
 Per-strategy pages document the full parameter set with defaults.
 

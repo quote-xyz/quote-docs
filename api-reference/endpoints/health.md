@@ -6,24 +6,24 @@ description: Liveness/readiness probes, info, and Prometheus metrics.
 
 ## API/network info
 
-{% openapi src="../../.gitbook/assets/openapi.yaml" path="/api/info" method="get" %}
-[openapi.yaml](../../.gitbook/assets/openapi.yaml)
+{% openapi src="../openapi.yaml" path="/api/info" method="get" %}
+[openapi.yaml](../openapi.yaml)
 {% endopenapi %}
 
 ## Liveness probe
 
-{% openapi src="../../.gitbook/assets/openapi.yaml" path="/health" method="get" %}
-[openapi.yaml](../../.gitbook/assets/openapi.yaml)
+{% openapi src="../openapi.yaml" path="/health" method="get" %}
+[openapi.yaml](../openapi.yaml)
 {% endopenapi %}
 
 ## Readiness probe
 
-{% openapi src="../../.gitbook/assets/openapi.yaml" path="/ready" method="get" %}
-[openapi.yaml](../../.gitbook/assets/openapi.yaml)
+{% openapi src="../openapi.yaml" path="/ready" method="get" %}
+[openapi.yaml](../openapi.yaml)
 {% endopenapi %}
 
 ## Prometheus metrics
 
-{% openapi src="../../.gitbook/assets/openapi.yaml" path="/metrics" method="get" %}
-[openapi.yaml](../../.gitbook/assets/openapi.yaml)
+{% openapi src="../openapi.yaml" path="/metrics" method="get" %}
+[openapi.yaml](../openapi.yaml)
 {% endopenapi %}

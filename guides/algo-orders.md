@@ -89,21 +89,34 @@ If double-execution matters, do not submit a replacement order the moment the ca
 
 ## Attaching TP/SL to strategy fills
 
-Strategies accept `attachedTpsl` in `params`: a take-profit/stop-loss placed against the position the strategy builds.
+Use the top-level `tpsl` field, exactly as you would on a [plain order](placing-orders.md). There is no per-strategy TP/SL parameter.
 
 ```json
 {
+  "symbol": "ETH",
+  "side": "buy",
+  "size": "2.5",
+  "orderType": "limit",
+  "limitPrice": "3150.5",
   "strategy": "passive_twap",
-  "params": {
-    "durationSecs": 900,
-    "attachedTpsl": {
-      "mode": "market",
-      "tp": { "triggerPrice": "3500" },
-      "sl": { "triggerPrice": "3000" }
-    }
+  "params": { "durationSecs": 900 },
+  "tpsl": {
+    "mode": "market",
+    "tp": { "triggerPrice": "3500" },
+    "sl": { "triggerPrice": "3000" }
   }
 }
 ```
+
+A strategy works one order as many child orders, so the legs cannot ride along with them: one bracket per clip would be sized to that clip and orphaned as soon as its siblings filled. Instead the legs are placed once, against the position the strategy built, when the run reaches a terminal state. They are sized to that position, including a partial fill left behind by a cancelled or expired run.
+
+{% hint style="warning" %}
+The legs do not exist while the strategy is still working, so nothing fires if price crosses your trigger mid-run. To bound execution itself, set a `limitPrice`, or use `maxSlippageBps` on the strategies that accept it.
+{% endhint %}
+
+`tpsl` cannot be combined with `reduceOnly` on a strategy. A closing order builds no position to protect, so the request is refused rather than accepted and quietly dropped.
+
+To protect a position you already hold, or to add TP/SL after a run has finished, use [`POST /api/positions/tpsl`](../api-reference/endpoints/positions.md).
 
 ## Practical sizing checklist
 

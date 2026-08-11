@@ -52,6 +52,11 @@ EXCLUDED_PATHS = [
     "/api/invites/redeem",
     "/api/invites/status",
     "/api/referrals/summary",
+    # Mints seat codes on read, so it is Privy-gated like the rest of the
+    # invite surface. Listed separately because matching is by exact key:
+    # "/api/invites" does not cover its siblings, and without this entry the
+    # run aborts on a dangling $ref to the excluded ListInvitesResponse.
+    "/api/referrals/invites",
 ]
 EXCLUDED_TAGS = [
     "NL Order",

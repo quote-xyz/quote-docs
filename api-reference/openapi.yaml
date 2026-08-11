@@ -92,7 +92,15 @@ paths:
         **Async-accept:** a `200` means the order/strategy was **accepted into
         the engine**, not that it filled. For algo strategies (`strategy` set),
         `orderId` is the parent strategy id; track progress via
-        `GET /api/orders/algo`.
+        `GET /api/orders/algo`, whose `filledQty` is live.
+
+        **TP/SL** is set with the top-level `tpsl` field for both plain and algo
+        orders. See that field for when the legs become live in each case.
+        There is no per-strategy TP/SL parameter.
+
+        **`params` is strict:** a key the chosen strategy's parameter set does
+        not define is rejected with a `400` naming it, rather than accepted and
+        ignored.
 
         Sub-$10-notional orders are rejected by Hyperliquid; orders routed
         through Quote carry Quote's builder fee automatically.
@@ -237,11 +245,44 @@ paths:
       - Orders
       summary: List algo (strategy) orders
       description: |
-        List the caller's algo/strategy orders from the Postgres read
-        projection.
+        List the caller's algo/strategy orders, newest first.
+
+        `filledQty` is live for a running order: it is read from the fills
+        ledger, so polling this endpoint tracks progress as it happens. Polling
+        is the intended way for an API-key client to follow a running algo:
+        the terminal's live algo WebSocket authenticates with a browser session
+        token and is not available to API keys.
 
         **Auth:** API-key scope: `orders:read`.
       operationId: getAlgoOrders
+      parameters:
+      - name: status
+        in: query
+        required: false
+        description: Filter by lifecycle status. One of `active`, `paused`, `completed`, `cancelled`,
+          `failed`.
+        schema:
+          type: string
+      - name: symbol
+        in: query
+        required: false
+        description: Filter by symbol (case-insensitive, e.g. `BTC`).
+        schema:
+          type: string
+      - name: limit
+        in: query
+        required: false
+        description: Page size. Defaults to 100, clamped to 1–500.
+        schema:
+          type: integer
+          format: int64
+      - name: offset
+        in: query
+        required: false
+        description: Rows to skip, for paging.
+        schema:
+          type: integer
+          format: int64
       responses:
         '200':
           description: List of algo orders.
@@ -292,6 +333,272 @@ paths:
           $ref: '#/components/responses/RateLimited'
         '503':
           $ref: '#/components/responses/ServiceUnavailable'
+  /api/orders/algo/{order_id}/fills:
+    get:
+      tags:
+      - Orders
+      summary: List an algo order's fills
+      description: |
+        Every recorded child fill of one algo order, newest first (capped at
+        500). Use this to reconcile an algo's execution fill by fill: price,
+        size, fees and whether each fill was maker.
+
+        **Auth:** API-key scope: `orders:read`. The order must
+        belong to the caller's wallet.
+      operationId: getAlgoOrderFills
+      parameters:
+      - name: order_id
+        in: path
+        required: true
+        description: Parent strategy order id.
+        schema:
+          type: string
+      responses:
+        '200':
+          description: The order's fills.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AlgoOrderFillsResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+        '503':
+          $ref: '#/components/responses/ServiceUnavailable'
+  /api/orders/algo/{order_id}/speed-up:
+    post:
+      tags:
+      - Orders
+      summary: Speed up a running algo order
+      description: |
+        Compress the remaining schedule of a running algo order, without
+        cancelling and re-submitting it (which would lose queue position and
+        re-anchor its benchmark).
+
+        The response echoes the absolute schedule the strategy now runs on, so
+        you can confirm what the factor actually resolved to.
+
+        **Auth:** API-key scope: `orders:write`.
+      operationId: speedUpAlgoOrder
+      parameters:
+      - name: order_id
+        in: path
+        required: true
+        description: Parent strategy order id.
+        schema:
+          type: string
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SpeedUpOrderRequest'
+      responses:
+        '200':
+          description: The new schedule.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SpeedUpOrderResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+        '503':
+          $ref: '#/components/responses/ServiceUnavailable'
+  /api/orders/cancel-batch:
+    post:
+      tags:
+      - Orders
+      summary: Cancel a list of orders
+      description: |
+        Cancel an explicit list of resting orders in a single signed venue
+        action.
+
+        Unlike `/api/orders/cancel-all`, you choose exactly which orders go, so
+        algo child orders and triggers are never touched. One request covers the
+        whole list, so cancelling N orders costs one rate-limited call rather
+        than N.
+
+        `success` is true only when every requested order is no longer open;
+        `results` carries the per-order verdict aligned by `(symbol, orderId)`.
+        An order that was already filled or cancelled counts as success (it is
+        not open) and reports its venue status.
+
+        **Auth:** API-key scope: `orders:write`.
+      operationId: cancelOrdersBatch
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CancelOrdersBatchRequest'
+      responses:
+        '200':
+          description: Per-order cancellation results.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CancelOrdersBatchResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+        '503':
+          $ref: '#/components/responses/ServiceUnavailable'
+  /api/orders/simulate:
+    post:
+      tags:
+      - Orders
+      summary: Estimate what an order would cost
+      description: |
+        Simulate sweeping the live order book for a given size and side.
+        Read-only: it places nothing.
+
+        Use it to size an order before sending it: `expectedPrice` is what the
+        sweep would average, `impactBps` is the signed cost against the best
+        opposing quote (positive = worse), and `availableSize` is the total
+        resting size on that side, so you can tell whether the order would fill
+        in full at all.
+
+        `impactBps` is measured against the best opposing quote, not mid, on
+        purpose: mid counts half the spread as impact, which reads as a huge
+        false warning on a wide book where crossing the touch moves nothing.
+
+        A book with no liquidity returns `success: false` with an `error`,
+        not an HTTP error.
+
+        **Auth:** API-key scope: `orders:read`.
+      operationId: simulateOrder
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SimulateOrderRequest'
+      responses:
+        '200':
+          description: The simulated sweep.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SimulateOrderResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+        '503':
+          $ref: '#/components/responses/ServiceUnavailable'
+  /api/orders/urgency-preview:
+    get:
+      tags:
+      - Orders
+      summary: Preview what an urgency setting will do
+      description: |
+        Return the mechanical parameters the engine will derive from an
+        `urgency` position, before you send an order.
+
+        `urgency` is an aggressiveness dial, not a duration. This endpoint is
+        how you find out what a number means: for `twap` it returns the slice
+        count and passive share, for `vwap` the participation rate, and for
+        every strategy the expected maker share of fills.
+
+        **Auth:** authenticated.
+      operationId: urgencyPreview
+      parameters:
+      - name: strategy
+        in: query
+        required: true
+        description: One of `twap`, `vwap`, `pov`, `iceberg`, `chase`. `twap` and `vwap` require `urgency`;
+          the others have no urgency dial and are accepted here only for the maker-share estimate.
+        schema:
+          type: string
+          enum:
+          - twap
+          - vwap
+          - pov
+          - iceberg
+          - chase
+      - name: urgency
+        in: query
+        required: false
+        description: Slider position, 0–100. Required for `twap` and `vwap`.
+        schema:
+          type: number
+          format: double
+      - name: participation_pct
+        in: query
+        required: false
+        description: Participation rate 0–100. Read for `pov` only.
+        schema:
+          type: number
+          format: double
+      responses:
+        '200':
+          description: The derived parameters.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UrgencyPreviewResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+  /api/strategies:
+    get:
+      tags:
+      - Orders
+      summary: List executable strategies
+      description: |
+        Every strategy this build can run, with its accepted aliases and the
+        `params` keys it reads.
+
+        Derived from the engine's own closed strategy set, so it cannot drift:
+        a strategy missing from this response is one the build genuinely cannot
+        execute, and an alias listed here resolves through the same function
+        `POST /api/orders` uses.
+
+        `basic: true` marks a strategy that resolves to a single venue order
+        rather than an algo that slices its own children, which is what decides
+        how `tpsl` is applied (see the `tpsl` field on the submit request).
+
+        Sending a key a strategy does not read is harmless; sending one no
+        strategy defines is a `400`.
+
+        **Auth:** authenticated.
+      operationId: listStrategies
+      responses:
+        '200':
+          description: The executable strategy set.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StrategiesResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '429':
+          $ref: '#/components/responses/RateLimited'
   /api/agents:
     post:
       tags:
@@ -562,6 +869,190 @@ paths:
           $ref: '#/components/responses/Unauthorized'
         '403':
           $ref: '#/components/responses/Forbidden'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+        '503':
+          $ref: '#/components/responses/ServiceUnavailable'
+  /api/positions/tpsl:
+    post:
+      tags:
+      - Positions
+      summary: Set TP/SL on an open position
+      description: |
+        Place take-profit / stop-loss triggers bound to an open position.
+
+        This is how you protect a position you already hold, including one an
+        algo built, if you did not set `tpsl` on the order itself. The legs are
+        reduce-only and sized to the current position (or to `size`, if you want
+        to protect only part of it).
+
+        **Replaces, does not append.** The request expresses the full desired
+        state: any existing position-bound triggers for the symbol are cancelled
+        once the new legs are accepted. Placement happens before cleanup, so a
+        failure can never leave the position with no protection at all. The
+        trade-off is that a failed cleanup leaves old triggers resting, reported
+        in `warnings`.
+
+        At least one of `tpsl.tp` / `tpsl.sl` is required. To clear protection
+        entirely, cancel the trigger orders via `/api/orders/cancel`.
+
+        **Auth:** API-key scope: `orders:write`.
+      operationId: setPositionTpsl
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SetPositionTpslRequest'
+      responses:
+        '200':
+          description: The placed triggers.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SetPositionTpslResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+        '503':
+          $ref: '#/components/responses/ServiceUnavailable'
+  /api/account/mode:
+    post:
+      tags:
+      - Positions
+      summary: Switch account margin mode
+      description: |
+        Switch the account's abstraction (margin) mode between standard,
+        unified account, and portfolio margin.
+
+        Activating a unified mode requires the account to have no open
+        positions. Portfolio margin is gated by Hyperliquid and this endpoint is
+        additionally behind a server-side feature flag: it returns **503** while
+        that flag is off, which is its normal state today.
+
+        **Auth:** API-key scope: `positions:write`.
+      operationId: setAccountMode
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SetAccountModeRequest'
+      responses:
+        '200':
+          description: Mode switched.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SetAccountModeResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+        '503':
+          description: Account mode switching is not enabled, or the provider is unconfigured.
+  /api/trade-intents:
+    get:
+      tags:
+      - Analytics
+      summary: List trade intents
+      description: |
+        The caller's recent trade intents, newest first.
+
+        A trade intent is the meta-order above strategy runs: it records what
+        was being attempted and when the decision was made, and one or more
+        strategy runs execute as its tactics. Orders submitted with an
+        `envelope` create one.
+
+        **Auth:** API-key scope: `orders:read`.
+      operationId: listTradeIntents
+      parameters:
+      - name: limit
+        in: query
+        required: false
+        description: Page size.
+        schema:
+          type: integer
+          format: int64
+      responses:
+        '200':
+          description: The caller's intents.
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                - intents
+                properties:
+                  intents:
+                    type: array
+                    items:
+                      type: object
+                      description: 'A trade intent row: its id, symbol, side, total size, the validated
+                        envelope, and the arrival anchor captured at creation.'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+        '503':
+          $ref: '#/components/responses/ServiceUnavailable'
+  /api/trade-intents/{id}:
+    get:
+      tags:
+      - Analytics
+      summary: Get a trade intent's execution report
+      description: |
+        The cross-tactic execution report for one intent.
+
+        This measures the whole meta-order rather than a single strategy run,
+        which matters when more than one tactic worked the same intent: each run
+        captures its own arrival price, so per-run benchmarks are not comparable
+        across them.
+
+        Shortfall is reported in Perold's decomposition and the parts are kept
+        separate on purpose. `totalShortfallBps` is measured from the intent's
+        arrival anchor (captured once, when the decision was made),
+        `executionBps` from each tactic's own arrival, and `delayBps` is the
+        residue between them: what the market did while nothing was working the
+        order. Folding delay into execution would let "waited for a better
+        price" read as good execution.
+
+        All bps follow the house convention: **positive = worse.**
+
+        **Auth:** API-key scope: `orders:read`.
+      operationId: getTradeIntentReport
+      parameters:
+      - name: id
+        in: path
+        required: true
+        description: Trade intent id (UUID).
+        schema:
+          type: string
+          format: uuid
+      responses:
+        '200':
+          description: The execution report.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/IntentExecutionReport'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
         '429':
           $ref: '#/components/responses/RateLimited'
         '503':
@@ -1630,41 +2121,49 @@ components:
     StrategyParamsInput:
       type: object
       description: |
-        Strategy-specific parameters forwarded to the execution engine. This is
-        a large, mostly-optional bag of knobs; the relevant subset depends on
-        the chosen `strategy`. Fields accept both camelCase and snake_case keys
-        (serde aliases). Numeric "bps"/decimal fields accept string, integer, or
-        float JSON. Only commonly-used fields are enumerated here; additional
-        properties are accepted.
-      additionalProperties: true
+        Strategy-specific parameters forwarded to the execution engine. The
+        relevant subset depends on the chosen `strategy`; a knob a strategy does
+        not read is simply not applied.
+
+        **Unknown keys are rejected with a 400** listing them. A misspelled or
+        misplaced knob used to be accepted and ignored, which reported as
+        success and executed as though you had never set it. Keys accept either
+        camelCase or snake_case (`durationSecs` == `duration_secs`), and
+        decimal/"bps" fields accept a string, integer or float.
+
+        TP/SL is **not** set here: use the top-level `tpsl` field.
+      additionalProperties: false
       properties:
         reduceOnly:
           type: boolean
           nullable: true
+          description: Per-strategy override of the top-level `reduceOnly`. See that field for what reduce-only
+            means.
         timeInForce:
           type: string
           nullable: true
           description: Child-order TIF (gtc/alo/ioc), strategy-dependent.
-        attachedTpsl:
-          allOf:
-          - $ref: '#/components/schemas/TpslParams'
-          nullable: true
         durationSecs:
           type: integer
           format: int64
           nullable: true
+          description: Total wall-clock window the schedule spans, in seconds. Time-sliced strategies
+            (`passive_twap` and `vwap`) only.
         numSlices:
           type: integer
           format: int64
           nullable: true
+          description: How many child orders the schedule is split into. Derived from `urgency` when omitted.
         passivePct:
           type: integer
           format: int64
           nullable: true
+          description: Share of each slice's window spent resting passively before crossing, 0–100. Derived
+            from `urgency` when omitted.
         clipSize:
           type: string
           nullable: true
-          description: Decimal as string.
+          description: 'Iceberg: visible clip size, base-asset decimal as string.'
         clipPct:
           type: number
           format: double
@@ -1672,18 +2171,30 @@ components:
         participationRate:
           type: string
           nullable: true
-          description: Decimal as string.
+          description: '`participation_rate` only: the share of market volume to execute at, as a decimal
+            fraction string ("0.1" = 10%). Enforced as a cap, not a target.'
         urgency:
           type: integer
           format: int64
           nullable: true
-          description: 0–100.
+          description: 'How aggressive the schedule is, 0–100. **Not a duration**: it does not say how
+            long the order takes; `durationSecs` does. It is a dial the engine expands into the mechanical
+            knobs: a higher value means fewer, faster slices that cross sooner (slice count falls from
+            20 toward 3, passive share from 95% toward 40%), and on `vwap` a higher participation rate
+            (5% toward 50%). `GET /api/orders/urgency-preview` returns the exact values a given position
+            derives, so you can see what a number will do before sending it.'
         randomize:
           type: boolean
           nullable: true
+          description: Jitter slice timing and size instead of running a deterministic schedule.
         maxSlippageBps:
           type: string
           nullable: true
+          description: 'Price bound in basis points from the arrival mid, beyond which the order will
+            not execute. On `participation_rate` it bounds every child order including the `maxDurationSecs`
+            completion sweep, and taker clips that would breach it are skipped rather than sent; the order
+            may finish unfilled. On the arrival-price strategy it sets the guaranteed-completion sweep
+            tolerance. Other strategies ignore it: use `limitPrice` there. Must be greater than 0.'
         hardCancelPct:
           type: string
           nullable: true
@@ -1723,6 +2234,11 @@ components:
           type: boolean
           nullable: true
           default: false
+          description: 'Only let this order shrink an existing position, never open or flip one. The venue
+            caps the fill at the position size and rejects it outright if the position has closed in the
+            meantime, which is what makes it the safe way to close: a duplicate or stale close cannot
+            accidentally open the opposite side. Combine it with `strategy` to close a position with an
+            algo. Cannot be combined with `tpsl` on an algo: a closing order builds no position to protect.'
         timeInForce:
           allOf:
           - $ref: '#/components/schemas/TimeInForce'
@@ -1743,6 +2259,10 @@ components:
           allOf:
           - $ref: '#/components/schemas/TpslParams'
           nullable: true
+          description: |-
+            Take-profit / stop-loss for this order. **The only place TP/SL is set**: there is no per-strategy equivalent.
+            How it is applied depends on the strategy, because the mechanics differ. A plain order is one venue order, so the bracket is attached to it and is live as soon as it rests. An algo is many child orders, and a bracket per child would mean one per clip, each orphaned as its siblings filled. So for an algo the legs are placed **once, on the resulting position, when the run reaches a terminal state** (sized to the position, including a partial fill from a cancelled or expired run).
+            The consequence worth knowing: for an algo the legs do not exist while the order is still working, so a price that crosses your trigger mid-run triggers nothing. If you need protection during execution, set a `limitPrice`, or use `params.maxSlippageBps` on the strategies that read it.
         source:
           type: string
           nullable: true
@@ -1876,6 +2396,9 @@ components:
         submitTime:
           type: string
           format: date-time
+        error:
+          type: string
+          description: Why the order failed. Present only for failed orders.
     AlgoOrdersResponse:
       type: object
       required:
@@ -1898,6 +2421,447 @@ components:
           type: boolean
         order:
           $ref: '#/components/schemas/AlgoOrderInfo'
+    StrategyInfo:
+      type: object
+      required:
+      - name
+      - aliases
+      - basic
+      - description
+      - params
+      properties:
+        name:
+          type: string
+          description: Canonical name to send as `strategy` on POST /api/orders.
+          example: passive_twap
+        aliases:
+          type: array
+          items:
+            type: string
+          description: Other accepted spellings that resolve to this strategy.
+        basic:
+          type: boolean
+          description: True when the strategy resolves to a single venue order rather than an algo that
+            slices its own children.
+        description:
+          type: string
+        params:
+          type: array
+          items:
+            type: string
+          description: '`params` keys this strategy reads.'
+    StrategiesResponse:
+      type: object
+      required:
+      - strategies
+      properties:
+        strategies:
+          type: array
+          items:
+            $ref: '#/components/schemas/StrategyInfo'
+    AlgoFillInfo:
+      type: object
+      required:
+      - symbol
+      - side
+      - size
+      - price
+      - timestamp
+      properties:
+        symbol:
+          type: string
+        side:
+          type: string
+        size:
+          type: string
+          description: Base-asset quantity, decimal as string.
+        price:
+          type: string
+          description: Decimal as string.
+        fee:
+          type: string
+          nullable: true
+          description: Exchange fee in USDC.
+        builderFee:
+          type: string
+          nullable: true
+          description: Builder fee in USDC.
+        isMaker:
+          type: boolean
+          nullable: true
+          description: Whether this fill added liquidity.
+        timestamp:
+          type: integer
+          format: int64
+          description: Fill time, epoch milliseconds.
+    AlgoOrderFillsResponse:
+      type: object
+      required:
+      - success
+      - fills
+      properties:
+        success:
+          type: boolean
+        fills:
+          type: array
+          items:
+            $ref: '#/components/schemas/AlgoFillInfo'
+    SpeedUpOrderRequest:
+      type: object
+      properties:
+        factor:
+          type: number
+          format: double
+          nullable: true
+          default: 2.0
+          description: How much to compress the remaining schedule. 2.0 runs the remainder in half the
+            time it would otherwise take.
+    SpeedUpOrderResponse:
+      type: object
+      required:
+      - success
+      properties:
+        success:
+          type: boolean
+        message:
+          type: string
+          nullable: true
+        error:
+          type: string
+          nullable: true
+        factor:
+          type: number
+          format: double
+          nullable: true
+          description: The compression factor actually applied.
+        newDurationSecs:
+          type: integer
+          format: int64
+          nullable: true
+          description: New total duration measured from order start, for time-sliced strategies.
+        newParticipationRate:
+          type: string
+          nullable: true
+          description: New participation rate (`participation_rate` only), decimal as string.
+    CancelOrderItem:
+      type: object
+      required:
+      - symbol
+      - orderId
+      properties:
+        symbol:
+          type: string
+        orderId:
+          type: string
+          description: Exchange order id.
+    CancelOrdersBatchRequest:
+      type: object
+      required:
+      - orders
+      properties:
+        orders:
+          type: array
+          items:
+            $ref: '#/components/schemas/CancelOrderItem'
+    CancelOrderResult:
+      type: object
+      required:
+      - symbol
+      - orderId
+      - success
+      properties:
+        symbol:
+          type: string
+        orderId:
+          type: string
+        success:
+          type: boolean
+        error:
+          type: string
+          nullable: true
+        orderStatus:
+          type: string
+          nullable: true
+          description: Venue lifecycle status when the order was already closed at cancel time (e.g. `filled`,
+            `canceled`). Absent on a plain cancel.
+    CancelOrdersBatchResponse:
+      type: object
+      required:
+      - success
+      - cancelled
+      - failed
+      - results
+      properties:
+        success:
+          type: boolean
+          description: True only when every requested order is no longer open.
+        cancelled:
+          type: integer
+        failed:
+          type: integer
+          description: Genuine venue rejections. An already-closed order is not one.
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/CancelOrderResult'
+    SimulateOrderRequest:
+      type: object
+      required:
+      - symbol
+      - side
+      - size
+      properties:
+        symbol:
+          type: string
+          example: ETH
+        side:
+          type: string
+          description: '`buy` or `sell` (case-insensitive).'
+        size:
+          type: string
+          description: Base-asset size, decimal as string.
+    SimulateOrderResponse:
+      type: object
+      required:
+      - success
+      properties:
+        success:
+          type: boolean
+        expectedPrice:
+          type: string
+          nullable: true
+          description: Average fill price for the swept portion.
+        vwap:
+          type: string
+          nullable: true
+          description: Volume-weighted average price of the same sweep (mirrors `expectedPrice`).
+        impactBps:
+          type: string
+          nullable: true
+          description: Signed depth cost against `bestPrice`, in basis points. Positive = worse for the
+            side.
+        bestPrice:
+          type: string
+          nullable: true
+          description: 'Best opposing quote at sweep time (best ask for buys, best bid for sells): the
+            reference `impactBps` was measured against, so you can derive the dollar slippage from the
+            same reference.'
+        mid:
+          type: string
+          nullable: true
+          description: Mid price from the same snapshot, informational.
+        availableSize:
+          type: string
+          nullable: true
+          description: Total resting size on the swept side of the book.
+        error:
+          type: string
+          nullable: true
+    UrgencyPreviewResponse:
+      type: object
+      properties:
+        intervals:
+          type: integer
+          nullable: true
+          description: Slice count the schedule will use (`twap`).
+        passivePct:
+          type: integer
+          nullable: true
+          description: Passive share of each slice window, 0–100 (`twap`).
+        participationPct:
+          type: integer
+          nullable: true
+          description: Participation rate the schedule will target, 0–100 (`vwap`).
+        expectedMakerPct:
+          type: integer
+          nullable: true
+          description: Expected share of fills that rest as maker, 0–100.
+    SetPositionTpslRequest:
+      type: object
+      required:
+      - symbol
+      - tpsl
+      properties:
+        symbol:
+          type: string
+          description: Symbol with an open position.
+          example: BTC
+        tpsl:
+          $ref: '#/components/schemas/TpslParams'
+        size:
+          type: string
+          nullable: true
+          description: Base-asset size the trigger legs should cover. Omit to cover the whole position.
+            The legs are fixed-size either way (they do not resize as the position changes), so a partial
+            size is a deliberate "protect this much" choice, not a ratio that tracks the position. A value
+            larger than the current position is refused rather than clamped.
+    SetPositionTpslResponse:
+      type: object
+      required:
+      - success
+      - replaced
+      properties:
+        success:
+          type: boolean
+        tpOrderId:
+          type: string
+          nullable: true
+        slOrderId:
+          type: string
+          nullable: true
+        replaced:
+          type: integer
+          description: How many previous position-bound triggers were cancelled.
+        warnings:
+          type: array
+          items:
+            type: string
+          description: Non-fatal problems, e.g. the new legs are live but a replaced trigger could not
+            be cancelled.
+        error:
+          type: string
+          nullable: true
+    SetAccountModeRequest:
+      type: object
+      required:
+      - mode
+      properties:
+        mode:
+          type: string
+          enum:
+          - standard
+          - unified_account
+          - portfolio_margin
+    SetAccountModeResponse:
+      type: object
+      required:
+      - success
+      properties:
+        success:
+          type: boolean
+        message:
+          type: string
+          nullable: true
+        error:
+          type: string
+          nullable: true
+    TacticSummary:
+      type: object
+      required:
+      - filled
+      properties:
+        parentOrderId:
+          type: string
+          format: uuid
+          nullable: true
+        strategy:
+          type: string
+          nullable: true
+        filled:
+          type: string
+          description: Decimal as string.
+        execVwap:
+          type: string
+          nullable: true
+        vsTacticArrivalBps:
+          type: string
+          nullable: true
+          description: This tactic's shortfall against **its own** arrival, the execution component only.
+            Not comparable across tactics of one intent.
+        vsMarketOrderBps:
+          type: string
+          nullable: true
+        makerFillPct:
+          type: string
+          nullable: true
+    IntentExecutionReport:
+      type: object
+      required:
+      - intentId
+      - symbol
+      - side
+      - objective
+      - totalSize
+      - filledSize
+      - residual
+      - tacticCount
+      - totalFees
+      - builderFees
+      - elapsedSecs
+      - tactics
+      properties:
+        intentId:
+          type: string
+          format: uuid
+        symbol:
+          type: string
+        side:
+          $ref: '#/components/schemas/Side'
+        objective:
+          type: string
+          enum:
+          - arrival
+          - vwap
+          - close
+          - none
+          description: The benchmark the intent asked to be measured against. `arrival` is the default
+            (shortfall against the mid at intent creation); `none` means the caller explicitly did not
+            want one.
+        totalSize:
+          type: string
+        filledSize:
+          type: string
+        residual:
+          type: string
+          description: Size still unexecuted across every tactic.
+        tacticCount:
+          type: integer
+        execVwap:
+          type: string
+          nullable: true
+          description: Size-weighted execution price across every tactic.
+        arrivalMid:
+          type: string
+          nullable: true
+          description: The intent's arrival anchor, captured once at creation and never back-filled.
+        totalShortfallBps:
+          type: string
+          nullable: true
+          description: 'Total implementation shortfall against the intent''s arrival: delay + execution.
+            Positive = worse.'
+        executionBps:
+          type: string
+          nullable: true
+          description: 'The execution component: size-weighted tactic shortfall against each tactic''s
+            own arrival.'
+        delayBps:
+          type: string
+          nullable: true
+          description: 'The delay component, `total − execution`: what the price did between committing
+            to the intent and a tactic working it. Positive = the market moved against you while waiting.'
+        vsMarketOrderBps:
+          type: string
+          nullable: true
+          description: vs a simulated per-slice market order, size-weighted.
+        vsHlNativeTwapBps:
+          type: string
+          nullable: true
+          description: vs an estimate of Hyperliquid's native TWAP, crediting the taker fee the maker
+            share avoided.
+        makerFillPct:
+          type: string
+          nullable: true
+        totalFees:
+          type: string
+        builderFees:
+          type: string
+        elapsedSecs:
+          type: integer
+          format: int64
+        tactics:
+          type: array
+          items:
+            $ref: '#/components/schemas/TacticSummary'
     CreateAgentResponse:
       type: object
       required:
@@ -2262,6 +3226,26 @@ components:
             $ref: '#/components/schemas/TriggerEventInfo'
         error:
           type: string
+    InviteView:
+      type: object
+      required:
+      - code
+      - createdAt
+      properties:
+        code:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
+        claimedBy:
+          type: string
+          nullable: true
+          description: |
+            The wallet that redeemed this code, or null while it is unused.
+        claimedAt:
+          type: string
+          format: date-time
+          nullable: true
     TierView:
       type: object
       required:
