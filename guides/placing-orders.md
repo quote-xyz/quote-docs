@@ -24,7 +24,7 @@ This guide covers plain (non-algo) orders. For execution strategies, see [Algo O
 
 - `size` and `limitPrice` are decimal **strings**, never floats. Quote normalizes them to the asset's [precision rules](../concepts/hyperliquid-constraints.md#price-and-size-precision).
 - `timeInForce`: `GTC` (default), `ALO` (post-only), or `IOC`.
-- `clientOrderId` (optional) lets you tag the order with your own identifier.
+- `clientOrderId` (optional) is your own id for the order. Send one on every order: it is what makes a retry safe after a timeout. See [Retries and Idempotency](retries-and-idempotency.md).
 - `reduceOnly: true` restricts the order to reducing an existing position.
 
 The response returns the venue `orderId`:

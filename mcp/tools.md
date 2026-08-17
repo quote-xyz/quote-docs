@@ -26,11 +26,17 @@ GET /api/mcp/guide    # an operating guide written for agents (markdown)
 | `estimate_trade_cost` | Pre-trade cost estimate (spread + impact) for a hypothetical order |
 | `stress_test` | Liquidation/PnL stress scenarios against the live book |
 | `navigate_symbol` | Resolve a name/ticker to the canonical venue symbol |
+| `search_assets` | Find listed markets by what they are (underlying name, sector, theme) rather than by ticker |
+| `search_wire` | Quote's breaking-news wire: sub-minute headlines, newest first |
+| `get_catalysts` | Scheduled-catalyst calendar: token unlocks, macro events, commodity reports |
 
 ## Account tools (`account:read`)
 
 | Tool | What it returns |
 |---|---|
+| `get_order` | One order of any kind: fill count, filled size, average price, fees, and the venue's lifecycle status. Use it to answer "did my order fill" |
+| `get_algo_orders` | Your algo orders, with live progress on the ones still working |
+| `get_algo_order` | One algo order in depth: execution benchmarks and its child fills |
 | `get_execution_report` | Your execution quality: benchmarks, slippage, savings ([conventions](../guides/analytics.md#the-benchmark-convention)) |
 | `get_portfolio_report` | Portfolio analytics: equity, PnL decomposition |
 | `get_funding_carry` | Funding economics of your current positions |
