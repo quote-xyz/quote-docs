@@ -4,6 +4,18 @@ description: Execution-quality, volume, and fee analytics.
 
 # Analytics
 
+## List trade intents
+
+{% openapi src="../../.gitbook/assets/openapi.yaml" path="/api/trade-intents" method="get" %}
+[openapi.yaml](../../.gitbook/assets/openapi.yaml)
+{% endopenapi %}
+
+## Cross-tactic execution report for one intent
+
+{% openapi src="../../.gitbook/assets/openapi.yaml" path="/api/trade-intents/{id}" method="get" %}
+[openapi.yaml](../../.gitbook/assets/openapi.yaml)
+{% endopenapi %}
+
 ## Execution-quality metrics
 
 {% openapi src="../../.gitbook/assets/openapi.yaml" path="/api/analytics/execution" method="get" %}

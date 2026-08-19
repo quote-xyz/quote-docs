@@ -73,6 +73,8 @@ tags:
   description: 'Funding-payment tracking: totals, timeline, and history.'
 - name: Portfolio
   description: Quote-owned hourly equity time-series.
+- name: Companies
+  description: Daily fundamentals snapshot for a listed underlying.
 - name: Health
   description: Liveness/readiness probes, info, and Prometheus metrics.
 security:
@@ -238,6 +240,327 @@ paths:
           $ref: '#/components/responses/RateLimited'
         '502':
           $ref: '#/components/responses/BadGateway'
+        '503':
+          $ref: '#/components/responses/ServiceUnavailable'
+  /api/account/mode:
+    post:
+      tags:
+      - Positions
+      summary: Set the account margin mode
+      description: |
+        Switch the Hyperliquid account between standard, unified and
+        portfolio-margin mode.
+
+        **Auth:** API-key scope: `positions:write`.
+      operationId: setAccountMode
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SetAccountModeRequest'
+      responses:
+        '200':
+          description: Mode applied.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SetAccountModeResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+        '502':
+          $ref: '#/components/responses/BadGateway'
+        '503':
+          $ref: '#/components/responses/ServiceUnavailable'
+  /api/orders/simulate:
+    post:
+      tags:
+      - Orders
+      summary: Estimate what an order would cost
+      description: |
+        Pre-trade cost estimate: sweep the live L2 book for `size` on the
+        requested side. Read-only, places nothing.
+
+        A book with no liquidity, or a size it cannot fill at all, is reported
+        as `hasEstimate: false` with an `error`, not as an HTTP error.
+
+        **Auth:** API-key scope: `orders:read`.
+      operationId: simulateOrder
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SimulateOrderRequest'
+      responses:
+        '200':
+          description: 'The estimate, or `hasEstimate: false` when the book cannot price it.'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SimulateOrderResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+        '502':
+          $ref: '#/components/responses/BadGateway'
+        '503':
+          $ref: '#/components/responses/ServiceUnavailable'
+  /api/orders/urgency-preview:
+    get:
+      tags:
+      - Orders
+      summary: Preview the parameters an urgency setting implies
+      description: |
+        What a strategy would run with at a given urgency, before submitting
+        anything. Pure computation: it reads no account and no market.
+
+        Fields are absent when they do not apply to the requested strategy.
+
+        **Auth:** authenticated. No scope required.
+      operationId: urgencyPreview
+      parameters:
+      - name: strategy
+        in: query
+        required: true
+        schema:
+          type: string
+        description: Strategy name, e.g. `twap`, `vwap`, `participation_rate`.
+      - name: urgency
+        in: query
+        required: false
+        schema:
+          type: number
+          format: double
+        description: Urgency position 0-100. Required for `twap` and `vwap`.
+      - name: participationPct
+        in: query
+        required: false
+        schema:
+          type: number
+          format: double
+        description: Target participation 0-100, for `participation_rate`.
+      responses:
+        '200':
+          description: The implied parameters.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UrgencyPreviewResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+  /api/orders/algo/{order_id}/fills:
+    get:
+      tags:
+      - Orders
+      summary: List an algo order's child fills
+      description: |
+        Every fill recorded against one algo order's child orders.
+
+        **Auth:** API-key scope: `orders:read`.
+      operationId: getAlgoOrderFills
+      parameters:
+      - name: order_id
+        in: path
+        required: true
+        schema:
+          type: string
+        description: The algo parent order id.
+      responses:
+        '200':
+          description: The order's fills, oldest first.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AlgoOrderFillsResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+        '503':
+          $ref: '#/components/responses/ServiceUnavailable'
+  /api/orders/algo/{order_id}/speed-up:
+    post:
+      tags:
+      - Orders
+      summary: Speed up a running algo order
+      description: |
+        Compress a running algo order's remaining schedule. The engine applies
+        the change to the live strategy; it does not resubmit the order.
+
+        **Auth:** API-key scope: `orders:write`.
+      operationId: speedUpOrder
+      parameters:
+      - name: order_id
+        in: path
+        required: true
+        schema:
+          type: string
+        description: The algo parent order id.
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SpeedUpOrderRequest'
+      responses:
+        '200':
+          description: The applied change, or `success` false with an `error`.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SpeedUpOrderResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+        '503':
+          $ref: '#/components/responses/ServiceUnavailable'
+  /api/positions/tpsl:
+    post:
+      tags:
+      - Positions
+      summary: Attach take-profit and stop-loss to a position
+      description: |
+        Place TP/SL triggers against an open position. Existing Quote-placed
+        triggers on the same symbol are replaced; `replaced` reports how many.
+
+        **Auth:** API-key scope: `orders:write`.
+      operationId: setPositionTpsl
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SetPositionTpslRequest'
+      responses:
+        '200':
+          description: The triggers placed, with any warnings.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SetPositionTpslResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+        '502':
+          $ref: '#/components/responses/BadGateway'
+        '503':
+          $ref: '#/components/responses/ServiceUnavailable'
+  /api/trade-intents:
+    get:
+      tags:
+      - Analytics
+      summary: List trade intents
+      description: |
+        The caller's recent trade intents, newest first.
+
+        A trade intent is the meta-order above strategy runs: it records what
+        was being attempted and when the decision was made, and one or more
+        strategy runs execute as its tactics. Orders submitted with an
+        `envelope` create one.
+
+        **Auth:** API-key scope: `orders:read`.
+      operationId: listTradeIntents
+      parameters:
+      - name: limit
+        in: query
+        required: false
+        schema:
+          type: integer
+          format: int64
+        description: Page size. Defaults to 50.
+      responses:
+        '200':
+          description: The caller's intents.
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                - intents
+                properties:
+                  intents:
+                    type: array
+                    items:
+                      type: object
+                      description: 'A trade intent: its id, symbol, side, total size, the validated objective
+                        and mandate, the arrival anchor captured at creation, and its fill accounting.'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+        '503':
+          $ref: '#/components/responses/ServiceUnavailable'
+  /api/trade-intents/{id}:
+    get:
+      tags:
+      - Analytics
+      summary: Cross-tactic execution report for one intent
+      description: |
+        How one decision actually executed, across every strategy run that
+        served it.
+
+        Delay is reported separately from execution rather than folded in:
+        total shortfall is measured from the intent's arrival anchor, execution
+        from each tactic's own arrival, and `delayBps` is the difference.
+
+        **Auth:** API-key scope: `orders:read`.
+      operationId: getTradeIntentReport
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      responses:
+        '200':
+          description: The intent's execution report.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/IntentExecutionReport'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '429':
+          $ref: '#/components/responses/RateLimited'
         '503':
           $ref: '#/components/responses/ServiceUnavailable'
   /api/orders/modify:
@@ -605,6 +928,59 @@ paths:
           $ref: '#/components/responses/Unauthorized'
         '403':
           $ref: '#/components/responses/Forbidden'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+        '503':
+          $ref: '#/components/responses/ServiceUnavailable'
+  /api/companies/{ticker}:
+    get:
+      tags:
+      - Companies
+      summary: Get the stored fundamentals snapshot for one underlying
+      description: |
+        Returns the newest daily snapshot for a listed underlying, plus its
+        current headline window. Served from storage, so it makes no vendor
+        call, which is what makes it safe to leave unauthenticated and
+        cacheable.
+
+        The payload fields (`profile`, `metrics`, `earnings`, `calendar`,
+        `financialsAnnual`, `financialsQuarterly`, `insiders`, `filings`) are
+        the **vendor's own response bodies, stored raw and uninterpreted**. The shaping (concept mapping, derived quarters, statement assembly) is the
+        consumer's, deliberately kept in one language rather than reimplemented
+        here.
+
+        `covered: false` is an answer, not an absence: the ticker was asked
+        about and is outside the plan, unlisted, or resolved to a different
+        company. Every payload is then null and the caller should render the
+        page it rendered before fundamentals existed. A `404` is the different case: the sweep has not reached this ticker yet, so it is worth asking
+        again tomorrow.
+
+        `ticker` is the bare exchange symbol (`NVDA`), not a venue-prefixed
+        market (`xyz:NVDA`). Uppercase letters, digits and `.`, at most 10
+        characters; anything else is refused without a query.
+
+        **Auth:** none. Registered in the public read-only group and per-IP
+        rate limited.
+      operationId: getCompany
+      parameters:
+      - name: ticker
+        in: path
+        required: true
+        description: Bare exchange ticker, e.g. `NVDA`.
+        schema:
+          type: string
+          pattern: ^[A-Z][A-Z0-9.]{0,9}$
+      responses:
+        '200':
+          description: The newest stored snapshot.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CompanyResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '404':
+          description: 'No snapshot for this ticker: the sweep has not reached it.'
         '429':
           $ref: '#/components/responses/RateLimited'
         '503':
@@ -1921,6 +2297,289 @@ components:
           description: One entry per requested order. The three counts above partition this list exactly.
           items:
             $ref: '#/components/schemas/CancelOrderResult'
+    SetAccountModeRequest:
+      type: object
+      required:
+      - mode
+      properties:
+        mode:
+          type: string
+          enum:
+          - standard
+          - unifiedAccount
+          - portfolioMargin
+    SetAccountModeResponse:
+      type: object
+      required:
+      - success
+      properties:
+        success:
+          type: boolean
+        message:
+          type: string
+        error:
+          type: string
+    SimulateOrderRequest:
+      type: object
+      required:
+      - symbol
+      - side
+      - size
+      properties:
+        symbol:
+          type: string
+        side:
+          $ref: '#/components/schemas/Side'
+        size:
+          type: string
+          description: Decimal string, in base units.
+    SimulateOrderResponse:
+      type: object
+      required:
+      - hasEstimate
+      properties:
+        hasEstimate:
+          type: boolean
+          description: False when the book cannot price the order at all. The remaining fields are then
+            absent and `error` says why.
+        expectedPrice:
+          type: string
+          description: Average fill price across the simulated sweep.
+        vwap:
+          type: string
+          description: Volume-weighted price of the levels consumed.
+        impactBps:
+          type: string
+          description: Signed depth cost against the best opposing quote. Positive is worse, matching
+            the benchmark convention used across the API.
+        bestPrice:
+          type: string
+          description: Best opposing quote at simulation time.
+        mid:
+          type: string
+        availableSize:
+          type: string
+          description: Total same-side depth, so a caller can tell a partial fill.
+        error:
+          type: string
+          description: Present only when `hasEstimate` is false.
+    UrgencyPreviewResponse:
+      type: object
+      description: Field names are snake_case here, unlike the rest of the API. Every field is absent
+        when it does not apply to the requested strategy.
+      properties:
+        intervals:
+          type: integer
+          format: int32
+        passive_pct:
+          type: integer
+          format: int32
+        participation_pct:
+          type: integer
+          format: int32
+        expected_maker_pct:
+          type: integer
+          format: int32
+    SpeedUpOrderRequest:
+      type: object
+      properties:
+        factor:
+          type: number
+          format: double
+          nullable: true
+          description: Compression factor for the remaining schedule.
+    SpeedUpOrderResponse:
+      type: object
+      required:
+      - success
+      properties:
+        success:
+          type: boolean
+        message:
+          type: string
+        error:
+          type: string
+        factor:
+          type: number
+          format: double
+          description: The factor actually applied.
+        newDurationSecs:
+          type: integer
+          format: int64
+        newParticipationRate:
+          type: string
+    AlgoFillInfo:
+      type: object
+      required:
+      - symbol
+      - side
+      - size
+      - price
+      - timestamp
+      properties:
+        symbol:
+          type: string
+        side:
+          type: string
+        size:
+          type: string
+        price:
+          type: string
+        fee:
+          type: string
+        builderFee:
+          type: string
+        isMaker:
+          type: boolean
+        timestamp:
+          type: integer
+          format: int64
+          description: Fill time, epoch milliseconds.
+    AlgoOrderFillsResponse:
+      type: object
+      required:
+      - success
+      - fills
+      properties:
+        success:
+          type: boolean
+        fills:
+          type: array
+          items:
+            $ref: '#/components/schemas/AlgoFillInfo'
+    SetPositionTpslRequest:
+      type: object
+      required:
+      - symbol
+      - tpsl
+      properties:
+        symbol:
+          type: string
+        tpsl:
+          $ref: '#/components/schemas/TpslParams'
+        size:
+          type: string
+          nullable: true
+          description: Defaults to the whole position.
+    SetPositionTpslResponse:
+      type: object
+      required:
+      - success
+      - replaced
+      properties:
+        success:
+          type: boolean
+        tpOrderId:
+          type: string
+        slOrderId:
+          type: string
+        replaced:
+          type: integer
+          description: How many existing Quote-placed triggers were replaced.
+        warnings:
+          type: array
+          items:
+            type: string
+        error:
+          type: string
+    TacticSummary:
+      type: object
+      required:
+      - parentOrderId
+      - strategy
+      - filled
+      properties:
+        parentOrderId:
+          type: string
+          format: uuid
+          nullable: true
+        strategy:
+          type: string
+          nullable: true
+        filled:
+          type: string
+        execVwap:
+          type: string
+        vsTacticArrivalBps:
+          type: string
+          description: Measured from this tactic's own arrival, not the intent's.
+        vsMarketOrderBps:
+          type: string
+        makerFillPct:
+          type: string
+    IntentExecutionReport:
+      type: object
+      required:
+      - intentId
+      - symbol
+      - side
+      - objective
+      - totalSize
+      - filledSize
+      - residual
+      - tacticCount
+      - totalFees
+      - builderFees
+      - elapsedSecs
+      - tactics
+      properties:
+        intentId:
+          type: string
+          format: uuid
+        symbol:
+          type: string
+        side:
+          $ref: '#/components/schemas/Side'
+        objective:
+          type: string
+          enum:
+          - arrival
+          - vwap
+          - close
+          - none
+        totalSize:
+          type: string
+        filledSize:
+          type: string
+        residual:
+          type: string
+          description: Size neither filled nor in flight.
+        tacticCount:
+          type: integer
+        execVwap:
+          type: string
+        arrivalMid:
+          type: string
+          description: Mid at intent creation. Never back-filled.
+        totalShortfallBps:
+          type: string
+          description: Measured from the intent's arrival anchor.
+        executionBps:
+          type: string
+          description: Measured from each tactic's own arrival.
+        delayBps:
+          type: string
+          description: 'Total minus execution: the drift between committing to the trade and a tactic
+            starting. Reported separately so waiting cannot read as good execution.'
+        vsMarketOrderBps:
+          type: string
+        vsHlNativeTwapBps:
+          type: string
+          description: Estimated against a taker-only native TWAP, crediting the taker fee our maker share
+            avoided.
+        makerFillPct:
+          type: string
+        totalFees:
+          type: string
+        builderFees:
+          type: string
+        elapsedSecs:
+          type: integer
+          format: int64
+        tactics:
+          type: array
+          items:
+            $ref: '#/components/schemas/TacticSummary'
     ModifyOrderRequest:
       type: object
       required:
@@ -2156,6 +2815,84 @@ components:
         toPerp:
           type: boolean
           description: Transfer to perp (true) or to spot (false).
+    CompanyResponse:
+      type: object
+      description: |
+        One stored snapshot. The eight payload fields are raw vendor bodies and
+        are intentionally left unmodelled here, since modelling them would pin a
+        vendor's schema into our contract, and the consumer already owns that
+        shaping.
+      required:
+      - ticker
+      - covered
+      - snapshotDate
+      - fetchedAt
+      properties:
+        ticker:
+          type: string
+          example: NVDA
+        companyName:
+          type: string
+          nullable: true
+          description: |
+            The vendor's name for this listing. Present even on an uncovered
+            row when the profile named a different company, which is the only
+            way to see a ticker collision from outside.
+          example: NVIDIA Corporation
+        covered:
+          type: boolean
+          description: '`false` means asked and answered: outside the plan, unlisted, or a name mismatch.
+            All payloads are null.'
+        snapshotDate:
+          type: string
+          format: date
+        fetchedAt:
+          type: string
+          format: date-time
+        profile:
+          type: object
+          nullable: true
+          additionalProperties: true
+        metrics:
+          type: object
+          nullable: true
+          additionalProperties: true
+        earnings:
+          type: array
+          nullable: true
+          items:
+            type: object
+            additionalProperties: true
+        calendar:
+          type: object
+          nullable: true
+          additionalProperties: true
+        financialsAnnual:
+          type: object
+          nullable: true
+          additionalProperties: true
+        financialsQuarterly:
+          type: object
+          nullable: true
+          additionalProperties: true
+        insiders:
+          type: object
+          nullable: true
+          additionalProperties: true
+        filings:
+          type: array
+          nullable: true
+          items:
+            type: object
+            additionalProperties: true
+        news:
+          type: array
+          nullable: true
+          description: Rolling headline window, on a faster clock than the fundamentals and null until
+            the news pass has run for this ticker.
+          items:
+            type: object
+            additionalProperties: true
     TemplateInfo:
       type: object
       required:

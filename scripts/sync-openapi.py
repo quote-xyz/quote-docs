@@ -161,6 +161,20 @@ GLOBAL_REGEX_REPLACEMENTS = [
     (r"taker rate\s*—\s*tier, staking", "taker rate, with tier, staking"),
     (r"\*\*sell\*\* rate\s*—\s*see", "**sell** rate: see"),
     (r"Other strategies ignore it\s*—\s*use", "Other strategies ignore it: use"),
+    # Whitespace is `\\s+` throughout: these descriptions are YAML folded or
+    # literal blocks, so a line break lands mid-phrase and a literal space
+    # silently stops matching.
+    (r"Served\s+from\s+storage\s*—\s*this\s+makes", "Served from storage, so it makes"),
+    (
+        r"The\s+shaping\s*—\s*concept\s+mapping,\s+derived\s+quarters,\s+statement\s+assembly\s*—\s*is",
+        "The shaping (concept mapping, derived quarters, statement assembly) is",
+    ),
+    (r"different\s+case\s*—\s*the\s+sweep", "different case: the sweep"),
+    (r"this\s+ticker\s*—\s*the\s+sweep", "this ticker: the sweep"),
+    (r"unmodelled\s+here\s*—\s*modelling", "unmodelled here, since modelling"),
+    (r"asked\s+and\s+answered\s*—\s*outside", "asked and answered: outside"),
+    (r"failed\s+request\s*—\s*this\s+endpoint", "failed request. This endpoint"),
+    (r"default\s*—\s*provided\s+the\s+wallet", "default, provided the wallet"),
 ]
 
 APIKEY_SCHEME_DESCRIPTION = """\
