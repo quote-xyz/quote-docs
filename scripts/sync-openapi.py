@@ -133,14 +133,6 @@ DESCRIPTION_REPLACEMENTS = [
 GLOBAL_TEXT_REPLACEMENTS = [
     ("**Auth:** authenticated (Privy or API key). API-key scope:", "**Auth:** API-key scope:"),
     ("**Auth:** authenticated. API-key scope:", "**Auth:** API-key scope:"),
-    # adaptive_is is deliberately undocumented in the public reference. Drop
-    # the whole sentence where one is written about it: naming the strategy
-    # only to say a parameter behaves differently there advertises it.
-    ("passive_twap, adaptive_is, vwap", "passive_twap, vwap"),
-    (
-        "On `adaptive_is` it sets the guaranteed-completion sweep tolerance. ",
-        "",
-    ),
     # Privy is a terminal-internal credential and is never named publicly. Some
     # operations legitimately need to say an action is terminal-only, so rename
     # the credential rather than dropping the sentence. Kept generic (not tied
