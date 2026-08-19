@@ -252,6 +252,38 @@ def check_pages_reference_a_written_spec(repo_root, written):
             "Fix: write that path here, or point SRC in gen-endpoint-pages.py at one we do."
         )
 
+
+# AGENTS.md says the engine's adaptive_is strategy is deliberately undocumented
+# and must never be added to these docs. That rule governs every page, but only
+# the generated spec was ever checked against it -- and prose cannot fail a
+# build. These are hand-authored pages, so nothing regenerates them and nothing
+# would have noticed.
+UNDOCUMENTED_STRATEGY = "adaptive_is"
+# AGENTS.md states the rule, so it necessarily names it.
+RULE_HOLDERS = {"AGENTS.md"}
+
+
+def check_no_undocumented_strategy_in_pages(repo_root):
+    """Refuse any page naming a strategy the docs must not mention."""
+    offenders = {}
+    for page in sorted(repo_root.rglob("*.md")):
+        rel = page.relative_to(repo_root)
+        if rel.parts[0] in {".git", "scripts"} or str(rel) in RULE_HOLDERS:
+            continue
+        for n, line in enumerate(page.read_text().splitlines(), 1):
+            if UNDOCUMENTED_STRATEGY in line:
+                offenders.setdefault(str(rel), []).append(n)
+    if offenders:
+        lines = "\n".join(
+            f"  {path}: line{'s' if len(ns) > 1 else ''} {', '.join(map(str, ns))}"
+            for path, ns in sorted(offenders.items())
+        )
+        sys.exit(
+            f"error: {UNDOCUMENTED_STRATEGY} named in a docs page.\n"
+            "AGENTS.md: that strategy is deliberately undocumented.\n"
+            f"{lines}"
+        )
+
 def main() -> None:
     repo_root = Path(__file__).resolve().parent.parent
     source = Path(
@@ -332,6 +364,7 @@ def main() -> None:
     served.write_text(text)
 
     check_pages_reference_a_written_spec(repo_root, {target, served})
+    check_no_undocumented_strategy_in_pages(repo_root)
 
     print(f"wrote {target} and {served} ({len(spec['paths'])} paths, {len(schemas)} schemas)")
 
