@@ -73,8 +73,6 @@ tags:
   description: 'Funding-payment tracking: totals, timeline, and history.'
 - name: Portfolio
   description: Quote-owned hourly equity time-series.
-- name: Companies
-  description: Daily fundamentals snapshot for a listed underlying.
 - name: Health
   description: Liveness/readiness probes, info, and Prometheus metrics.
 security:
@@ -928,59 +926,6 @@ paths:
           $ref: '#/components/responses/Unauthorized'
         '403':
           $ref: '#/components/responses/Forbidden'
-        '429':
-          $ref: '#/components/responses/RateLimited'
-        '503':
-          $ref: '#/components/responses/ServiceUnavailable'
-  /api/companies/{ticker}:
-    get:
-      tags:
-      - Companies
-      summary: Get the stored fundamentals snapshot for one underlying
-      description: |
-        Returns the newest daily snapshot for a listed underlying, plus its
-        current headline window. Served from storage, so it makes no vendor
-        call, which is what makes it safe to leave unauthenticated and
-        cacheable.
-
-        The payload fields (`profile`, `metrics`, `earnings`, `calendar`,
-        `financialsAnnual`, `financialsQuarterly`, `insiders`, `filings`) are
-        the **vendor's own response bodies, stored raw and uninterpreted**. The shaping (concept mapping, derived quarters, statement assembly) is the
-        consumer's, deliberately kept in one language rather than reimplemented
-        here.
-
-        `covered: false` is an answer, not an absence: the ticker was asked
-        about and is outside the plan, unlisted, or resolved to a different
-        company. Every payload is then null and the caller should render the
-        page it rendered before fundamentals existed. A `404` is the different case: the sweep has not reached this ticker yet, so it is worth asking
-        again tomorrow.
-
-        `ticker` is the bare exchange symbol (`NVDA`), not a venue-prefixed
-        market (`xyz:NVDA`). Uppercase letters, digits and `.`, at most 10
-        characters; anything else is refused without a query.
-
-        **Auth:** none. Registered in the public read-only group and per-IP
-        rate limited.
-      operationId: getCompany
-      parameters:
-      - name: ticker
-        in: path
-        required: true
-        description: Bare exchange ticker, e.g. `NVDA`.
-        schema:
-          type: string
-          pattern: ^[A-Z][A-Z0-9.]{0,9}$
-      responses:
-        '200':
-          description: The newest stored snapshot.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/CompanyResponse'
-        '400':
-          $ref: '#/components/responses/BadRequest'
-        '404':
-          description: 'No snapshot for this ticker: the sweep has not reached it.'
         '429':
           $ref: '#/components/responses/RateLimited'
         '503':
@@ -2815,84 +2760,6 @@ components:
         toPerp:
           type: boolean
           description: Transfer to perp (true) or to spot (false).
-    CompanyResponse:
-      type: object
-      description: |
-        One stored snapshot. The eight payload fields are raw vendor bodies and
-        are intentionally left unmodelled here, since modelling them would pin a
-        vendor's schema into our contract, and the consumer already owns that
-        shaping.
-      required:
-      - ticker
-      - covered
-      - snapshotDate
-      - fetchedAt
-      properties:
-        ticker:
-          type: string
-          example: NVDA
-        companyName:
-          type: string
-          nullable: true
-          description: |
-            The vendor's name for this listing. Present even on an uncovered
-            row when the profile named a different company, which is the only
-            way to see a ticker collision from outside.
-          example: NVIDIA Corporation
-        covered:
-          type: boolean
-          description: '`false` means asked and answered: outside the plan, unlisted, or a name mismatch.
-            All payloads are null.'
-        snapshotDate:
-          type: string
-          format: date
-        fetchedAt:
-          type: string
-          format: date-time
-        profile:
-          type: object
-          nullable: true
-          additionalProperties: true
-        metrics:
-          type: object
-          nullable: true
-          additionalProperties: true
-        earnings:
-          type: array
-          nullable: true
-          items:
-            type: object
-            additionalProperties: true
-        calendar:
-          type: object
-          nullable: true
-          additionalProperties: true
-        financialsAnnual:
-          type: object
-          nullable: true
-          additionalProperties: true
-        financialsQuarterly:
-          type: object
-          nullable: true
-          additionalProperties: true
-        insiders:
-          type: object
-          nullable: true
-          additionalProperties: true
-        filings:
-          type: array
-          nullable: true
-          items:
-            type: object
-            additionalProperties: true
-        news:
-          type: array
-          nullable: true
-          description: Rolling headline window, on a faster clock than the fundamentals and null until
-            the news pass has run for this ticker.
-          items:
-            type: object
-            additionalProperties: true
     TemplateInfo:
       type: object
       required:
