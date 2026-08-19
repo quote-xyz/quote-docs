@@ -37,6 +37,18 @@ EXCLUDED_PATHS = [
     # operation, and unauthenticated. Same reason news and the daily quote are
     # excluded.
     "/api/companies/{ticker}",
+    # Terminal surfaces. These are documented in the backend spec because the
+    # app calls them and the frontend's conformance check pins against it, but
+    # they are not an integration surface: the journal is the coaching layer's
+    # own store, and the rest back panels the terminal renders.
+    "/api/journal",
+    "/api/journal/consent",
+    "/api/journal/trades",
+    "/api/analytics/fills",
+    "/api/compliance/status",
+    "/api/geo/status",
+    "/api/markets/depth-compare",
+    "/api/markets/liquidity",
     # MCP connector (documented in the MCP tab)
     "/mcp",
     "/.well-known/oauth-protected-resource",
@@ -70,6 +82,16 @@ EXCLUDED_TAGS = [
 EXCLUDED_SCHEMAS = [
     # Orphaned by excluding /api/companies/{ticker}.
     "CompanyResponse",
+    # Orphaned by excluding the terminal surfaces above.
+    "JournalStatus",
+    "JournalTrade",
+    "JournalTradesResponse",
+    "JournalConsentRequest",
+    "ComplianceStatusResponse",
+    "GeoStatusResponse",
+    "UserFill",
+    "DepthComparison",
+    "LiquidityManifest",
     "NLChatMessage",
     "NLPositionContext",
     "NLOrderContextEntry",
