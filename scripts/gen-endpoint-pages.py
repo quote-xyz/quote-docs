@@ -19,8 +19,11 @@ import yaml
 REPO = Path(__file__).resolve().parent.parent
 SPEC = REPO / "api-reference" / "openapi.yaml"
 OUT = REPO / "api-reference" / "endpoints"
-# Path to the spec, relative to a page in OUT.
-SRC = "../openapi.yaml"
+# Path to the spec, relative to a page in OUT. This is the copy GitBook serves
+# (GITBOOK-71 repointed every page at it); sync-openapi.py writes it alongside
+# api-reference/openapi.yaml. Pointing here keeps regeneration a no-op instead
+# of flipping all ten pages onto a file the site does not read.
+SRC = "../../.gitbook/assets/openapi.yaml"
 METHODS = ("get", "post", "put", "patch", "delete")
 
 

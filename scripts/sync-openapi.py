@@ -225,6 +225,33 @@ def fail(message: str, text: str, needle: str) -> None:
     sys.exit(f"error: {message}\n{detail}")
 
 
+
+def check_pages_reference_a_written_spec(repo_root, written):
+    """Refuse a page pointing at a spec this script does not write.
+
+    The failure this catches is silent: the page renders fine from a file that
+    simply stops being updated, so the published reference goes stale while the
+    repo, the diff and this script's exit code all look correct.
+    """
+    pages = sorted((repo_root / "api-reference" / "endpoints").glob("*.md"))
+    stale = {}
+    for page in pages:
+        for ref in re.findall(r'src="([^"]+)"', page.read_text()):
+            resolved = (page.parent / ref).resolve()
+            if resolved not in {w.resolve() for w in written}:
+                stale.setdefault(str(resolved), []).append(page.name)
+    if stale:
+        lines = "\n".join(
+            f"  {path}\n    referenced by: {', '.join(sorted(names))}"
+            for path, names in sorted(stale.items())
+        )
+        sys.exit(
+            "error: endpoint pages reference a spec this script does not write.\n"
+            "Those pages would render from a file that never updates.\n"
+            f"{lines}\n"
+            "Fix: write that path here, or point SRC in gen-endpoint-pages.py at one we do."
+        )
+
 def main() -> None:
     repo_root = Path(__file__).resolve().parent.parent
     source = Path(
@@ -296,8 +323,17 @@ def main() -> None:
     if "—" in text:
         fail("em dash in generated spec; add a GLOBAL_REGEX_REPLACEMENTS rule", text, "—")
 
+    # GitBook's own UI duplicated the spec into .gitbook/assets and repointed
+    # every endpoint page at that copy (GITBOOK-71). It is the file the site
+    # actually serves, and nothing here wrote it, so a sync updated the copy no
+    # page reads and published nothing. Both are written together now.
+    served = repo_root / ".gitbook" / "assets" / "openapi.yaml"
     target.write_text(text)
-    print(f"wrote {target} ({len(spec['paths'])} paths, {len(schemas)} schemas)")
+    served.write_text(text)
+
+    check_pages_reference_a_written_spec(repo_root, {target, served})
+
+    print(f"wrote {target} and {served} ({len(spec['paths'])} paths, {len(schemas)} schemas)")
 
 
 if __name__ == "__main__":
