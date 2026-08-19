@@ -33,6 +33,10 @@ EXCLUDED_PATHS = [
     "/api/news",
     "/api/webhooks/parallel",
     "/api/quotes/daily",
+    # Stored fundamentals for an underlying: reference data, not a trading
+    # operation, and unauthenticated. Same reason news and the daily quote are
+    # excluded.
+    "/api/companies/{ticker}",
     # MCP connector (documented in the MCP tab)
     "/mcp",
     "/.well-known/oauth-protected-resource",
@@ -57,12 +61,15 @@ EXCLUDED_PATHS = [
 EXCLUDED_TAGS = [
     "NL Order",
     "News",
+    "Companies",
     "MCP Connector",
     "Bridge",
     "API Keys",
     "Invites & Referrals",
 ]
 EXCLUDED_SCHEMAS = [
+    # Orphaned by excluding /api/companies/{ticker}.
+    "CompanyResponse",
     "NLChatMessage",
     "NLPositionContext",
     "NLOrderContextEntry",
@@ -161,6 +168,10 @@ GLOBAL_REGEX_REPLACEMENTS = [
     (r"taker rate\s*—\s*tier, staking", "taker rate, with tier, staking"),
     (r"\*\*sell\*\* rate\s*—\s*see", "**sell** rate: see"),
     (r"Other strategies ignore it\s*—\s*use", "Other strategies ignore it: use"),
+    # Whitespace is `\\s+`: these are YAML folded blocks, so a line break lands
+    # mid-phrase and a literal space silently stops matching.
+    (r"unmodelled\s+here\s*—\s*modelling", "unmodelled here, since modelling"),
+    (r"asked\s+and\s+answered\s*—\s*outside", "asked and answered: outside"),
 ]
 
 APIKEY_SCHEME_DESCRIPTION = """\

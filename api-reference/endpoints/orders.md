@@ -28,6 +28,30 @@ description: Order submission, cancellation, modification, and algo-order status
 [openapi.yaml](../../.gitbook/assets/openapi.yaml)
 {% endopenapi %}
 
+## Estimate what an order would cost
+
+{% openapi src="../../.gitbook/assets/openapi.yaml" path="/api/orders/simulate" method="post" %}
+[openapi.yaml](../../.gitbook/assets/openapi.yaml)
+{% endopenapi %}
+
+## Preview the parameters an urgency setting implies
+
+{% openapi src="../../.gitbook/assets/openapi.yaml" path="/api/orders/urgency-preview" method="get" %}
+[openapi.yaml](../../.gitbook/assets/openapi.yaml)
+{% endopenapi %}
+
+## List an algo order's child fills
+
+{% openapi src="../../.gitbook/assets/openapi.yaml" path="/api/orders/algo/{order_id}/fills" method="get" %}
+[openapi.yaml](../../.gitbook/assets/openapi.yaml)
+{% endopenapi %}
+
+## Speed up a running algo order
+
+{% openapi src="../../.gitbook/assets/openapi.yaml" path="/api/orders/algo/{order_id}/speed-up" method="post" %}
+[openapi.yaml](../../.gitbook/assets/openapi.yaml)
+{% endopenapi %}
+
 ## Modify an existing order
 
 {% openapi src="../../.gitbook/assets/openapi.yaml" path="/api/orders/modify" method="post" %}
