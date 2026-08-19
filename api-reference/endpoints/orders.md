@@ -69,3 +69,9 @@ description: Order submission, cancellation, modification, and algo-order status
 {% openapi src="../../.gitbook/assets/openapi.yaml" path="/api/orders/algo/{order_id}" method="get" %}
 [openapi.yaml](../../.gitbook/assets/openapi.yaml)
 {% endopenapi %}
+
+## Resolve an order by its client order id
+
+{% openapi src="../../.gitbook/assets/openapi.yaml" path="/api/orders/by-client-id/{client_order_id}" method="get" %}
+[openapi.yaml](../../.gitbook/assets/openapi.yaml)
+{% endopenapi %}

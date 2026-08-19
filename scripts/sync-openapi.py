@@ -52,6 +52,7 @@ EXCLUDED_PATHS = [
     # MCP connector (documented in the MCP tab)
     "/mcp",
     "/.well-known/oauth-protected-resource",
+    "/.well-known/oauth-protected-resource/mcp",
     "/.well-known/oauth-authorization-server",
     "/oauth/register",
     "/oauth/authorize",
@@ -194,6 +195,10 @@ GLOBAL_REGEX_REPLACEMENTS = [
     # mid-phrase and a literal space silently stops matching.
     (r"unmodelled\s+here\s*—\s*modelling", "unmodelled here, since modelling"),
     (r"asked\s+and\s+answered\s*—\s*outside", "asked and answered: outside"),
+    (
+        r"alongside\s+`disposition`\s*—\s*including",
+        "alongside `disposition`, including",
+    ),
 ]
 
 APIKEY_SCHEME_DESCRIPTION = """\

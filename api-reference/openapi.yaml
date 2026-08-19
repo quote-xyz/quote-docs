@@ -650,6 +650,65 @@ paths:
           $ref: '#/components/responses/RateLimited'
         '503':
           $ref: '#/components/responses/ServiceUnavailable'
+  /api/orders/by-client-id/{client_order_id}:
+    get:
+      tags:
+      - Orders
+      summary: Resolve an order by its client order id
+      description: |
+        Answer what happened to the order you submitted under a given
+        `clientOrderId`. This is the endpoint to call when a submit timed out or
+        returned `VENUE_UNREACHABLE` and you need to know whether the order
+        landed before deciding to re-send.
+
+        Two sources are consulted and the response says which answered:
+
+        - Quote's own order registry, which knows the venue order id and the
+          fills recorded against it.
+        - Hyperliquid, keyed by the same client order id, which is authoritative
+          about the order's current lifecycle and covers the case where our reply
+          was lost before we learned the order id.
+
+        `found: false` means neither source can account for the id: nothing was
+        placed, and re-sending under the same id is safe. That is a `200`, not a
+        `404`. It is an answer to the question, and a `404` would be
+        indistinguishable from a mistyped path.
+
+        A field is absent when no source could supply it, never zero. In
+        particular `filledSize` absent means "unknown", which is not the same
+        claim as `"0"`, and `venueStatus` absent means Hyperliquid could not be
+        reached, which is distinct from `venueStatus: unknownOid`, which is Hyperliquid
+        saying it has no such order.
+
+        Not charged against the order-submission rate budget, so it stays
+        available to a client that has just been rate limited.
+
+        **Auth:** API-key scope: `orders:read`.
+      operationId: getOrderByClientId
+      parameters:
+      - name: client_order_id
+        in: path
+        required: true
+        description: The client order id the order was submitted under.
+        schema:
+          type: string
+      responses:
+        '200':
+          description: What is known about the order, including that nothing is.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OrderByClientIdResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+        '503':
+          $ref: '#/components/responses/ServiceUnavailable'
   /api/agents:
     post:
       tags:
@@ -1903,6 +1962,7 @@ components:
       required:
       - success
       - error
+      - code
       properties:
         success:
           type: boolean
@@ -1913,9 +1973,49 @@ components:
         code:
           type: string
           description: |
-            Stable machine-readable error code, present only on errors a client
-            is expected to branch on (currently `HL_NOT_FUNDED` on 422 from
-            `POST /api/agents/register`).
+            Stable machine-readable error code. Always present: branch on this
+            rather than on the `error` text or the status code, both of which are
+            free to change.
+
+            Generic codes mirror the status: `BAD_REQUEST`, `UNAUTHORIZED`,
+            `FORBIDDEN`, `NOT_FOUND`, `RATE_LIMITED`, `SERVICE_UNAVAILABLE`,
+            `BAD_GATEWAY`, `INTERNAL`.
+
+            Specific codes carry more: `HL_NOT_FUNDED` (422 from
+            `POST /api/agents/register`), `builder_fee_not_approved` (403,
+            lowercase for historical reasons, carrying the fields needed to sign
+            `ApproveBuilderFee`), and the order-submission codes below.
+
+            A **plain** order submission (`POST /api/orders` without `strategy`)
+            additionally returns `disposition`, which says whether the order may
+            have reached Hyperliquid. Retry logic should read that field, not the
+            status. An algo submission makes no venue call at submit time (it
+            records an intent the engine then executes in slices), so a failed
+            algo submit has no venue outcome to be ambiguous about and returns a
+            generic code instead:
+
+            | code | status | disposition | what to do |
+            |------|--------|-------------|------------|
+            | `EXECUTION_UNAVAILABLE` | 503 | `not_sent` | Re-send as-is. |
+            | `RATE_LIMITED` | 429 | `not_sent` | Pause, then re-send as-is. |
+            | `VENUE_UNREACHABLE` | 502 | `unknown` | Do **not** blindly re-send. Resolve the `clientOrderId` on the body via `GET /api/orders/by-client-id/{client_order_id}` first. |
+            | `ORDER_REJECTED` | 400 | `refused` | Fix the order. Nothing was placed. |
+            | `INVALID_ORDER` | 400 | `refused` | Fix the request. Nothing was placed. |
+            | `AGENT_UNUSABLE` | 422 | `refused` | Never retry: re-onboard the agent wallet. |
+
+            `unknown` is the only disposition under which the order may be live.
+        disposition:
+          type: string
+          enum:
+          - not_sent
+          - unknown
+          - refused
+          description: Whether the order reached Hyperliquid, which an HTTP status cannot express. Present
+            on plain-order submission errors only. See the table under `code`.
+        clientOrderId:
+          type: string
+          description: The id the failed attempt was submitted under, present alongside `disposition`,
+            including when you supplied no id of your own, since one is assigned server-side.
     SuccessResponse:
       type: object
       required:
@@ -2093,6 +2193,14 @@ components:
         clientOrderId:
           type: string
           nullable: true
+          description: 'Your own id for this order, and the idempotency key for re-sending it. Supply
+            and reuse one whenever a retry must not place a second order: a duplicate is refused rather
+            than executed, so a submit that timed out can be safely re-sent under the same id. Algo orders
+            are deduplicated by this API and return the existing order with a warning; plain orders are
+            deduplicated by Hyperliquid, which rejects the duplicate. Omit it and an id is assigned server-side
+            and returned to you. That is enough to resolve the order afterwards, but not enough to make
+            your retry idempotent, since each retry would be assigned a new one. Echoed back on the response
+            and resolvable via `GET /api/orders/by-client-id/{client_order_id}`.'
         strategy:
           type: string
           nullable: true
@@ -2126,6 +2234,12 @@ components:
         provider:
           type: string
           description: Execution provider, e.g. "hyperliquid".
+        clientOrderId:
+          type: string
+          description: 'The client order id this order was submitted under: yours when you sent one, otherwise
+            the id assigned server-side. Always present on a successful submit, and it is the key `GET
+            /api/orders/by-client-id/{client_order_id}` resolves, so record it if you may need to ask
+            later whether the order landed.'
         error:
           type: string
         warnings:
@@ -2623,6 +2737,53 @@ components:
           type: boolean
         order:
           $ref: '#/components/schemas/AlgoOrderInfo'
+    OrderByClientIdResponse:
+      type: object
+      required:
+      - success
+      - clientOrderId
+      - found
+      properties:
+        success:
+          type: boolean
+        clientOrderId:
+          type: string
+          description: The id that was looked up, echoed back.
+        found:
+          type: boolean
+          description: Whether any source can account for this id. `false` means nothing was placed under
+            it and re-sending is safe.
+        orderId:
+          type: string
+          description: Venue order id, from Quote's registry or from Hyperliquid.
+        symbol:
+          type: string
+        side:
+          type: string
+          enum:
+          - buy
+          - sell
+        submittedAt:
+          type: string
+          format: date-time
+          description: 'When Quote registered the order. Absent when only Hyperliquid knows it, which
+            is itself informative: the order landed and our reply to you was lost.'
+        algoOrderId:
+          type: string
+          description: Present when this id belongs to an algo run. Follow it to `GET /api/orders/algo/{order_id}`
+            for schedule and slice detail.
+        venueStatus:
+          type: string
+          description: 'Hyperliquid''s lifecycle status for the order: `open`, `filled`, `canceled`, `rejected`,
+            or `unknownOid` when Hyperliquid has no such order. Absent when Hyperliquid could not be reached,
+            which is not the same as `unknownOid`.'
+        filledSize:
+          type: string
+          description: Base-asset quantity filled. Absent when unknown; never `"0"` to mean unknown.
+        avgPrice:
+          type: string
+          description: Volume-weighted fill price. Only present alongside a ledger-derived `filledSize`,
+            since Hyperliquid reports a size without an average.
     CreateAgentResponse:
       type: object
       required:
