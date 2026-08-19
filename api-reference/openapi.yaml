@@ -285,8 +285,8 @@ paths:
         Pre-trade cost estimate: sweep the live L2 book for `size` on the
         requested side. Read-only, places nothing.
 
-        A book with no liquidity, or a size it cannot fill at all, is reported
-        as `hasEstimate: false` with an `error`, not as an HTTP error.
+        A book that cannot price the order is reported in the body, not as an
+        HTTP error.
 
         **Auth:** API-key scope: `orders:read`.
       operationId: simulateOrder
@@ -323,8 +323,6 @@ paths:
       description: |
         What a strategy would run with at a given urgency, before submitting
         anything. Pure computation: it reads no account and no market.
-
-        Fields are absent when they do not apply to the requested strategy.
 
         **Auth:** authenticated. No scope required.
       operationId: urgencyPreview
@@ -446,7 +444,7 @@ paths:
       summary: Attach take-profit and stop-loss to a position
       description: |
         Place TP/SL triggers against an open position. Existing Quote-placed
-        triggers on the same symbol are replaced; `replaced` reports how many.
+        triggers on the same symbol are replaced.
 
         **Auth:** API-key scope: `orders:write`.
       operationId: setPositionTpsl
@@ -530,10 +528,6 @@ paths:
       description: |
         How one decision actually executed, across every strategy run that
         served it.
-
-        Delay is reported separately from execution rather than folded in:
-        total shortfall is measured from the intent's arrival anchor, execution
-        from each tactic's own arrival, and `delayBps` is the difference.
 
         **Auth:** API-key scope: `orders:read`.
       operationId: getTradeIntentReport
@@ -2286,7 +2280,7 @@ components:
         hasEstimate:
           type: boolean
           description: False when the book cannot price the order at all. The remaining fields are then
-            absent and `error` says why.
+            absent.
         expectedPrice:
           type: string
           description: Average fill price across the simulated sweep.
