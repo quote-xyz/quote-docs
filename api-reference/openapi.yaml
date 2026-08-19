@@ -197,6 +197,49 @@ paths:
           $ref: '#/components/responses/BadGateway'
         '503':
           $ref: '#/components/responses/ServiceUnavailable'
+  /api/orders/cancel-batch:
+    post:
+      tags:
+      - Orders
+      summary: Cancel a specific list of resting orders
+      description: |
+        Cancel exactly the listed resting orders in one signed venue action.
+
+        **Auth:** API-key scope: `orders:write`.
+
+        Every requested order gets a verdict in `results`, and the three counts
+        partition that list. An order that was already closed when the cancel
+        arrived is reported as `alreadyClosed`, not `cancelled`: it is not a
+        failure, but it is not something this call did either.
+
+        Resting orders only. A strategy parent is refused per-order with
+        `failed`; cancel those through `/api/orders/cancel`.
+      operationId: cancelOrdersBatch
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CancelOrdersBatchRequest'
+      responses:
+        '200':
+          description: Per-order verdicts. A partial failure is still a 200.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CancelOrdersBatchResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+        '502':
+          $ref: '#/components/responses/BadGateway'
+        '503':
+          $ref: '#/components/responses/ServiceUnavailable'
   /api/orders/modify:
     post:
       tags:
@@ -1684,6 +1727,11 @@ components:
         maxSlippageBps:
           type: string
           nullable: true
+          description: 'Price bound in basis points from the arrival mid, beyond which the order will
+            not execute. On `participation_rate` it bounds every child order including the `maxDurationSecs`
+            completion sweep, and taker clips that would breach it are skipped rather than sent; the order
+            may finish unfilled. Other strategies ignore it: use `limitPrice` there. Must be greater than
+            0.'
         hardCancelPct:
           type: string
           nullable: true
@@ -1797,6 +1845,82 @@ components:
           type: string
           nullable: true
           description: If omitted, cancels all open orders.
+    CancelOrderItem:
+      type: object
+      required:
+      - symbol
+      - orderId
+      properties:
+        symbol:
+          type: string
+        orderId:
+          type: string
+          description: Numeric exchange order id (oid). A strategy client order id is refused with status
+            `failed`.
+    CancelOrdersBatchRequest:
+      type: object
+      required:
+      - orders
+      properties:
+        orders:
+          type: array
+          items:
+            $ref: '#/components/schemas/CancelOrderItem'
+    CancelOrderResult:
+      type: object
+      required:
+      - symbol
+      - orderId
+      - status
+      properties:
+        symbol:
+          type: string
+        orderId:
+          type: string
+        status:
+          type: string
+          enum:
+          - cancelled
+          - alreadyClosed
+          - failed
+          description: |
+            `cancelled` - this call closed the order.
+            `alreadyClosed` - it was already not open when the cancel arrived.
+            `failed` - the venue refused it, or it never reached the venue.
+        error:
+          type: string
+          description: Present only when `status` is `failed`.
+        orderStatus:
+          type: string
+          description: The venue's own lifecycle word when `status` is `alreadyClosed` (e.g. "filled",
+            "canceled"). This is the only thing separating an order that filled from one that was already
+            cancelled. Absent otherwise.
+    CancelOrdersBatchResponse:
+      type: object
+      required:
+      - allClosed
+      - cancelled
+      - alreadyClosed
+      - failed
+      - results
+      properties:
+        allClosed:
+          type: boolean
+          description: True when nothing failed, i.e. no requested order is still open.
+        cancelled:
+          type: integer
+          description: Orders this call closed. Excludes orders already closed on arrival.
+        alreadyClosed:
+          type: integer
+          description: Orders already gone before the cancel arrived.
+        failed:
+          type: integer
+          description: Orders the venue refused to cancel.
+        results:
+          type: array
+          description: One entry per requested order. The three counts above partition this list exactly.
+          items:
+            $ref: '#/components/schemas/CancelOrderResult'
     ModifyOrderRequest:
       type: object
       required:
@@ -1876,6 +2000,9 @@ components:
         submitTime:
           type: string
           format: date-time
+        error:
+          type: string
+          description: Why the order failed. Present only for failed orders.
     AlgoOrdersResponse:
       type: object
       required:
@@ -2262,6 +2389,26 @@ components:
             $ref: '#/components/schemas/TriggerEventInfo'
         error:
           type: string
+    InviteView:
+      type: object
+      required:
+      - code
+      - createdAt
+      properties:
+        code:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
+        claimedBy:
+          type: string
+          nullable: true
+          description: |
+            The wallet that redeemed this code, or null while it is unused.
+        claimedAt:
+          type: string
+          format: date-time
+          nullable: true
     TierView:
       type: object
       required:

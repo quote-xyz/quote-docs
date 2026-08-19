@@ -22,6 +22,12 @@ description: Order submission, cancellation, modification, and algo-order status
 [openapi.yaml](../../.gitbook/assets/openapi.yaml)
 {% endopenapi %}
 
+## Cancel a specific list of resting orders
+
+{% openapi src="../../.gitbook/assets/openapi.yaml" path="/api/orders/cancel-batch" method="post" %}
+[openapi.yaml](../../.gitbook/assets/openapi.yaml)
+{% endopenapi %}
+
 ## Modify an existing order
 
 {% openapi src="../../.gitbook/assets/openapi.yaml" path="/api/orders/modify" method="post" %}
