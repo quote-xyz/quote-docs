@@ -24,6 +24,8 @@
 * [Conditional Triggers](guides/triggers.md)
 * [Order Templates](guides/templates.md)
 * [Analytics](guides/analytics.md)
+* [Liquidity Scores](trading-tools/liquidity-scores.md)
+* [News](trading-tools/news.md)
 
 ## Your account
 

@@ -2,7 +2,7 @@
 
 Quote is in **private Alpha**. Access is invite-only, and until that changes, you will need an invite wall before you can reach the application. This ensures that we scale infrastructure safely and gradually.
 
-<figure><img src="../.gitbook/assets/screenshot_1.5x_postspark_2026-07-30_12-52-13 (1).png" alt=""><figcaption></figcaption></figure>
+<figure><img src="../.gitbook/assets/screenshot_1.5x_postspark_2026-07-30_12-52-13.png" alt=""><figcaption></figcaption></figure>
 
 ### Invite codes
 
@@ -11,8 +11,6 @@ Every existing user has a referral code, and it doubles as an invite. Ask someon
 Enter it on the landing page. You can do this before connecting a wallet: the code is checked immediately and redeemed once you sign in, so the order of those two steps does not matter.
 
 Codes admit a limited number of people. A code whose seats are used up will tell you so rather than letting you through, and its owner has to earn another seat before it works again. Joining with a code also records you as that person's referral, which starts the [invited-user rebate](referrals.md#the-invited-user-rebate) on your own fees.
-
-
 
 ### The Telegram whitelist
 
@@ -48,21 +46,15 @@ Some are automatic. A connected wallet that already meets the bar is admitted si
 Coming in through a program can carry a benefit into your account, such as a floor on your [rewards tier](rewards-tiers.md) that holds regardless of your volume.
 {% endhint %}
 
-
-
 ## If you have none of these
 
 Join the waitlist with your email address. No wallet is needed.
 
 The waitlist puts you in the queue for when access opens up. If someone gives you a code in the meantime, use the code.
 
-
-
 ## Compliance screening
 
 Wallets are screened. Screening is on the wallet, not on you personally, and its result is visible in the application. If your wallet is flagged and you believe it is wrong, raise it in the [Telegram community](https://t.me/quotemarketsxyz).
-
-
 
 ## Geographic restrictions
 
@@ -74,8 +66,6 @@ Trading is geofenced by the IP address the request comes from. Where a jurisdict
 {% hint style="warning" %}
 The geofence is evaluated per request, so it applies to API clients as well as the terminal. If you run a bot, run it from a jurisdiction where trading is permitted, and expect order submission to fail if it moves.
 {% endhint %}
-
-
 
 ## After you are admitted
 
