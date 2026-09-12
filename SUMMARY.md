@@ -59,6 +59,7 @@
 * [API Keys](guides/api-keys.md)
 * [The Wallet-Scoped Model](concepts/wallet-scoped-api.md)
 * [Order Lifecycle](concepts/order-lifecycle.md)
+* [Retries and Idempotency](guides/retries-and-idempotency.md)
 * [Placing Orders](guides/placing-orders.md)
 * [Algo Orders](guides/algo-orders.md)
 * [Algo Status WebSocket](websockets/algo-status.md)
