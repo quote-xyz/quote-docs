@@ -69,6 +69,16 @@ EXCLUDED_PATHS = [
     "/api/invites/status",
     "/api/referrals/invites",
     "/api/referrals/summary",
+    # Both answer `403` to every API-key caller, so an API-key-only reference
+    # documenting them would describe a surface no reader of it can reach.
+    # They are also the two paths that broke this script: their `PrivyBearer`
+    # security entries and their "Privy identity" / "Privy token" prose are not
+    # what the replacement lists above rewrite, so the curation guard in main()
+    # failed and NOTHING was written. Excluding the path removes all of it at
+    # once, which is why the other terminal-only endpoints are excluded rather
+    # than reworded.
+    "/api/account/wallets",
+    "/api/account/profile",
 ]
 EXCLUDED_TAGS = [
     "NL Order",
@@ -80,6 +90,15 @@ EXCLUDED_TAGS = [
     "Invites & Referrals",
 ]
 EXCLUDED_SCHEMAS = [
+    # Orphaned by excluding /api/account/wallets and /api/account/profile.
+    # `RegisterWalletRequest` is the one that matters: its description names a
+    # "Privy token", which no replacement rule rewrites, so leaving the schema
+    # behind kept the curation guard failing even after its path was excluded.
+    "AccountProfileResponse",
+    "ListAccountWalletsResponse",
+    "RegisterWalletRequest",
+    "RegisterWalletResponse",
+    "SetAccountProfileRequest",
     # Orphaned by excluding /api/companies/{ticker}.
     "CompanyResponse",
     # Orphaned by excluding the terminal surfaces above.
@@ -194,6 +213,21 @@ GLOBAL_REGEX_REPLACEMENTS = [
     # mid-phrase and a literal space silently stops matching.
     (r"unmodelled\s+here\s*—\s*modelling", "unmodelled here, since modelling"),
     (r"asked\s+and\s+answered\s*—\s*outside", "asked and answered: outside"),
+    # These five were already in the source spec and had no rules, so this
+    # script exited 1 and wrote nothing. A sync that fails writes no partial
+    # output, which is the safe direction, but it also means the published
+    # reference silently stopped tracking the spec: the trigger `condition`
+    # schema it serves is one nobody can successfully POST (QUO-40).
+    (r"socket\s+streams\s+live\s*—\s*the same projection\s*—\s*so",
+     "socket streams live, the same projection, so"),
+    (r"before\s+rendering\s+the\s+totals\*\*\s*—\s*see the field",
+     "before rendering the totals**. See the field"),
+    (r"`metrics`\s+and\s+`calendar`\s*—\s*who the company",
+     "`metrics` and `calendar`: who the company"),
+    (r"often\s*—\s*the trade page's About panel\s*—\s*and it is",
+     "often, on the trade page's About panel, and it is"),
+    (r"No\s+snapshot\s+for\s+this\s+ticker\s*—\s*the sweep",
+     "No snapshot for this ticker: the sweep"),
 ]
 
 APIKEY_SCHEME_DESCRIPTION = """\

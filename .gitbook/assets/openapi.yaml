@@ -69,15 +69,34 @@ tags:
   description: Tiered new-user quest progress and the favorite-quote submission.
 - name: Analytics
   description: Execution-quality, volume, and fee analytics.
+- name: Routing
+  description: 'Counterfactual multi-venue routing: what each venue would have been worth, and which venues
+    you allow.'
 - name: Funding
   description: 'Funding-payment tracking: totals, timeline, and history.'
 - name: Portfolio
   description: Quote-owned hourly equity time-series.
+- name: Crypto
+  description: Supply, valuation and prose for the asset behind a crypto market.
 - name: Health
   description: Liveness/readiness probes, info, and Prometheus metrics.
 security:
 - ApiKeyHmac: []
 paths:
+  /.well-known/oauth-protected-resource/mcp:
+    get:
+      tags:
+      - MCP Connector
+      summary: OAuth Protected Resource Metadata, resource-suffixed (RFC 9728)
+      description: Identical to the bare path. Both exist because a client may derive this URL from the
+        `/mcp` resource rather than using the well-known root.
+      operationId: oauthProtectedResourceMetadataForMcp
+      security: []
+      responses:
+        '200':
+          description: Resource + authorization-server metadata
+        '503':
+          $ref: '#/components/responses/ServiceUnavailable'
   /api/orders:
     post:
       tags:
@@ -366,7 +385,9 @@ paths:
       - Orders
       summary: List an algo order's child fills
       description: |
-        Every fill recorded against one algo order's child orders.
+        Every fill recorded against one algo order's child orders, oldest
+        first. Capped to the newest 5000: a run that outgrows the cap loses
+        its oldest fills from the list, never its newest.
 
         **Auth:** API-key scope: `orders:read`.
       operationId: getAlgoOrderFills
@@ -394,6 +415,53 @@ paths:
           $ref: '#/components/responses/RateLimited'
         '503':
           $ref: '#/components/responses/ServiceUnavailable'
+  /api/orders/algo/{order_id}/diagnostics:
+    get:
+      tags:
+      - Orders
+      summary: Replay an algo order's diagnostics
+      description: |
+        The persisted diagnostic timeline for one algo order, oldest first.
+        Each entry's `details` is exactly the redacted `wake`-frame payload
+        the `/api/ws/algos` socket streams live, the same projection, so
+        replayed and live entries can be merged into one timeline.
+        Best-effort research data: a row may be missing under load.
+
+        **Auth:** API-key scope: `orders:read`.
+      operationId: getAlgoOrderDiagnostics
+      parameters:
+      - name: order_id
+        in: path
+        required: true
+        schema:
+          type: string
+        description: The algo parent order id.
+      - name: limit
+        in: query
+        required: false
+        schema:
+          type: integer
+          default: 1000
+          maximum: 5000
+        description: Maximum entries returned. When a run has more, the NEWEST entries are kept (then
+          returned oldest-first).
+      responses:
+        '200':
+          description: The order's diagnostics, oldest first.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AlgoDiagnosticsResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+        '503':
+          $ref: '#/components/responses/ServiceUnavailable'
   /api/orders/algo/{order_id}/speed-up:
     post:
       tags:
@@ -402,6 +470,10 @@ paths:
       description: |
         Compress a running algo order's remaining schedule. The engine applies
         the change to the live strategy; it does not resubmit the order.
+
+        **Once per order.** A second speed-up on the same parent is rejected
+        with `400`, whoever made the first one. `GET /api/orders/algo` reports
+        `alreadySpedUp`, which is how to tell before calling.
 
         **Auth:** API-key scope: `orders:write`.
       operationId: speedUpOrder
@@ -443,8 +515,9 @@ paths:
       - Positions
       summary: Attach take-profit and stop-loss to a position
       description: |
-        Place TP/SL triggers against an open position. Existing Quote-placed
-        triggers on the same symbol are replaced.
+        Place TP/SL triggers against an open position. Existing position-bound
+        triggers on the same symbol are replaced, plus any fixed-size triggers
+        named in `replaceOids`.
 
         **Auth:** API-key scope: `orders:write`.
       operationId: setPositionTpsl
@@ -555,6 +628,45 @@ paths:
           $ref: '#/components/responses/RateLimited'
         '503':
           $ref: '#/components/responses/ServiceUnavailable'
+  /api/markets/book-depth:
+    get:
+      tags:
+      - Analytics
+      summary: One market's own book depth
+      description: |
+        How much is resting inside 1% of the mid on Hyperliquid, both sides
+        reported separately. This is the asset page's order-book block, and it
+        is a different question from `depth-compare`: one venue asked how much
+        is there, rather than several ranked against each other.
+
+        **Read `coversWindow` before rendering the totals**. See the field.
+        A symbol with no readable book answers 404 rather than zeroes: zero
+        depth and an unreadable book render identically and mean opposite
+        things.
+
+        **Auth:** none.
+      operationId: getBookDepth
+      parameters:
+      - name: symbol
+        in: query
+        required: true
+        schema:
+          type: string
+      responses:
+        '200':
+          description: Depth inside the window for the symbol.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BookDepth'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '404':
+          description: No readable book for this symbol.
+        '429':
+          $ref: '#/components/responses/RateLimited'
+        '503':
+          $ref: '#/components/responses/ServiceUnavailable'
   /api/orders/modify:
     post:
       tags:
@@ -646,6 +758,65 @@ paths:
           $ref: '#/components/responses/Forbidden'
         '404':
           $ref: '#/components/responses/NotFound'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+        '503':
+          $ref: '#/components/responses/ServiceUnavailable'
+  /api/orders/by-client-id/{client_order_id}:
+    get:
+      tags:
+      - Orders
+      summary: Resolve an order by its client order id
+      description: |
+        Answer what happened to the order you submitted under a given
+        `clientOrderId`. This is the endpoint to call when a submit timed out or
+        returned `VENUE_UNREACHABLE` and you need to know whether the order
+        landed before deciding to re-send.
+
+        Two sources are consulted and the response says which answered:
+
+        - Quote's own order registry, which knows the venue order id and the
+          fills recorded against it.
+        - Hyperliquid, keyed by the same client order id, which is authoritative
+          about the order's current lifecycle and covers the case where our reply
+          was lost before we learned the order id.
+
+        `found: false` means neither source can account for the id: nothing was
+        placed, and re-sending under the same id is safe. That is a `200`, not a
+        `404`. It is an answer to the question, and a `404` would be
+        indistinguishable from a mistyped path.
+
+        A field is absent when no source could supply it, never zero. In
+        particular `filledSize` absent means "unknown", which is not the same
+        claim as `"0"`, and `venueStatus` absent means Hyperliquid could not be
+        reached, which is distinct from `venueStatus: unknownOid`, which is Hyperliquid
+        saying it has no such order.
+
+        Not charged against the order-submission rate budget, so it stays
+        available to a client that has just been rate limited.
+
+        **Auth:** API-key scope: `orders:read`.
+      operationId: getOrderByClientId
+      parameters:
+      - name: client_order_id
+        in: path
+        required: true
+        description: The client order id the order was submitted under.
+        schema:
+          type: string
+      responses:
+        '200':
+          description: What is known about the order, including that nothing is.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OrderByClientIdResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
         '429':
           $ref: '#/components/responses/RateLimited'
         '503':
@@ -920,6 +1091,118 @@ paths:
           $ref: '#/components/responses/Unauthorized'
         '403':
           $ref: '#/components/responses/Forbidden'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+        '503':
+          $ref: '#/components/responses/ServiceUnavailable'
+  /api/companies/{ticker}/summary:
+    get:
+      tags:
+      - Companies
+      summary: Get identity, valuation and next report for one underlying
+      description: |
+        The same stored snapshot `getCompany` serves, carrying only `profile`,
+        `metrics` and `calendar`: who the company is, what it is worth, and
+        when it next reports. The statements, insider decisions, filings and
+        headlines are omitted; measured on NVDA they are 98% of that response.
+
+        For a surface that renders about a dozen numbers and switches market
+        often, on the trade page's About panel, and it is cheaper at the database
+        too, not only on the wire: the excluded payload bodies are never read.
+
+        A **separate path** rather than a parameter on `getCompany`, because the
+        response shape differs. Nulling the heavy fields on the shared shape
+        would make "not requested" and "the vendor has nothing" the same value,
+        and the second is what `covered: false` already means.
+
+        Payloads are the vendor's own response bodies, stored raw and
+        uninterpreted, exactly as on `getCompany`. `covered: false` and `404`
+        mean what they mean there.
+
+        **Auth:** none. Registered in the public read-only group and per-IP
+        rate limited.
+      operationId: getCompanySummary
+      parameters:
+      - name: ticker
+        in: path
+        required: true
+        description: Bare exchange ticker, e.g. `NVDA`.
+        schema:
+          type: string
+          pattern: ^[A-Z][A-Z0-9.]{0,9}$
+      responses:
+        '200':
+          description: The newest stored snapshot, summarised.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CompanySummaryResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '404':
+          description: No snapshot for this ticker. The sweep has not reached it.
+        '429':
+          $ref: '#/components/responses/RateLimited'
+        '503':
+          $ref: '#/components/responses/ServiceUnavailable'
+  /api/crypto/{symbol}/tokenomics:
+    get:
+      tags:
+      - Crypto
+      summary: Get supply, valuation and prose for the asset behind a crypto market
+      description: |
+        Returns the stored CoinGecko snapshot for the coin a market is about.
+        Served from storage: no vendor call on the request path, which is what
+        makes it safe to leave unauthenticated and cacheable.
+
+        **`relation` says whose numbers these are, and it is not decoration.** A
+        Hyperliquid perp is a contract that TRACKS an asset, so `BTC` returns
+        Bitcoin's supply and market cap under `relation: underlying`: a
+        perpetual has no circulating supply of its own. A spot pair IS the
+        asset, so `PURR/USDC` returns `relation: asset`. Render the block from
+        this field rather than from a market type: heading a perp's figures
+        "Asset" asserts a quantity that does not exist.
+
+        Symbols are resolved through a **curated** mapping (`assets.coingecko_id`),
+        never by ticker. A ticker is not unique on CoinGecko: 14 coins are
+        called ETH, and market-cap rank is not a resolution rule: it picks
+        MEMETOON over the real Memecoin, and the answer looks exactly as
+        confident as a correct one. So a symbol no human has mapped is a `404`,
+        which includes every equity, commodity and prediction market.
+
+        A perp and a spot pair on the same asset resolve to ONE stored row and
+        cannot drift apart.
+
+        Every figure is optional. `maxSupply` is absent where the protocol sets
+        no cap, which is a fact about the token rather than a gap. Render the
+        absence, not a zero. `marketFetchedAt` dates the valuation figures and
+        is the only staleness signal here: a coin the vendor has stopped
+        returning keeps its last values and stops at the date they were true.
+
+        **Auth:** none. Registered in the public read-only group and per-IP
+        rate limited.
+      operationId: getTokenomics
+      parameters:
+      - name: symbol
+        in: path
+        required: true
+        description: 'A Quote market symbol, venue prefix and all: `BTC`, `PURR/USDC`, `xyz:NVDA`. At
+          most 64 characters.'
+        schema:
+          type: string
+          maxLength: 64
+          example: BTC
+      responses:
+        '200':
+          description: The stored snapshot for this market's coin.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TokenomicsResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '404':
+          description: No CoinGecko mapping for this symbol.
         '429':
           $ref: '#/components/responses/RateLimited'
         '503':
@@ -1378,6 +1661,172 @@ paths:
                     type: boolean
         '400':
           $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+        '503':
+          $ref: '#/components/responses/ServiceUnavailable'
+  /api/routing/savings:
+    get:
+      tags:
+      - Routing
+      summary: What connecting each venue would have been worth
+      description: |
+        For every child order Quote sends, a routing verdict is recorded against
+        every venue that could have taken it, and nothing is acted on: the
+        order goes where it always went. This endpoint reads those records back
+        for the caller's own wallet and answers, per venue, what routing there
+        would have cost or saved.
+
+        The saving is split into two halves that want different work, because
+        across the market/size cells measured offline the large majority came
+        out fee-driven rather than liquidity-driven:
+
+        - `feeSavingUsd`: the difference in trading fees. This is the half a
+          venue connection captures on its own.
+        - `executionSavingUsd`: the difference in what the book itself cost to
+          cross. This is the half that needs a router.
+
+        They sum to `savingUsd` net of any fragmentation premium charged for
+        opening a second position leg (`premiumCostUsd`), which is why a venue
+        can be cheaper to trade on and still not be a saving.
+
+        A venue that could never be priced is still reported, with `refusals`
+        naming which gate stopped it: a venue with no live book and a venue
+        with no fee schedule both produce "nothing better was found" and mean
+        different things.
+
+        `caveat` states what these numbers are: displayed liquidity at a
+        haircut, with no queue position, no latency, no market impact and no
+        adverse selection. An upper bound on the opportunity, not a forecast of
+        the fill.
+
+        **Auth:** API-key scope: `account:read`.
+      operationId: getRoutingSavings
+      parameters:
+      - name: days
+        in: query
+        required: false
+        description: Look-back window in days. Clamped to 1-365.
+        schema:
+          type: integer
+          default: 30
+          minimum: 1
+          maximum: 365
+      responses:
+        '200':
+          description: Per-venue counterfactual savings for the caller.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RoutingSavingsResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+        '503':
+          $ref: '#/components/responses/ServiceUnavailable'
+  /api/routing/venues:
+    get:
+      tags:
+      - Routing
+      summary: Which venues you allow routing to
+      description: |
+        Every venue this build can route to, with the caller's preference for
+        each. A venue the caller has never set is `enabled: true` with a null
+        `updatedAt`: enabled is the default, and there is no stored row until
+        someone changes it.
+
+        Exactly one row carries `baseline: true`. That is where orders go when
+        routing changes nothing, so it has no switch and
+        `PUT /api/routing/venues/{venue}` refuses it.
+
+        **Auth:** API-key scope: `account:read`.
+      operationId: getRoutingVenues
+      responses:
+        '200':
+          description: One entry per venue.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/RoutingVenuePref'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+        '503':
+          $ref: '#/components/responses/ServiceUnavailable'
+  /api/routing/venues/{venue}:
+    put:
+      tags:
+      - Routing
+      summary: Turn one venue on or off
+      description: |
+        Set whether routing may consider this venue for the caller's orders.
+
+        The preference applies to the recorded counterfactual as well, so a
+        venue turned off appears in `GET /api/routing/savings` refused as
+        `disabled` rather than silently vanishing: you can still see what the
+        setting is costing.
+
+        **Auth:** API-key scope: `account:write`.
+      operationId: setRoutingVenue
+      parameters:
+      - name: venue
+        in: path
+        required: true
+        description: Venue id, as returned by `GET /api/routing/venues`.
+        schema:
+          type: string
+          enum:
+          - kraken
+          - coinbase
+          - okx
+          - lighter
+          - binance
+          - bybit
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+              - enabled
+              properties:
+                enabled:
+                  type: boolean
+                  description: Whether routing may consider this venue.
+      responses:
+        '200':
+          description: Preference stored.
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                - venue
+                - enabled
+                properties:
+                  venue:
+                    type: string
+                  enabled:
+                    type: boolean
+        '400':
+          description: Unknown venue, or the baseline venue, which cannot be turned off.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
         '401':
           $ref: '#/components/responses/Unauthorized'
         '403':
@@ -1873,7 +2322,17 @@ components:
           schema:
             $ref: '#/components/schemas/ErrorResponse'
     RateLimited:
-      description: Rate limit exceeded.
+      description: |
+        Rate limit exceeded. Carries `Retry-After`: the limiter's own wait for
+        the caller's bucket, so a client can back off for exactly as long as it
+        needs to rather than guessing.
+      headers:
+        Retry-After:
+          description: Whole seconds to wait before retrying. Always at least 1.
+          required: true
+          schema:
+            type: integer
+            minimum: 1
       content:
         application/json:
           schema:
@@ -1903,6 +2362,7 @@ components:
       required:
       - success
       - error
+      - code
       properties:
         success:
           type: boolean
@@ -1913,9 +2373,49 @@ components:
         code:
           type: string
           description: |
-            Stable machine-readable error code, present only on errors a client
-            is expected to branch on (currently `HL_NOT_FUNDED` on 422 from
-            `POST /api/agents/register`).
+            Stable machine-readable error code. Always present: branch on this
+            rather than on the `error` text or the status code, both of which are
+            free to change.
+
+            Generic codes mirror the status: `BAD_REQUEST`, `UNAUTHORIZED`,
+            `FORBIDDEN`, `NOT_FOUND`, `RATE_LIMITED`, `SERVICE_UNAVAILABLE`,
+            `BAD_GATEWAY`, `INTERNAL`.
+
+            Specific codes carry more: `HL_NOT_FUNDED` (422 from
+            `POST /api/agents/register`), `builder_fee_not_approved` (403,
+            lowercase for historical reasons, carrying the fields needed to sign
+            `ApproveBuilderFee`), and the order-submission codes below.
+
+            A **plain** order submission (`POST /api/orders` without `strategy`)
+            additionally returns `disposition`, which says whether the order may
+            have reached Hyperliquid. Retry logic should read that field, not the
+            status. An algo submission makes no venue call at submit time (it
+            records an intent the engine then executes in slices), so a failed
+            algo submit has no venue outcome to be ambiguous about and returns a
+            generic code instead:
+
+            | code | status | disposition | what to do |
+            |------|--------|-------------|------------|
+            | `EXECUTION_UNAVAILABLE` | 503 | `not_sent` | Re-send as-is. |
+            | `RATE_LIMITED` | 429 | `not_sent` | Pause, then re-send as-is. |
+            | `VENUE_UNREACHABLE` | 502 | `unknown` | Do **not** blindly re-send. Resolve the `clientOrderId` on the body via `GET /api/orders/by-client-id/{client_order_id}` first. |
+            | `ORDER_REJECTED` | 400 | `refused` | Fix the order. Nothing was placed. |
+            | `INVALID_ORDER` | 400 | `refused` | Fix the request. Nothing was placed. |
+            | `AGENT_UNUSABLE` | 422 | `refused` | Never retry: re-onboard the agent wallet. |
+
+            `unknown` is the only disposition under which the order may be live.
+        disposition:
+          type: string
+          enum:
+          - not_sent
+          - unknown
+          - refused
+          description: Whether the order reached Hyperliquid, which an HTTP status cannot express. Present
+            on plain-order submission errors only. See the table under `code`.
+        clientOrderId:
+          type: string
+          description: The id the failed attempt was submitted under, present alongside `disposition`,
+            including when you supplied no id of your own, since one is assigned server-side.
     SuccessResponse:
       type: object
       required:
@@ -2057,6 +2557,15 @@ components:
         chaseEnabled:
           type: boolean
           nullable: true
+        cross:
+          type: boolean
+          nullable: true
+          default: false
+          description: '`chase_limit` only. Work the taker side of the book: price at the opposing touch
+            and re-peg there as it moves, instead of resting inside the spread. What does not fill immediately
+            rests at that price, so it keeps working between re-pegs. `limitPrice` still bounds it, and
+            a limit that does not reach the market simply rests there. The offset ladder does not apply.
+            Default false, since crossing pays the spread on every fill.'
         guaranteedCompletion:
           type: boolean
           nullable: true
@@ -2093,6 +2602,14 @@ components:
         clientOrderId:
           type: string
           nullable: true
+          description: 'Your own id for this order, and the idempotency key for re-sending it. Supply
+            and reuse one whenever a retry must not place a second order: a duplicate is refused rather
+            than executed, so a submit that timed out can be safely re-sent under the same id. Algo orders
+            are deduplicated by this API and return the existing order with a warning; plain orders are
+            deduplicated by Hyperliquid, which rejects the duplicate. Omit it and an id is assigned server-side
+            and returned to you. That is enough to resolve the order afterwards, but not enough to make
+            your retry idempotent, since each retry would be assigned a new one. Echoed back on the response
+            and resolvable via `GET /api/orders/by-client-id/{client_order_id}`.'
         strategy:
           type: string
           nullable: true
@@ -2111,6 +2628,14 @@ components:
           nullable: true
           description: Originating product surface, when not the plain order form (e.g. `quentin` for
             orders dispatched by the NL assistant). Attribution only, never affects execution.
+        postId:
+          type: string
+          nullable: true
+          maxLength: 512
+          description: The wire post this order was placed off, when it was placed from a breaking-news
+            headline. Attribution only, never affects execution, and what lets news execution be measured
+            against the post that triggered it. Empty or longer than 512 characters is rejected with a
+            400 rather than recorded.
     SubmitOrderResponse:
       type: object
       required:
@@ -2126,6 +2651,12 @@ components:
         provider:
           type: string
           description: Execution provider, e.g. "hyperliquid".
+        clientOrderId:
+          type: string
+          description: 'The client order id this order was submitted under: yours when you sent one, otherwise
+            the id assigned server-side. Always present on a successful submit, and it is the key `GET
+            /api/orders/by-client-id/{client_order_id}` resolves, so record it if you may need to ask
+            later whether the order landed.'
         error:
           type: string
         warnings:
@@ -2373,7 +2904,10 @@ components:
         timestamp:
           type: integer
           format: int64
-          description: Fill time, epoch milliseconds.
+          description: 'When the fill happened, epoch milliseconds: Hyperliquid''s own clock where the
+            ledger has it, else Quote''s write clock. The two match for a fill delivered live and diverge
+            for one the reconciler recovered, whose write time is minutes after the trade, so this is
+            the instant to join against live fill events on.'
     AlgoOrderFillsResponse:
       type: object
       required:
@@ -2386,6 +2920,33 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/AlgoFillInfo'
+    AlgoDiagnosticInfo:
+      type: object
+      required:
+      - recordedAtMs
+      - details
+      properties:
+        recordedAtMs:
+          type: integer
+          format: int64
+          description: When the diagnostic was recorded, epoch milliseconds.
+        details:
+          type: object
+          additionalProperties: true
+          description: 'The redacted diagnostic payload, keyed by `event`: the same projection the live
+            socket''s `wake` frames carry.'
+    AlgoDiagnosticsResponse:
+      type: object
+      required:
+      - success
+      - diagnostics
+      properties:
+        success:
+          type: boolean
+        diagnostics:
+          type: array
+          items:
+            $ref: '#/components/schemas/AlgoDiagnosticInfo'
     SetPositionTpslRequest:
       type: object
       required:
@@ -2400,6 +2961,17 @@ components:
           type: string
           nullable: true
           description: Defaults to the whole position.
+        replaceOids:
+          type: array
+          nullable: true
+          items:
+            type: integer
+            format: int64
+          description: 'Fixed-size triggers on this symbol to cancel as part of the replacement: the reduce-only
+            legs that order-attached TP/SL and partial closes leave behind, which nothing at the venue
+            ties to the position. Position-bound triggers are always replaced and never need naming here.
+            Each oid must be a closing trigger order on this symbol; any other oid is rejected, so an
+            unrelated resting order can never be cancelled through this field.'
     SetPositionTpslResponse:
       type: object
       required:
@@ -2414,7 +2986,8 @@ components:
           type: string
         replaced:
           type: integer
-          description: How many existing Quote-placed triggers were replaced.
+          description: 'Trigger orders cancelled as part of the replacement: every position-bound leg,
+            plus whichever were named in `replaceOids`.'
         warnings:
           type: array
           items:
@@ -2487,12 +3060,18 @@ components:
           type: integer
         execVwap:
           type: string
+          description: 'Size-weighted execution price across every tactic, fee-adjusted: Hyperliquid''s
+            per-fill fee (builder fee included) folded into the price, the basis `executionBps` is measured
+            on. Each tactic''s own `execVwap` stays the stored raw price.'
         arrivalMid:
           type: string
-          description: Mid at intent creation. Never back-filled.
+          description: Mid at intent creation. Never back-filled. The raw mid; `totalShortfallBps` loads
+            it with the taker fee first.
         totalShortfallBps:
           type: string
-          description: Measured from the intent's arrival anchor.
+          description: 'Measured from the intent''s arrival anchor loaded with the taker fee, against
+            the fee-adjusted `execVwap`: the same bases as `executionBps`, so fees sit inside both and
+            never inside `delayBps`.'
         executionBps:
           type: string
           description: Measured from each tactic's own arrival.
@@ -2519,6 +3098,113 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/TacticSummary'
+    BookDepth:
+      type: object
+      description: |
+        One market's own book, summed inside `windowPct` either side of its mid.
+        Both sides are reported and never only the total: a book carrying $32k
+        of bids against $16k of asks will take a sale and not a purchase, and
+        one averaged number says the opposite of what that trader needs.
+      required:
+      - symbol
+      - mid
+      - spreadBps
+      - windowPct
+      - bidUsd
+      - askUsd
+      - totalUsd
+      - reachPct
+      - coversWindow
+      - asOf
+      properties:
+        symbol:
+          type: string
+          example: BTC
+        mid:
+          type: number
+          format: double
+        spreadBps:
+          type: number
+          format: double
+          description: Top of book
+          from this book's own touch.: null
+        windowPct:
+          type: number
+          format: double
+          example: 1
+          description: Half-width of the window. On the wire because the totals mean nothing without it.
+        bidUsd:
+          type: number
+          format: double
+        askUsd:
+          type: number
+          format: double
+        totalUsd:
+          type: number
+          format: double
+        reachPct:
+          type: number
+          format: double
+          description: How far the book reached from the mid, on the shorter side.
+        coversWindow:
+          type: boolean
+          description: '`false` means every total here is a FLOOR rather than the answer: the book ran
+            out before the window did, so rendering them as the answer reports a thin market where what
+            happened was a short read. Hyperliquid''s default price grid reaches about 10 bps, so a 1%
+            window needs the coarse grid stitched under it and how far that reaches depends on the market.'
+        asOf:
+          type: integer
+          format: int64
+          description: ms since epoch.
+    LiquidityReading:
+      type: object
+      required:
+      - status
+      description: One market's reading. Every field but `status` is omitted rather than nulled when absent,
+        so a missing value cannot be read as zero.
+      properties:
+        status:
+          type: string
+          enum:
+          - ready
+          - flat
+          - warming
+          - no_market
+          description: Whether a seasonal `score` is available, and why not when it is not. `no_market`
+            means Hyperliquid is not quoting this market, never that our own copy of it went stale.
+        level:
+          type: number
+          description: Cross-sectional, 1-10, 10 = most liquid on the venue. The number to sort and display.
+            Present whenever the market is priced.
+        score:
+          type: integer
+          description: 'Self-relative, 1-10: tighter or wider than this market usually is at this hour
+            of day. Context, never a ranking. Only when `ready`.'
+        percentile:
+          type: number
+          description: Fraction of the same-hour baseline wider than now.
+        spreadBps:
+          type: number
+          description: Impact spread. The round trip on a fixed-notional sweep.
+        medianBps:
+          type: number
+          description: What "usual" was over the window.
+        grade:
+          type: string
+          description: Absolute rung, `a`-`e`, tightest first.
+        rank:
+          type: integer
+          description: Position among priced markets, tightest = 1. Read with `universe`.
+        samples:
+          type: integer
+        requiredSamples:
+          type: integer
+        asOf:
+          type: string
+          format: date-time
+          description: 'When this reading was observed. Present whenever a reading is. Measure age against
+            the manifest''s `generatedAt`, never against your own clock: the response is edge-cached,
+            so the difference between the two timestamps is the only exact one.'
     ModifyOrderRequest:
       type: object
       required:
@@ -2579,6 +3265,7 @@ components:
       - status
       - strategy
       - submitTime
+      - alreadySpedUp
       properties:
         orderId:
           type: string
@@ -2598,9 +3285,151 @@ components:
         submitTime:
           type: string
           format: date-time
+        finishedTime:
+          type: string
+          format: date-time
+          description: When the order reached a terminal state (completed, cancelled or failed). Absent
+            while it is still active.
         error:
           type: string
           description: Why the order failed. Present only for failed orders.
+        alreadySpedUp:
+          type: boolean
+          description: Whether this order has used its one in-flight speed-up. Speeding up an order for
+            which this is `true` is rejected with `400`.
+        benchmark:
+          allOf:
+          - $ref: '#/components/schemas/AlgoBenchmark'
+          description: Post-trade execution benchmark. On the detail (`GET /api/orders/algo/{order_id}`)
+            only, and only once the order has a persisted analytics row; the list never carries it.
+        limitPrice:
+          type: string
+          description: User-set limit price bound, when the order carries one.
+        plannedDurationSecs:
+          type: integer
+          format: int64
+          description: The `duration_secs` window of the time-sliced strategies (TWAP, adaptive IS, VWAP),
+            in seconds. Absent for POV, chase and iceberg, whose only time knob is a ceiling (`maxDurationSecs`).
+        maxDurationSecs:
+          type: integer
+          format: int64
+          description: 'Hard time limit when the strategy has one (POV''s max duration, chase''s give-up
+            bound, iceberg''s completion sweep), in seconds. A ceiling, never a plan: a schedule must
+            not be drawn from it. Absent when the strategy has no ceiling, including iceberg''s sweep
+            when it is disabled, which the strategy stores as 0.'
+        numSlices:
+          type: integer
+          format: int64
+          description: Planned slice count for time-sliced strategies.
+        participationRate:
+          type: string
+          description: 'Target participation rate as a fraction (e.g. "0.1" = 10%): POV''s rate, or iceberg''s
+            volume-adaptive clip rate. Absent when the strategy has none, including an iceberg on a fixed
+            clip, which the strategy stores as 0.'
+        clipSize:
+          type: string
+          description: Iceberg clip size, asset units.
+        maxSlippageBps:
+          type: string
+          description: User-set slippage bound vs the arrival mid, bps.
+        reduceOnly:
+          type: boolean
+        guaranteedCompletion:
+          type: boolean
+          description: 'Whether the user asked for guaranteed completion: TWAP''s `guaranteed_completion`,
+            or the `must_complete` residual sweep of VWAP and chase.'
+        volumeProfile:
+          type: array
+          items:
+            type: number
+          description: 'Planned per-slice volume weights (VWAP), one entry per slice, captured at submit:
+            the schedule a progress view draws the planned trajectory from. Relative weights: only their
+            ratios carry meaning, so normalise before drawing.'
+        parentIntentId:
+          type: string
+          format: uuid
+          description: The trade intent this run is a tactic of, when the order was placed through one.
+            Follow it to `GET /api/trade-intents/{id}` for the cross-tactic report.
+    AlgoBenchmark:
+      type: object
+      description: 'Execution-quality benchmarks for an algo order, persisted at terminal. Decimals as
+        strings; signed bps follow the "positive = worse" convention: except the markout fields, which
+        use the microstructure convention `/api/analytics/execution` uses (positive = the price moved
+        in the order''s favor after its fills).'
+      properties:
+        vsArrivalBps:
+          type: string
+        vsArrivalUsd:
+          type: string
+        vsMarketBps:
+          type: string
+          description: 'Vs a simulated same-size market-order sweep of the book at each slice: the spread-capture
+            benchmark.'
+        vsMarketUsd:
+          type: string
+        vsVwapBps:
+          type: string
+        vsVwapUsd:
+          type: string
+        execVwap:
+          type: string
+        marketVwap:
+          type: string
+          description: The market's own VWAP over the execution window, the level `vsVwapBps` is measured
+            against. Absent when the trades source fed nothing, and on runs recorded before it was stored.
+        curve:
+          type: array
+          description: Running levels behind execVwap, the arrival anchor and marketVwap, one sample per
+            fill and thinned to at most 180 points with the first and last kept exactly. Lets a chart
+            draw the path instead of a flat line at each endpoint. Absent on runs that never filled.
+          items:
+            type: object
+            required:
+            - atMs
+            - execVwap
+            properties:
+              atMs:
+                type: integer
+                format: int64
+                description: When the fill was recorded, epoch milliseconds.
+              execVwap:
+                type: string
+                description: 'Fee-adjusted running execution VWAP over the fills so far: the basis of
+                  the summary `execVwap`, which the last sample equals.'
+              arrivalVwap:
+                type: string
+                description: 'Size-weighted mid at each fill so far, loaded with the taker fee: the anchor
+                  `vsArrivalBps` is measured against. Absent until a fill has carried a mid.'
+              marketVwap:
+                type: string
+                description: The market's own VWAP as it stood at this fill. The last sample carries the
+                  summary `marketVwap` instead (the market keeps printing after the last fill), so the
+                  two are one number. Absent until the trades source has fed something.
+        totalFees:
+          type: string
+          description: 'Hyperliquid''s fees on this order''s fills (USDC), builder fee included: the per-fill
+            fee the venue charges carries it.'
+        makerFillPct:
+          type: string
+        elapsedSecs:
+          type: string
+        builderFees:
+          type: string
+          description: 'The part of `totalFees` that went to the builder (USDC): a breakdown of it, not
+            a charge beside it.'
+        markout1sBps:
+          type: string
+        markout5sBps:
+          type: string
+        markout30sBps:
+          type: string
+        makerMarkout1sBps:
+          type: string
+          description: Maker-fill-only markout. The adverse-selection read on resting orders.
+        makerMarkout5sBps:
+          type: string
+        makerMarkout30sBps:
+          type: string
     AlgoOrdersResponse:
       type: object
       required:
@@ -2623,6 +3452,53 @@ components:
           type: boolean
         order:
           $ref: '#/components/schemas/AlgoOrderInfo'
+    OrderByClientIdResponse:
+      type: object
+      required:
+      - success
+      - clientOrderId
+      - found
+      properties:
+        success:
+          type: boolean
+        clientOrderId:
+          type: string
+          description: The id that was looked up, echoed back.
+        found:
+          type: boolean
+          description: Whether any source can account for this id. `false` means nothing was placed under
+            it and re-sending is safe.
+        orderId:
+          type: string
+          description: Venue order id, from Quote's registry or from Hyperliquid.
+        symbol:
+          type: string
+        side:
+          type: string
+          enum:
+          - buy
+          - sell
+        submittedAt:
+          type: string
+          format: date-time
+          description: 'When Quote registered the order. Absent when only Hyperliquid knows it, which
+            is itself informative: the order landed and our reply to you was lost.'
+        algoOrderId:
+          type: string
+          description: Present when this id belongs to an algo run. Follow it to `GET /api/orders/algo/{order_id}`
+            for schedule and slice detail.
+        venueStatus:
+          type: string
+          description: 'Hyperliquid''s lifecycle status for the order: `open`, `filled`, `canceled`, `rejected`,
+            or `unknownOid` when Hyperliquid has no such order. Absent when Hyperliquid could not be reached,
+            which is not the same as `unknownOid`.'
+        filledSize:
+          type: string
+          description: Base-asset quantity filled. Absent when unknown; never `"0"` to mean unknown.
+        avgPrice:
+          type: string
+          description: Volume-weighted fill price. Only present alongside a ledger-derived `filledSize`,
+            since Hyperliquid reports a size without an average.
     CreateAgentResponse:
       type: object
       required:
@@ -2754,6 +3630,134 @@ components:
         toPerp:
           type: boolean
           description: Transfer to perp (true) or to spot (false).
+    CompanySummaryResponse:
+      type: object
+      description: |
+        Identity, valuation and the next scheduled report: the three raw vendor
+        payloads a compact panel renders, and nothing below them.
+
+        It is a **separate shape**, not `CompanyResponse` with the heavy fields
+        nulled. On that schema a null payload means "asked, and the vendor has
+        nothing"; a null here for a payload the endpoint never fetches would be
+        the same wire value for the opposite fact. Absent fields cannot be
+        misread that way: a consumer that wants filings has to call
+        `getCompany`, which fetches them.
+
+        Measured on NVDA, the statements, insider decisions, filings and
+        headlines this omits are 98% of the full response.
+      required:
+      - ticker
+      - covered
+      - snapshotDate
+      - fetchedAt
+      properties:
+        ticker:
+          type: string
+          example: NVDA
+        companyName:
+          type: string
+          nullable: true
+          example: NVIDIA Corporation
+        covered:
+          type: boolean
+          description: '`false` means asked and answered: outside the plan, unlisted, or a name mismatch.
+            All payloads are null.'
+        snapshotDate:
+          type: string
+          format: date
+        fetchedAt:
+          type: string
+          format: date-time
+        profile:
+          type: object
+          nullable: true
+          additionalProperties: true
+          description: Raw `stock/profile2`. Exchange, industry, IPO date, country, market cap.
+        metrics:
+          type: object
+          nullable: true
+          additionalProperties: true
+          description: 'Raw `stock/metric` under its own `metric` key: P/E, EPS TTM, dividend yield, 52-week
+            range. Never the `series` archive.'
+        calendar:
+          type: object
+          nullable: true
+          additionalProperties: true
+          description: Raw `calendar/earnings`. The next scheduled report.
+    TokenomicsResponse:
+      type: object
+      description: |
+        Supply, valuation and prose for one coin, plus how the requested market
+        relates to it.
+
+        The stored vendor payloads are kept whole and served narrow: this is the
+        subset a consumer reads, not the interesting half of the body. A field
+        absent here is one nothing asks for yet, not one the vendor withheld.
+      required:
+      - symbol
+      - coingeckoId
+      - relation
+      properties:
+        symbol:
+          type: string
+          description: The requested market symbol, echoed so a cached body is self-describing.
+          example: BTC
+        coingeckoId:
+          type: string
+          example: bitcoin
+        relation:
+          type: string
+          enum:
+          - asset
+          - underlying
+          description: '`asset`: a spot pair, so these figures describe what the market trades. `underlying`:
+            a perpetual, so they describe what it tracks.'
+          example: underlying
+        name:
+          type: string
+          description: 'The coin''s own name, which is not our ticker: the market is `TON` and the asset
+            is "Gram (prev. Toncoin)".'
+          example: Bitcoin
+        marketCap:
+          type: number
+          example: 1552188928000
+        fullyDilutedValuation:
+          type: number
+          example: 1552199518846
+        marketCapRank:
+          type: integer
+          example: 1
+        circulatingSupply:
+          type: number
+          example: 20078650
+        maxSupply:
+          type: number
+          description: 'Absent where the protocol sets no cap: a fact about the token, not a gap. Render
+            the absence rather than a zero.'
+          example: 21000000
+        ath:
+          type: number
+          description: All-time high in USD.
+          example: 126080
+        description:
+          type: string
+        homepage:
+          type: string
+          format: uri
+          example: https://bitcoin.org
+        twitter:
+          type: string
+          format: uri
+          description: Served as a URL, not the bare handle the vendor stores.
+          example: https://x.com/bitcoin
+        whitepaper:
+          type: string
+          format: uri
+        marketFetchedAt:
+          type: string
+          format: date-time
+          description: 'When the valuation figures were last refreshed: hourly in steady state, and the
+            only staleness signal in this response.'
     TemplateInfo:
       type: object
       required:
@@ -3109,6 +4113,140 @@ components:
           type: boolean
           description: Earned but not yet acknowledged via `POST /api/quests/badges/{key}/seen`. Fire
             an unlock celebration on this flag, then acknowledge so it does not replay.
+    RoutingSavingsResponse:
+      type: object
+      required:
+      - sinceDays
+      - decisions
+      - venues
+      - caveat
+      properties:
+        sinceDays:
+          type: integer
+          description: The look-back window actually applied, after clamping.
+        decisions:
+          type: integer
+          format: int64
+          description: How many routing verdicts the window holds for this wallet. Zero is an ordinary
+            answer (routing may be off, or the wallet may not have traded) and is not the same as a zero
+            saving.
+        venues:
+          type: array
+          description: One entry per venue, best saving first.
+          items:
+            $ref: '#/components/schemas/RoutingVenueSaving'
+        caveat:
+          type: string
+          description: What these numbers are and are not. Displayed liquidity at a haircut, with no queue,
+            latency, impact or adverse selection.
+    RoutingVenueSaving:
+      type: object
+      required:
+      - venue
+      - pricedClips
+      - winningClips
+      - winningNotionalUsd
+      - savingUsd
+      - feeSavingUsd
+      - executionSavingUsd
+      - premiumCostUsd
+      - feeSources
+      - refusals
+      properties:
+        venue:
+          type: string
+          example: binance
+        pricedClips:
+          type: integer
+          format: int64
+          description: Clips where this venue could be priced at all.
+        winningClips:
+          type: integer
+          format: int64
+          description: Clips where it would have beaten the venue the order actually went to, after any
+            fragmentation premium.
+        winningNotionalUsd:
+          type: number
+          format: double
+          description: Notional across those winning clips.
+        savingUsd:
+          type: number
+          format: double
+          description: Total saving across the winning clips. `feeSavingUsd` + `executionSavingUsd`, less
+            `premiumCostUsd`.
+        feeSavingUsd:
+          type: number
+          format: double
+          description: 'The fee half: what a venue connection captures on its own. Negative when this
+            venue charges more and won on execution anyway.'
+        executionSavingUsd:
+          type: number
+          format: double
+          description: The book half. What crossing this venue's depth saved.
+        premiumCostUsd:
+          type: number
+          format: double
+          description: Charged against opening a position leg on a venue that would not otherwise hold
+            one, for as long as both legs live.
+        feeSources:
+          type: array
+          description: Where the fee numbers came from, and how often. `published` is the public base
+            tier, nobody's actual rate, so a saving resting on it is a weaker claim than one resting on
+            `house` or `user`.
+          items:
+            type: object
+            required:
+            - source
+            - count
+            properties:
+              source:
+                type: string
+                enum:
+                - user
+                - house
+                - published
+              count:
+                type: integer
+                format: int64
+        refusals:
+          type: array
+          description: Which gate stopped this venue, and how often. Present even when the venue was never
+            priceable, which is the most informative case.
+          items:
+            type: object
+            required:
+            - reason
+            - count
+            properties:
+              reason:
+                type: string
+                example: bookAbsent
+              count:
+                type: integer
+                format: int64
+    RoutingVenuePref:
+      type: object
+      required:
+      - venue
+      - enabled
+      - baseline
+      properties:
+        venue:
+          type: string
+          example: binance
+        enabled:
+          type: boolean
+          description: Whether routing may consider this venue. Default true.
+        baseline:
+          type: boolean
+          description: Where orders go when routing changes nothing. Exactly one venue carries this, it
+            is always enabled, and it cannot be turned off.
+        updatedAt:
+          type: string
+          format: date-time
+          nullable: true
+          description: When the caller last set this preference. Null for a venue they have never touched,
+            which distinguishes the default from a deliberate re-enable.
     QuestsResponse:
       type: object
       required:
@@ -3212,9 +4350,16 @@ components:
         hlFees:
           type: number
           format: double
+          description: |
+            Counterfactual fee: the notional swept at the measured taker rate.
         quoteFees:
           type: number
           format: double
+          description: |
+            Fees actually paid, from the ledger. Both sides carry the builder
+            fee: the venue charges it inside its own per-fill fee, so it is in
+            this sum and in the measured taker rate alike, and neither adds it
+            on top.
     VolumeResponse:
       type: object
       required:
@@ -3232,9 +4377,53 @@ components:
         totalFee:
           type: number
           format: double
+          description: |
+            What Quote-routed fills cost this wallet over the range (USDC), and
+            the whole of it. Hyperliquid documents its per-fill `fee` as "the
+            total fee, inclusive of builderFee", so `builderFee` is a breakdown
+            of this figure and `makerFee + takerFee` is the same figure split by
+            side: neither is ever added to it.
+        exchangeFee:
+          type: number
+          format: double
+          description: |
+            Deprecated alias of `totalFee`, identical in value. It never was the
+            exchange's share alone; kept only while existing clients read it.
+          deprecated: true
         builderFee:
           type: number
           format: double
+          description: The part of `totalFee` that went to Quote as the builder.
+        takerFee:
+          type: number
+          format: double
+          description: The part of `totalFee` charged on fills that crossed.
+        makerFee:
+          type: number
+          format: double
+          description: |
+            The part of `totalFee` charged on fills that rested. With `takerFee`
+            this sums to `totalFee`, short only by fills whose side the venue
+            did not state.
+        volume:
+          type: number
+          format: double
+        takerBps:
+          type: number
+          format: double
+          nullable: true
+          description: |
+            Realized rate: the fee actually charged over the notional it was
+            charged on, not the account's fee-tier rate. Null when nothing
+            traded on that side, which reads differently from a measured zero.
+        makerBps:
+          type: number
+          format: double
+          nullable: true
+        builderBps:
+          type: number
+          format: double
+          nullable: true
     FeeSummaryResponse:
       type: object
       required:
@@ -3364,7 +4553,7 @@ components:
           type: number
           format: double
           nullable: true
-          description: 'Spot **sell** rate: see `spotTakerBps`.'
+          description: Spot **sell** rate. See `spotTakerBps`.
         perpBuilderBps:
           type: number
           format: double
@@ -3499,7 +4688,7 @@ components:
           type: number
           format: double
           nullable: true
-          description: Total perp+spot; null = gap.
+          description: Total perp + spot + lend; null = gap.
         perpEquity:
           type: number
           format: double
@@ -3516,6 +4705,28 @@ components:
           type: number
           format: double
           description: External net flow this hour (+ in / − out).
+    AccountWallet:
+      type: object
+      properties:
+        walletAddress:
+          type: string
+          description: Lowercase 0x address.
+        isPrimary:
+          type: boolean
+          description: |
+            The account's canonical wallet. Exactly one per account, and the
+            address anything stored per-person rather than per-wallet lives at.
+        label:
+          type: string
+          nullable: true
+          description: |
+            What the user named this wallet. `null` is ordinary: the primary is
+            never named at creation and a label is optional on the rest, so a
+            client renders a positional fallback ("Wallet 2") rather than an
+            empty row.
+      required:
+      - walletAddress
+      - isPrimary
     HealthResponse:
       type: object
       required:

@@ -16,6 +16,12 @@ description: Execution-quality, volume, and fee analytics.
 [openapi.yaml](../../.gitbook/assets/openapi.yaml)
 {% endopenapi %}
 
+## One market's own book depth
+
+{% openapi src="../../.gitbook/assets/openapi.yaml" path="/api/markets/book-depth" method="get" %}
+[openapi.yaml](../../.gitbook/assets/openapi.yaml)
+{% endopenapi %}
+
 ## Execution-quality metrics
 
 {% openapi src="../../.gitbook/assets/openapi.yaml" path="/api/analytics/execution" method="get" %}
