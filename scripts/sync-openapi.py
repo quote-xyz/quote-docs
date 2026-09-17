@@ -69,6 +69,33 @@ EXCLUDED_PATHS = [
     "/api/invites/status",
     "/api/referrals/invites",
     "/api/referrals/summary",
+    # Routing is SHADOW ONLY. `RoutingMode::Off` is the default and there is no
+    # `Live` variant at all, so nothing is routed anywhere and `route_decisions`
+    # is empty unless an environment opts in. The savings endpoint says as much
+    # itself ("nothing is acted on: the order goes where it always went"), and
+    # the two prefs endpoints set an opt-out for execution that cannot happen.
+    # Publishing them would document a surface that answers nothing.
+    "/api/routing/savings",
+    "/api/routing/venues",
+    "/api/routing/venues/{venue}",
+    # The redacted `wake`-frame timeline. AGENTS.md: execution micro-mechanics
+    # (state machines, repricing thresholds, timing, anti-detection) are never
+    # published, and this is that projection by definition. It also documents
+    # itself as best-effort research data.
+    "/api/orders/algo/{order_id}/diagnostics",
+    # MCP has its own tab, and the un-suffixed `/.well-known/oauth-protected-
+    # resource` is already excluded below; the list simply never matched this
+    # one.
+    "/.well-known/oauth-protected-resource/mcp",
+    # Unauthenticated reference data rather than a trading operation, which is
+    # the reason `/api/companies/{ticker}` is excluded above. The tokenomics
+    # snapshot is explicitly the same contract one asset class over, and
+    # `/summary` is the companies endpoint's lighter twin.
+    "/api/crypto/{symbol}/tokenomics",
+    "/api/companies/{ticker}/summary",
+    # The asset page's order-book block, a terminal surface like the
+    # `depth-compare` and `liquidity` panels excluded above.
+    "/api/markets/book-depth",
     # Both answer `403` to every API-key caller, so an API-key-only reference
     # documenting them would describe a surface no reader of it can reach.
     # They are also the two paths that broke this script: their `PrivyBearer`
@@ -90,6 +117,14 @@ EXCLUDED_TAGS = [
     "Invites & Referrals",
 ]
 EXCLUDED_SCHEMAS = [
+    # Orphaned by the shadow-routing, diagnostics, reference-data and
+    # terminal-surface exclusions above.
+    "RoutingSavingsResponse",
+    "RoutingVenuePref",
+    "AlgoDiagnosticsResponse",
+    "TokenomicsResponse",
+    "CompanySummaryResponse",
+    "BookDepth",
     # Orphaned by excluding /api/account/wallets and /api/account/profile.
     # `RegisterWalletRequest` is the one that matters: its description names a
     # "Privy token", which no replacement rule rewrites, so leaving the schema

@@ -46,12 +46,6 @@ description: Order submission, cancellation, modification, and algo-order status
 [openapi.yaml](../../.gitbook/assets/openapi.yaml)
 {% endopenapi %}
 
-## Replay an algo order's diagnostics
-
-{% openapi src="../../.gitbook/assets/openapi.yaml" path="/api/orders/algo/{order_id}/diagnostics" method="get" %}
-[openapi.yaml](../../.gitbook/assets/openapi.yaml)
-{% endopenapi %}
-
 ## Speed up a running algo order
 
 {% openapi src="../../.gitbook/assets/openapi.yaml" path="/api/orders/algo/{order_id}/speed-up" method="post" %}
