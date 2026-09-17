@@ -2688,55 +2688,6 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/TacticSummary'
-    LiquidityReading:
-      type: object
-      required:
-      - status
-      description: One market's reading. Every field but `status` is omitted rather than nulled when absent,
-        so a missing value cannot be read as zero.
-      properties:
-        status:
-          type: string
-          enum:
-          - ready
-          - flat
-          - warming
-          - no_market
-          description: Whether a seasonal `score` is available, and why not when it is not. `no_market`
-            means Hyperliquid is not quoting this market, never that our own copy of it went stale.
-        level:
-          type: number
-          description: Cross-sectional, 1-10, 10 = most liquid on the venue. The number to sort and display.
-            Present whenever the market is priced.
-        score:
-          type: integer
-          description: 'Self-relative, 1-10: tighter or wider than this market usually is at this hour
-            of day. Context, never a ranking. Only when `ready`.'
-        percentile:
-          type: number
-          description: Fraction of the same-hour baseline wider than now.
-        spreadBps:
-          type: number
-          description: Impact spread. The round trip on a fixed-notional sweep.
-        medianBps:
-          type: number
-          description: What "usual" was over the window.
-        grade:
-          type: string
-          description: Absolute rung, `a`-`e`, tightest first.
-        rank:
-          type: integer
-          description: Position among priced markets, tightest = 1. Read with `universe`.
-        samples:
-          type: integer
-        requiredSamples:
-          type: integer
-        asOf:
-          type: string
-          format: date-time
-          description: 'When this reading was observed. Present whenever a reading is. Measure age against
-            the manifest''s `generatedAt`, never against your own clock: the response is edge-cached,
-            so the difference between the two timestamps is the only exact one.'
     ModifyOrderRequest:
       type: object
       required:
@@ -3395,54 +3346,6 @@ components:
             $ref: '#/components/schemas/TriggerEventInfo'
         error:
           type: string
-    InviteView:
-      type: object
-      required:
-      - code
-      - createdAt
-      properties:
-        code:
-          type: string
-        createdAt:
-          type: string
-          format: date-time
-        claimedBy:
-          type: string
-          nullable: true
-          description: |
-            The wallet that redeemed this code, or null while it is unused.
-        claimedAt:
-          type: string
-          format: date-time
-          nullable: true
-    TierView:
-      type: object
-      required:
-      - name
-      - min30dVolumeUsd
-      - referralRatePct
-      - l2RatePct
-      - cashbackPct
-      properties:
-        name:
-          type: string
-          description: Tier name (Wood, Bronze, Silver, Gold, Platinum, Diamond, Obsidian).
-        min30dVolumeUsd:
-          type: number
-          format: double
-          description: Minimum rolling 30-day Quote volume (USD) to enter this tier.
-        referralRatePct:
-          type: number
-          format: double
-          description: Direct (L1) referral rate at this tier, % of referees' fees.
-        l2RatePct:
-          type: number
-          format: double
-          description: Indirect (L2) override rate at this tier, % of referees' referees' fees.
-        cashbackPct:
-          type: number
-          format: double
-          description: Cashback rate at this tier, % of own fees (uncapped).
     QuestStatus:
       type: object
       required:
@@ -3975,28 +3878,6 @@ components:
           type: number
           format: double
           description: External net flow this hour (+ in / − out).
-    AccountWallet:
-      type: object
-      properties:
-        walletAddress:
-          type: string
-          description: Lowercase 0x address.
-        isPrimary:
-          type: boolean
-          description: |
-            The account's canonical wallet. Exactly one per account, and the
-            address anything stored per-person rather than per-wallet lives at.
-        label:
-          type: string
-          nullable: true
-          description: |
-            What the user named this wallet. `null` is ordinary: the primary is
-            never named at creation and a label is optional on the rest, so a
-            client renders a positional fallback ("Wallet 2") rather than an
-            empty row.
-      required:
-      - walletAddress
-      - isPrimary
     HealthResponse:
       type: object
       required:

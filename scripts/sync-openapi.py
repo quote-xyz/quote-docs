@@ -123,65 +123,6 @@ EXCLUDED_TAGS = [
     "API Keys",
     "Invites & Referrals",
 ]
-EXCLUDED_SCHEMAS = [
-    # Orphaned by the shadow-routing, diagnostics, reference-data and
-    # terminal-surface exclusions above.
-    "RoutingSavingsResponse",
-    "RoutingVenuePref",
-    # Nested one level down, and missed on the first pass because the orphan
-    # check followed only the paths' DIRECT references. A schema reachable only
-    # through an excluded schema is just as orphaned.
-    "RoutingVenueSaving",
-    "AlgoDiagnosticsResponse",
-    "AlgoDiagnosticInfo",
-    "TokenomicsResponse",
-    "CompanySummaryResponse",
-    "BookDepth",
-    # Orphaned by excluding /api/account/wallets and /api/account/profile.
-    # `RegisterWalletRequest` is the one that matters: its description names a
-    # "Privy token", which no replacement rule rewrites, so leaving the schema
-    # behind kept the curation guard failing even after its path was excluded.
-    "AccountProfileResponse",
-    "ListAccountWalletsResponse",
-    "RegisterWalletRequest",
-    "RegisterWalletResponse",
-    "SetAccountProfileRequest",
-    # Orphaned by excluding /api/companies/{ticker}.
-    "CompanyResponse",
-    # Orphaned by excluding the terminal surfaces above.
-    "JournalStatus",
-    "JournalTrade",
-    "JournalTradesResponse",
-    "JournalConsentRequest",
-    "ComplianceStatusResponse",
-    "GeoStatusResponse",
-    "UserFill",
-    "DepthComparison",
-    "LiquidityManifest",
-    "NLChatMessage",
-    "NLPositionContext",
-    "NLOrderContextEntry",
-    "NLFillContextEntry",
-    "NLOrderHistoryEntry",
-    "NLOrderContext",
-    "NLOrderRequest",
-    "Article",
-    "ArticleMarket",
-    "WebhookPayload",
-    "QuoteInfo",
-    "DailyQuoteResponse",
-    "MintKeyRequest",
-    "MintKeyResponse",
-    "ApiKeyRow",
-    "ListKeysResponse",
-    "InviteCodeView",
-    "ListInvitesResponse",
-    "IssueInviteResponse",
-    "RedeemRequest",
-    "RedeemResponse",
-    "InviteStatusResponse",
-    "ReferralSummaryResponse",
-]
 
 # Prose fixups for the top-level description (which otherwise references
 # excluded endpoints or the terminal-internal Privy credential).
@@ -366,6 +307,41 @@ def check_pages_reference_a_written_spec(repo_root, written):
             "Fix: write that path here, or point SRC in gen-endpoint-pages.py at one we do."
         )
 
+def prune_unreachable_schemas(spec, schemas):
+    """Drop every schema nothing left in the spec still points at, and say which.
+
+    This replaces a hand-written list of 47 names, every one of them commented
+    "orphaned by excluding X". A list cannot be right for long: by the time it
+    was removed it had drifted BOTH ways, carrying two names for schemas the
+    backend spec no longer has and missing four that nothing reaches. Worse, it
+    cannot see a schema reachable only THROUGH another excluded schema, which is
+    how `RoutingVenueSaving` and `AlgoDiagnosticInfo` survived two passes of
+    excluding the paths above them.
+
+    Reachability is seeded from everything EXCEPT `components.schemas` (paths,
+    responses, parameters), then closed over schema-to-schema references, so a
+    `$ref` from a kept response still protects its schema. Over-pruning is not
+    silent: the dangling-`$ref` guard in `main` fails the build on it.
+    """
+    ref = re.compile(r"#/components/schemas/([A-Za-z0-9_]+)")
+    seed = dict(spec)
+    seed["components"] = {
+        k: v for k, v in spec.get("components", {}).items() if k != "schemas"
+    }
+    reachable = set(ref.findall(yaml.safe_dump(seed)))
+    frontier = list(reachable)
+    while frontier:
+        name = frontier.pop()
+        for nested in ref.findall(yaml.safe_dump(schemas.get(name, {}))):
+            if nested not in reachable:
+                reachable.add(nested)
+                frontier.append(nested)
+    pruned = sorted(set(schemas) - reachable)
+    for name in pruned:
+        schemas.pop(name, None)
+    return pruned
+
+
 def main() -> None:
     repo_root = Path(__file__).resolve().parent.parent
     source = Path(
@@ -381,8 +357,7 @@ def main() -> None:
         spec["paths"].pop(path, None)
     spec["tags"] = [t for t in spec.get("tags", []) if t["name"] not in EXCLUDED_TAGS]
     schemas = spec.get("components", {}).get("schemas", {})
-    for name in EXCLUDED_SCHEMAS:
-        schemas.pop(name, None)
+    pruned = prune_unreachable_schemas(spec, schemas)
 
     # Hide strategy knobs whose names hint at undocumented engine mechanics
     # (and at the undocumented adaptive_is strategy).
@@ -424,10 +399,11 @@ def main() -> None:
 
     text = yaml.dump(spec, Dumper=BlockDumper, sort_keys=False, allow_unicode=True, width=100)
 
-    # Fail loudly if a dangling $ref to a removed schema survives.
-    for name in EXCLUDED_SCHEMAS:
+    # Fail loudly if a dangling $ref to a pruned schema survives. Pruning is
+    # computed, so this is what proves the computation right.
+    for name in pruned:
         if f"#/components/schemas/{name}" in text:
-            sys.exit(f"error: dangling $ref to excluded schema {name}")
+            sys.exit(f"error: dangling $ref to pruned schema {name}")
     # The public reference must never mention Privy or use em dashes. If the
     # backend spec grows new mentions, extend the replacement lists above.
     if "Privy" in text or "privy" in text:
