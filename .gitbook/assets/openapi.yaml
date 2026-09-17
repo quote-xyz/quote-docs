@@ -409,6 +409,20 @@ paths:
         with `400`, whoever made the first one. `GET /api/orders/algo` reports
         `alreadySpedUp`, which is how to tell before calling.
 
+        **Not every strategy can be sped up**, and the rest are rejected with
+        `400` naming the reason:
+
+        - `passive_twap`: supported. The remaining schedule is compressed.
+        - `participation_rate`: supported. The participation rate is raised by
+          the factor, capped at 50% of market volume. Already at the cap is a
+          `400`.
+        - `vwap`: **not supported.** A slice's size is keyed to the wall-clock
+          window its volume forecast was computed for, so compressing the
+          remainder would shift every bucket off the seasonality that sized it.
+          Cancel and resubmit for a shorter horizon instead.
+        - `limit`, `market`, `post_only`, `iceberg`, `chase_limit`: no schedule
+          to compress.
+
         **Auth:** API-key scope: `orders:write`.
       operationId: speedUpOrder
       parameters:
@@ -1197,10 +1211,32 @@ paths:
       - Triggers
       summary: Create a conditional trigger
       description: |
-        Create a conditional trigger. `triggerType` must be a known type
-        (e.g. `price`, `copy_trade`, `funding`, `oi_change`, `time`). The
-        `condition` and `executionOrder` payloads are opaque JSON interpreted by
-        the trigger evaluator.
+        Create a conditional trigger. `triggerType` must be a known type:
+        `price`, `funding`, `time`, `copy_trade` or `oi_change`.
+
+        `condition` is **not** opaque. It is parsed against the shape its
+        `triggerType` requires and a payload that does not match is rejected
+        with 400. Its fields are `snake_case`, unlike this request envelope.
+
+        - `price`: `trigger_asset` (string), `comparison`
+          (`gt`/`gte`/`crossing_up` for at-or-above, `lt`/`lte`/`crossing_down`
+          for at-or-below), `target_price` (number or numeric string). Level
+          semantics: fires when the mark is at or beyond the target. A bare
+          `crossing` states no direction and is refused.
+        - `funding`: `asset` (string), `comparison` (`gt`/`gte`/`lt`/`lte`),
+          `threshold_rate` (number or numeric string).
+        - `time`: `schedule_type` (`once` or `recurring`, default `once`).
+          `once` needs `trigger_time` (RFC 3339). `recurring` needs a bound,
+          either `max_executions` (1-365) or `until`, and one of
+          `interval_secs`, `weekdays` + `time_of_day`, or `day_of_month` +
+          `time_of_day`. An unbounded recurring schedule is refused.
+        - `copy_trade`: `target_address` (string), plus optional `action`
+          (`buy`/`sell`), `target_asset` and `min_size_usd`.
+        - `oi_change`: accepted and stored, but never evaluated, so it will not
+          fire.
+
+        `executionOrder` is the order to place when the condition is met and is
+        interpreted by the evaluator.
 
         **Auth:** API-key scope: `orders:write`.
       operationId: createTrigger
@@ -3240,7 +3276,12 @@ components:
         condition:
           type: object
           additionalProperties: true
-          description: Opaque condition payload.
+          description: Condition payload for this `triggerType`. Validated on create; fields are snake_case.
+            See the endpoint description for the shape each type requires.
+          example:
+            trigger_asset: HYPE
+            comparison: lt
+            target_price: '76.63'
         executionOrder:
           type: object
           additionalProperties: true
