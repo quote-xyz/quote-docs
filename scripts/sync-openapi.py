@@ -69,8 +69,52 @@ EXCLUDED_PATHS = [
     "/api/invites/status",
     "/api/referrals/invites",
     "/api/referrals/summary",
+    # Routing is SHADOW ONLY. `RoutingMode::Off` is the default and there is no
+    # `Live` variant at all, so nothing is routed anywhere and `route_decisions`
+    # is empty unless an environment opts in. The savings endpoint says as much
+    # itself ("nothing is acted on: the order goes where it always went"), and
+    # the two prefs endpoints set an opt-out for execution that cannot happen.
+    # Publishing them would document a surface that answers nothing.
+    "/api/routing/savings",
+    "/api/routing/venues",
+    "/api/routing/venues/{venue}",
+    # The redacted `wake`-frame timeline. AGENTS.md: execution micro-mechanics
+    # (state machines, repricing thresholds, timing, anti-detection) are never
+    # published, and this is that projection by definition. It also documents
+    # itself as best-effort research data.
+    "/api/orders/algo/{order_id}/diagnostics",
+    # MCP has its own tab, and the un-suffixed `/.well-known/oauth-protected-
+    # resource` is already excluded below; the list simply never matched this
+    # one.
+    "/.well-known/oauth-protected-resource/mcp",
+    # Unauthenticated reference data rather than a trading operation, which is
+    # the reason `/api/companies/{ticker}` is excluded above. The tokenomics
+    # snapshot is explicitly the same contract one asset class over, and
+    # `/summary` is the companies endpoint's lighter twin.
+    "/api/crypto/{symbol}/tokenomics",
+    "/api/companies/{ticker}/summary",
+    # The asset page's order-book block, a terminal surface like the
+    # `depth-compare` and `liquidity` panels excluded above.
+    "/api/markets/book-depth",
+    # Both answer `403` to every API-key caller, so an API-key-only reference
+    # documenting them would describe a surface no reader of it can reach.
+    # They are also the two paths that broke this script: their `PrivyBearer`
+    # security entries and their "Privy identity" / "Privy token" prose are not
+    # what the replacement lists above rewrite, so the curation guard in main()
+    # failed and NOTHING was written. Excluding the path removes all of it at
+    # once, which is why the other terminal-only endpoints are excluded rather
+    # than reworded.
+    "/api/account/wallets",
+    "/api/account/profile",
 ]
 EXCLUDED_TAGS = [
+    # Every path carrying these is excluded above, so the tag itself would
+    # publish a section header and a description for a surface with nothing
+    # under it. "Routing" is the one that matters: its description advertises
+    # "counterfactual multi-venue routing" as a feature of the API.
+    "Routing",
+    "Account",
+    "Crypto",
     "NL Order",
     "News",
     "Companies",
@@ -78,43 +122,6 @@ EXCLUDED_TAGS = [
     "Bridge",
     "API Keys",
     "Invites & Referrals",
-]
-EXCLUDED_SCHEMAS = [
-    # Orphaned by excluding /api/companies/{ticker}.
-    "CompanyResponse",
-    # Orphaned by excluding the terminal surfaces above.
-    "JournalStatus",
-    "JournalTrade",
-    "JournalTradesResponse",
-    "JournalConsentRequest",
-    "ComplianceStatusResponse",
-    "GeoStatusResponse",
-    "UserFill",
-    "DepthComparison",
-    "LiquidityManifest",
-    "NLChatMessage",
-    "NLPositionContext",
-    "NLOrderContextEntry",
-    "NLFillContextEntry",
-    "NLOrderHistoryEntry",
-    "NLOrderContext",
-    "NLOrderRequest",
-    "Article",
-    "ArticleMarket",
-    "WebhookPayload",
-    "QuoteInfo",
-    "DailyQuoteResponse",
-    "MintKeyRequest",
-    "MintKeyResponse",
-    "ApiKeyRow",
-    "ListKeysResponse",
-    "InviteCodeView",
-    "ListInvitesResponse",
-    "IssueInviteResponse",
-    "RedeemRequest",
-    "RedeemResponse",
-    "InviteStatusResponse",
-    "ReferralSummaryResponse",
 ]
 
 # Prose fixups for the top-level description (which otherwise references
@@ -194,6 +201,21 @@ GLOBAL_REGEX_REPLACEMENTS = [
     # mid-phrase and a literal space silently stops matching.
     (r"unmodelled\s+here\s*—\s*modelling", "unmodelled here, since modelling"),
     (r"asked\s+and\s+answered\s*—\s*outside", "asked and answered: outside"),
+    # These five were already in the source spec and had no rules, so this
+    # script exited 1 and wrote nothing. A sync that fails writes no partial
+    # output, which is the safe direction, but it also means the published
+    # reference silently stopped tracking the spec: the trigger `condition`
+    # schema it serves is one nobody can successfully POST (QUO-40).
+    (r"socket\s+streams\s+live\s*—\s*the same projection\s*—\s*so",
+     "socket streams live, the same projection, so"),
+    (r"before\s+rendering\s+the\s+totals\*\*\s*—\s*see the field",
+     "before rendering the totals**. See the field"),
+    (r"`metrics`\s+and\s+`calendar`\s*—\s*who the company",
+     "`metrics` and `calendar`: who the company"),
+    (r"often\s*—\s*the trade page's About panel\s*—\s*and it is",
+     "often, on the trade page's About panel, and it is"),
+    (r"No\s+snapshot\s+for\s+this\s+ticker\s*—\s*the sweep",
+     "No snapshot for this ticker: the sweep"),
 ]
 
 APIKEY_SCHEME_DESCRIPTION = """\
@@ -285,6 +307,41 @@ def check_pages_reference_a_written_spec(repo_root, written):
             "Fix: write that path here, or point SRC in gen-endpoint-pages.py at one we do."
         )
 
+def prune_unreachable_schemas(spec, schemas):
+    """Drop every schema nothing left in the spec still points at, and say which.
+
+    This replaces a hand-written list of 47 names, every one of them commented
+    "orphaned by excluding X". A list cannot be right for long: by the time it
+    was removed it had drifted BOTH ways, carrying two names for schemas the
+    backend spec no longer has and missing four that nothing reaches. Worse, it
+    cannot see a schema reachable only THROUGH another excluded schema, which is
+    how `RoutingVenueSaving` and `AlgoDiagnosticInfo` survived two passes of
+    excluding the paths above them.
+
+    Reachability is seeded from everything EXCEPT `components.schemas` (paths,
+    responses, parameters), then closed over schema-to-schema references, so a
+    `$ref` from a kept response still protects its schema. Over-pruning is not
+    silent: the dangling-`$ref` guard in `main` fails the build on it.
+    """
+    ref = re.compile(r"#/components/schemas/([A-Za-z0-9_]+)")
+    seed = dict(spec)
+    seed["components"] = {
+        k: v for k, v in spec.get("components", {}).items() if k != "schemas"
+    }
+    reachable = set(ref.findall(yaml.safe_dump(seed)))
+    frontier = list(reachable)
+    while frontier:
+        name = frontier.pop()
+        for nested in ref.findall(yaml.safe_dump(schemas.get(name, {}))):
+            if nested not in reachable:
+                reachable.add(nested)
+                frontier.append(nested)
+    pruned = sorted(set(schemas) - reachable)
+    for name in pruned:
+        schemas.pop(name, None)
+    return pruned
+
+
 def main() -> None:
     repo_root = Path(__file__).resolve().parent.parent
     source = Path(
@@ -300,8 +357,7 @@ def main() -> None:
         spec["paths"].pop(path, None)
     spec["tags"] = [t for t in spec.get("tags", []) if t["name"] not in EXCLUDED_TAGS]
     schemas = spec.get("components", {}).get("schemas", {})
-    for name in EXCLUDED_SCHEMAS:
-        schemas.pop(name, None)
+    pruned = prune_unreachable_schemas(spec, schemas)
 
     # Hide strategy knobs whose names hint at undocumented engine mechanics
     # (and at the undocumented adaptive_is strategy).
@@ -343,10 +399,11 @@ def main() -> None:
 
     text = yaml.dump(spec, Dumper=BlockDumper, sort_keys=False, allow_unicode=True, width=100)
 
-    # Fail loudly if a dangling $ref to a removed schema survives.
-    for name in EXCLUDED_SCHEMAS:
+    # Fail loudly if a dangling $ref to a pruned schema survives. Pruning is
+    # computed, so this is what proves the computation right.
+    for name in pruned:
         if f"#/components/schemas/{name}" in text:
-            sys.exit(f"error: dangling $ref to excluded schema {name}")
+            sys.exit(f"error: dangling $ref to pruned schema {name}")
     # The public reference must never mention Privy or use em dashes. If the
     # backend spec grows new mentions, extend the replacement lists above.
     if "Privy" in text or "privy" in text:
