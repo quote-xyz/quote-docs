@@ -69,15 +69,10 @@ tags:
   description: Tiered new-user quest progress and the favorite-quote submission.
 - name: Analytics
   description: Execution-quality, volume, and fee analytics.
-- name: Routing
-  description: 'Counterfactual multi-venue routing: what each venue would have been worth, and which venues
-    you allow.'
 - name: Funding
   description: 'Funding-payment tracking: totals, timeline, and history.'
 - name: Portfolio
   description: Quote-owned hourly equity time-series.
-- name: Crypto
-  description: Supply, valuation and prose for the asset behind a crypto market.
 - name: Health
   description: Liveness/readiness probes, info, and Prometheus metrics.
 security:
@@ -2542,21 +2537,6 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/AlgoFillInfo'
-    AlgoDiagnosticInfo:
-      type: object
-      required:
-      - recordedAtMs
-      - details
-      properties:
-        recordedAtMs:
-          type: integer
-          format: int64
-          description: When the diagnostic was recorded, epoch milliseconds.
-        details:
-          type: object
-          additionalProperties: true
-          description: 'The redacted diagnostic payload, keyed by `event`: the same projection the live
-            socket''s `wake` frames carry.'
     SetPositionTpslRequest:
       type: object
       required:
@@ -3537,91 +3517,6 @@ components:
           type: boolean
           description: Earned but not yet acknowledged via `POST /api/quests/badges/{key}/seen`. Fire
             an unlock celebration on this flag, then acknowledge so it does not replay.
-    RoutingVenueSaving:
-      type: object
-      required:
-      - venue
-      - pricedClips
-      - winningClips
-      - winningNotionalUsd
-      - savingUsd
-      - feeSavingUsd
-      - executionSavingUsd
-      - premiumCostUsd
-      - feeSources
-      - refusals
-      properties:
-        venue:
-          type: string
-          example: binance
-        pricedClips:
-          type: integer
-          format: int64
-          description: Clips where this venue could be priced at all.
-        winningClips:
-          type: integer
-          format: int64
-          description: Clips where it would have beaten the venue the order actually went to, after any
-            fragmentation premium.
-        winningNotionalUsd:
-          type: number
-          format: double
-          description: Notional across those winning clips.
-        savingUsd:
-          type: number
-          format: double
-          description: Total saving across the winning clips. `feeSavingUsd` + `executionSavingUsd`, less
-            `premiumCostUsd`.
-        feeSavingUsd:
-          type: number
-          format: double
-          description: 'The fee half: what a venue connection captures on its own. Negative when this
-            venue charges more and won on execution anyway.'
-        executionSavingUsd:
-          type: number
-          format: double
-          description: The book half. What crossing this venue's depth saved.
-        premiumCostUsd:
-          type: number
-          format: double
-          description: Charged against opening a position leg on a venue that would not otherwise hold
-            one, for as long as both legs live.
-        feeSources:
-          type: array
-          description: Where the fee numbers came from, and how often. `published` is the public base
-            tier, nobody's actual rate, so a saving resting on it is a weaker claim than one resting on
-            `house` or `user`.
-          items:
-            type: object
-            required:
-            - source
-            - count
-            properties:
-              source:
-                type: string
-                enum:
-                - user
-                - house
-                - published
-              count:
-                type: integer
-                format: int64
-        refusals:
-          type: array
-          description: Which gate stopped this venue, and how often. Present even when the venue was never
-            priceable, which is the most informative case.
-          items:
-            type: object
-            required:
-            - reason
-            - count
-            properties:
-              reason:
-                type: string
-                example: bookAbsent
-              count:
-                type: integer
-                format: int64
     QuestsResponse:
       type: object
       required:

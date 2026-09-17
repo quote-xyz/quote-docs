@@ -108,6 +108,13 @@ EXCLUDED_PATHS = [
     "/api/account/profile",
 ]
 EXCLUDED_TAGS = [
+    # Every path carrying these is excluded above, so the tag itself would
+    # publish a section header and a description for a surface with nothing
+    # under it. "Routing" is the one that matters: its description advertises
+    # "counterfactual multi-venue routing" as a feature of the API.
+    "Routing",
+    "Account",
+    "Crypto",
     "NL Order",
     "News",
     "Companies",
@@ -121,7 +128,12 @@ EXCLUDED_SCHEMAS = [
     # terminal-surface exclusions above.
     "RoutingSavingsResponse",
     "RoutingVenuePref",
+    # Nested one level down, and missed on the first pass because the orphan
+    # check followed only the paths' DIRECT references. A schema reachable only
+    # through an excluded schema is just as orphaned.
+    "RoutingVenueSaving",
     "AlgoDiagnosticsResponse",
+    "AlgoDiagnosticInfo",
     "TokenomicsResponse",
     "CompanySummaryResponse",
     "BookDepth",
