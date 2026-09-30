@@ -45,14 +45,14 @@ GitBook has no local dev server. Preview a change by opening a pull request: Git
 
 ## Keeping the API reference in sync
 
-The endpoint pages are generated from the curated spec, which is produced from the hand-authored spec in the backend repo. The sync writes that curated spec to two paths — `api-reference/openapi.yaml` and `.gitbook/assets/openapi.yaml` — and the pages load the second, which is the copy GitBook serves. The output is **curated to the trading surface**: Quentin/NL-order, the Parallel news pipeline, and the daily quote are deliberately excluded. The exclusion list lives in the sync script. After editing `quote-backend/docs/openapi.yaml`:
+The endpoint pages are generated from the curated spec, which is produced from the hand-authored spec in the backend repo. The sync writes that curated spec to two paths, `api-reference/openapi.yaml` and `.gitbook/assets/openapi.yaml`, and the pages load the second, which is the copy GitBook serves. The output is **curated to the trading surface**: only the operations listed in the sync script's `PUBLISHED_OPERATIONS` are published, so an endpoint the backend adds stays private until someone lists it there. After editing `quote-backend/docs/openapi.yaml`:
 
 ```bash
 scripts/sync-openapi.py         # default source: ../quote-backend/docs/openapi.yaml
 scripts/gen-endpoint-pages.py   # rewrite api-reference/endpoints/ from the spec
 ```
 
-Then add any new page to `SUMMARY.md` (the second script prints the entries).
+Then add any new page to `SUMMARY.md` (the second script prints the entries, and deletes the page of any tag that is no longer published).
 
 Never hand-edit either copy of the curated spec, the files in `api-reference/endpoints/`, or copy the backend spec over the curated one verbatim. The source of truth is `quote-backend/docs/openapi.yaml`, filtered through the script.
 

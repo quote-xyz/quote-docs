@@ -22,7 +22,7 @@ info:
     description.
 
     Routes under `/api/*` require authentication, except the public
-    `/api/info`. The root probes `/health`, `/ready`, and `/metrics` are
+    `/api/info`. The root probes `/health` and `/ready` are
     unauthenticated.
 
     ## Async-accept order model
@@ -74,7 +74,7 @@ tags:
 - name: Portfolio
   description: Quote-owned hourly equity time-series.
 - name: Health
-  description: Liveness/readiness probes, info, and Prometheus metrics.
+  description: Liveness and readiness probes, and API info.
 security:
 - ApiKeyHmac: []
 paths:
@@ -1212,7 +1212,8 @@ paths:
       summary: Create a conditional trigger
       description: |
         Create a conditional trigger. `triggerType` must be a known type:
-        `price`, `funding`, `time`, `copy_trade` or `oi_change`.
+        `price`, `funding`, `time` or `copy_trade`. Every one of them is
+        evaluated.
 
         `condition` is **not** opaque. It is parsed against the shape its
         `triggerType` requires and a payload that does not match is rejected
@@ -1232,8 +1233,10 @@ paths:
           `time_of_day`. An unbounded recurring schedule is refused.
         - `copy_trade`: `target_address` (string), plus optional `action`
           (`buy`/`sell`), `target_asset` and `min_size_usd`.
-        - `oi_change`: accepted and stored, but never evaluated, so it will not
-          fire.
+
+        `oi_change` was accepted here until it was retired. It was stored and
+        never evaluated, so arming one answered 201 for a trigger that could
+        not fire; it is now refused with 400 like any other unknown type.
 
         `executionOrder` is the order to place when the condition is met and is
         interpreted by the evaluator.
@@ -1623,6 +1626,15 @@ paths:
 
         Rates are quoted in **basis points** (1 bp = 0.01%).
 
+        The Hyperliquid rates are the wallet's on a validator-operated perp
+        and on a spot pair quoted in USDC that is not two stablecoins (the two schedules Hyperliquid states per wallet), with the referral discount
+        applied on top of them. Other markets charge a multiple of these: most
+        HIP-3 dexes double them, growth mode takes 90% off, a pair of two
+        stablecoins takes 80% off, and a HIP-4 outcome is charged on the spot
+        schedule when sold and not at all when bought. A market settling in
+        another token (USDH, USDT0, USDE) may be charged less again, if that
+        token has been voted an aligned quote asset.
+
         `effective = hyperliquid + builder fee − the rewards rebate on that
         fee`. The rebate accrues as claimable USDC rather than an on-chain
         discount, so a fill still costs `hyperliquid + builder` at the moment
@@ -1872,25 +1884,6 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ReadinessResponse'
-  /metrics:
-    get:
-      tags:
-      - Health
-      summary: Prometheus metrics
-      description: |
-        Prometheus text-format metrics in local/default mode. In OTLP mode this
-        returns `503` because metrics flow through the OpenTelemetry collector.
-      operationId: metrics
-      security: []
-      responses:
-        '200':
-          description: Prometheus text exposition format.
-          content:
-            text/plain:
-              schema:
-                type: string
-        '503':
-          description: Metrics disabled (OTLP mode).
 components:
   securitySchemes:
     ApiKeyHmac:
@@ -2640,9 +2633,14 @@ components:
           type: string
         vsTacticArrivalBps:
           type: string
-          description: Measured from this tactic's own arrival, not the intent's.
+          description: Measured from this tactic's own arrival, the mid when it started, not the intent's.
+            Absent where its start was not seen.
         vsMarketOrderBps:
           type: string
+        vsArrivalMarketOrderBps:
+          type: string
+          description: Vs one market order through Quote for what this tactic filled, swept across the
+            book when it started.
         makerFillPct:
           type: string
     IntentExecutionReport:
@@ -2692,25 +2690,32 @@ components:
         arrivalMid:
           type: string
           description: Mid at intent creation. Never back-filled. The raw mid; `totalShortfallBps` loads
-            it with the taker fee first.
+            it with the counterfactual fee first.
         totalShortfallBps:
           type: string
-          description: 'Measured from the intent''s arrival anchor loaded with the taker fee, against
-            the fee-adjusted `execVwap`: the same bases as `executionBps`, so fees sit inside both and
-            never inside `delayBps`.'
+          description: 'Measured from the intent''s arrival anchor loaded with the fee rate its tactics''
+            own benchmarks were priced at (their size-weighted counterfactual rate), against the fee-adjusted
+            `execVwap`: the same bases as `executionBps`, so fees sit inside both and never inside `delayBps`.
+            Absent when no tactic recorded that rate.'
         executionBps:
           type: string
-          description: Measured from each tactic's own arrival.
+          description: 'Measured from each tactic''s own arrival, the mid when it started: the tactics''
+            `vsTacticArrivalBps`, size-weighted. Absent when no tactic has one.'
         delayBps:
           type: string
           description: 'Total minus execution: the drift between committing to the trade and a tactic
             starting. Reported separately so waiting cannot read as good execution.'
         vsMarketOrderBps:
           type: string
+        vsArrivalMarketOrderBps:
+          type: string
+          description: 'The tactics'' `vsArrivalMarketOrderBps`, size-weighted: the market order the algo
+            was chosen over, drift while working included.'
         vsHlNativeTwapBps:
           type: string
-          description: Estimated against a taker-only native TWAP, crediting the taker fee our maker share
-            avoided.
+          description: 'Estimated against Hyperliquid''s native TWAP, a taker-only schedule placed on
+            the venue itself: the tactics'' size-weighted `vsMarketDirectBps`, which charges each fill''s
+            sweep the venue''s taker rate and no builder fee. Absent when no tactic recorded it.'
         makerFillPct:
           type: string
         totalFees:
@@ -2797,6 +2802,11 @@ components:
           type: string
         filledQty:
           type: string
+          nullable: true
+          description: 'Size filled so far. While the order is active or paused it is read from the fills
+            recorded for it, which can trail the venue by a few minutes, and it is null when those fills
+            could not be read: the fill is unknown, not zero. Once the order is completed, cancelled or
+            failed it is the size it closed with, and never null.'
         status:
           type: string
         strategy:
@@ -2878,13 +2888,42 @@ components:
       properties:
         vsArrivalBps:
           type: string
+          description: 'Vs the size-weighted mid at each fill, loaded with the same fee as `vsMarketBps`:
+            the mid at the fill, not at the order''s start (that is `vsInitialArrivalBps`).'
         vsArrivalUsd:
+          type: string
+        vsInitialArrivalBps:
+          type: string
+          description: Vs the mid before the first fill, loaded like `vsArrivalBps`. Absent where the
+            run's start was not seen (older runs, runs resumed after a restart) and while the counterfactual
+            fee is unknown.
+        vsInitialArrivalUsd:
+          type: string
+        vsArrivalMarketOrderBps:
+          type: string
+          description: 'Vs one market order through Quote for what filled, swept across the book before
+            the first fill: the order the algo was chosen over, drift while working included. Also absent
+            when that book was too thin for the size.'
+        vsArrivalMarketOrderUsd:
+          type: string
+        vsArrivalMarketDirectBps:
+          type: string
+          description: The same order placed directly on Hyperliquid (taker only).
+        vsArrivalMarketDirectUsd:
           type: string
         vsMarketBps:
           type: string
-          description: 'Vs a simulated same-size market-order sweep of the book at each slice: the spread-capture
-            benchmark.'
+          description: 'Vs a simulated same-size market-order sweep of the book at each slice, placed
+            through Quote: the sweep pays the venue''s taker rate for this wallet on this market plus
+            Quote''s builder fee. The spread-capture benchmark.'
         vsMarketUsd:
+          type: string
+        vsMarketDirectBps:
+          type: string
+          description: 'Vs the same sweep placed directly on Hyperliquid: the taker rate alone, so Quote''s
+            builder fee counts against the algo. Can disagree in sign with `vsMarketBps`. Absent on runs
+            recorded before it existed, whose `vsMarketBps` charged a flat 4.5 bps and no builder fee.'
+        vsMarketDirectUsd:
           type: string
         vsVwapBps:
           type: string
@@ -2917,8 +2956,9 @@ components:
                   the summary `execVwap`, which the last sample equals.'
               arrivalVwap:
                 type: string
-                description: 'Size-weighted mid at each fill so far, loaded with the taker fee: the anchor
-                  `vsArrivalBps` is measured against. Absent until a fill has carried a mid.'
+                description: 'Size-weighted mid at each fill so far, loaded with the same fee as `vsMarketBps`:
+                  the anchor `vsArrivalBps` is measured against. Absent until a fill has carried a mid,
+                  and while that fee is still unknown.'
               marketVwap:
                 type: string
                 description: The market's own VWAP as it stood at this fill. The last sample carries the
@@ -3272,12 +3312,18 @@ components:
           nullable: true
         triggerType:
           type: string
-          description: 'Known type: price, copy_trade, funding, oi_change, time.'
+          description: 'Known type: price, copy_trade, funding, time.'
         condition:
           type: object
           additionalProperties: true
-          description: Condition payload for this `triggerType`. Validated on create; fields are snake_case.
-            See the endpoint description for the shape each type requires.
+          description: |-
+            Condition payload for this `triggerType`. Validated on create; fields are snake_case. See the endpoint description for the shape each type requires.
+
+            A `price` condition may carry an optional `sustained_for_secs` (a dwell, meaning the level must have HELD for that long rather than merely been reached). Only with `gt`/`lt`, a whole number of minutes, 120-86400s, and shorter than the trigger's own expiry. The window is measured on the venue's traded prices while the fire is confirmed on the live mark. Rejected when sustained conditions are not enabled for the environment.
+
+            A `funding` condition may carry one too, and its bounds differ because the series does. Funding is published hourly, so the window is a whole number of HOURS, from 7200s (two prints, the shortest window that says more than the current rate does) to 1800000s (500 hours, a little under 21 days, which is what one page of funding history holds). Every comparison the condition accepts has a dwell reading, and every expected print must be present: a funding print is published on the venue's schedule whether or not the market traded, so a missing one is a failed read rather than a quiet market.
+
+            A recurring `time` condition may carry a `gate`, which is a MANDATE ("while BTC is below 80k, keep buying $500/hour"). The gate is a `price` or `funding` condition (and may itself carry `sustained_for_secs`). A period whose gate is closed is skipped WITHOUT spending an execution, so `max_executions` stays a budget of fills, which is why a gated schedule requires `until` or `expiresAt`.
           example:
             trigger_asset: HYPE
             comparison: lt
@@ -3285,7 +3331,8 @@ components:
         executionOrder:
           type: object
           additionalProperties: true
-          description: Opaque execution-order payload.
+          description: |
+            Opaque execution-order payload. `order_type` is one of `market`, `limit`, `passive_twap` or `strategy`; a `strategy` order carries `strategy` (an algo name) and `strategy_params`.
         expiresAt:
           type: string
           format: date-time
@@ -3558,9 +3605,15 @@ components:
         hlSlippage:
           type: number
           format: double
+          description: |
+            Price only: what the simulated market-order sweep paid over the
+            mids at our fills. Its fees are `hlFees`.
         quoteSlippage:
           type: number
           format: double
+          description: |
+            Price only: what our fills paid over the mids at each fill. Its
+            fees are `quoteFees`, counted there and only there.
         hlFees:
           type: number
           format: double
@@ -3667,19 +3720,24 @@ components:
           type: number
           format: double
           nullable: true
-          description: Net perp taker rate, with tier, staking, and referral applied.
+          description: 'Net taker rate on a validator-operated perp: the volume tier and staking discount
+            Hyperliquid reports, with the referral discount applied on top.'
         makerBps:
           type: number
           format: double
           nullable: true
+          description: Net maker rate on a validator-operated perp, on the same basis. Negative is a rebate,
+            which the referral discount does not touch.
         spotTakerBps:
           type: number
           format: double
           nullable: true
+          description: Net taker rate on a spot pair quoted in USDC that is not two stablecoins.
         spotMakerBps:
           type: number
           format: double
           nullable: true
+          description: Net maker rate on a spot pair quoted in USDC that is not two stablecoins.
         volumeTier:
           type: integer
           nullable: true
@@ -3706,6 +3764,8 @@ components:
         referralDiscountPct:
           type: number
           format: double
+          description: HL referral discount as a percent off HL fees (4.0 = 4% off), already applied to
+            the rates above.
     QuoteFees:
       type: object
       required:
