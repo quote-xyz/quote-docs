@@ -4,14 +4,17 @@
 The backend spec (quote-backend/docs/openapi.yaml) documents the full API and
 is the source of truth. The public reference is curated:
 
-- Non-trading surfaces are excluded (Quentin/NL-order, the Parallel news
-  pipeline, the daily quote).
-- The MCP connector endpoints are excluded; the docs site's MCP tab covers
-  them.
-- The Relay bridge proxy is excluded.
+- Only the operations in PUBLISHED_OPERATIONS are published, so an endpoint the
+  backend adds stays out of the reference until someone lists it here. Left
+  out: the terminal's own surfaces (Quentin/NL-order, news, the daily quote,
+  company and crypto reference data, the journal, its panels, and the
+  terminal-session-only endpoints for API keys, invites, referrals, wallets and
+  profile), the MCP connector (the docs site's MCP tab covers it), the Relay
+  bridge proxy, shadow-only venue routing, the algo diagnostics timeline
+  (execution micro-mechanics), and `/metrics`, which the API host does not
+  serve.
 - The reference is API-key only. Privy is a terminal-internal credential, so
-  the PrivyBearer scheme, the terminal-session-only endpoints (API-key
-  management, invites and referrals), and every mention of Privy are removed.
+  the PrivyBearer scheme and every mention of Privy are removed.
 
 This script owns those rules so re-syncing never reintroduces anything.
 
@@ -26,103 +29,70 @@ from pathlib import Path
 
 import yaml
 
-EXCLUDED_PATHS = [
-    # Non-trading surfaces
-    "/api/nl-order",
-    "/api/nl-order-dev",
-    "/api/news",
-    "/api/webhooks/parallel",
-    "/api/quotes/daily",
-    # Stored fundamentals for an underlying: reference data, not a trading
-    # operation, and unauthenticated. Same reason news and the daily quote are
-    # excluded.
-    "/api/companies/{ticker}",
-    # Terminal surfaces. These are documented in the backend spec because the
-    # app calls them and the frontend's conformance check pins against it, but
-    # they are not an integration surface: the journal is the coaching layer's
-    # own store, and the rest back panels the terminal renders.
-    "/api/journal",
-    "/api/journal/consent",
-    "/api/journal/trades",
-    "/api/analytics/fills",
-    "/api/compliance/status",
-    "/api/geo/status",
-    "/api/markets/depth-compare",
-    "/api/markets/liquidity",
-    # MCP connector (documented in the MCP tab)
-    "/mcp",
-    "/.well-known/oauth-protected-resource",
-    "/.well-known/oauth-authorization-server",
-    "/oauth/register",
-    "/oauth/authorize",
-    "/oauth/token",
-    "/api/mcp/tools",
-    "/api/mcp/guide",
-    "/api/mcp/dispatch",
-    # Bridge proxy
-    "/api/bridge/quote",
-    # Terminal-session (Privy) only; not callable with an API key
-    "/api/keys",
-    "/api/keys/{key_id}",
-    "/api/invites",
-    "/api/invites/redeem",
-    "/api/invites/status",
-    "/api/referrals/invites",
-    "/api/referrals/summary",
-    # Routing is SHADOW ONLY. `RoutingMode::Off` is the default and there is no
-    # `Live` variant at all, so nothing is routed anywhere and `route_decisions`
-    # is empty unless an environment opts in. The savings endpoint says as much
-    # itself ("nothing is acted on: the order goes where it always went"), and
-    # the two prefs endpoints set an opt-out for execution that cannot happen.
-    # Publishing them would document a surface that answers nothing.
-    "/api/routing/savings",
-    "/api/routing/venues",
-    "/api/routing/venues/{venue}",
-    # The redacted `wake`-frame timeline. AGENTS.md: execution micro-mechanics
-    # (state machines, repricing thresholds, timing, anti-detection) are never
-    # published, and this is that projection by definition. It also documents
-    # itself as best-effort research data.
-    "/api/orders/algo/{order_id}/diagnostics",
-    # MCP has its own tab, and the un-suffixed `/.well-known/oauth-protected-
-    # resource` is already excluded below; the list simply never matched this
-    # one.
-    "/.well-known/oauth-protected-resource/mcp",
-    # Unauthenticated reference data rather than a trading operation, which is
-    # the reason `/api/companies/{ticker}` is excluded above. The tokenomics
-    # snapshot is explicitly the same contract one asset class over, and
-    # `/summary` is the companies endpoint's lighter twin.
-    "/api/crypto/{symbol}/tokenomics",
-    "/api/companies/{ticker}/summary",
-    # The asset page's order-book block, a terminal surface like the
-    # `depth-compare` and `liquidity` panels excluded above.
-    "/api/markets/book-depth",
-    # Both answer `403` to every API-key caller, so an API-key-only reference
-    # documenting them would describe a surface no reader of it can reach.
-    # They are also the two paths that broke this script: their `PrivyBearer`
-    # security entries and their "Privy identity" / "Privy token" prose are not
-    # what the replacement lists above rewrite, so the curation guard in main()
-    # failed and NOTHING was written. Excluding the path removes all of it at
-    # once, which is why the other terminal-only endpoints are excluded rather
-    # than reworded.
-    "/api/account/wallets",
-    "/api/account/profile",
-]
-EXCLUDED_TAGS = [
-    # Every path carrying these is excluded above, so the tag itself would
-    # publish a section header and a description for a surface with nothing
-    # under it. "Routing" is the one that matters: its description advertises
-    # "counterfactual multi-venue routing" as a feature of the API.
-    "Routing",
-    "Account",
-    "Crypto",
-    "NL Order",
-    "News",
-    "Companies",
-    "MCP Connector",
-    "Bridge",
-    "API Keys",
-    "Invites & Referrals",
-]
+METHODS = ("get", "post", "put", "patch", "delete")
+
+PUBLISHED_OPERATIONS = {
+    # Orders
+    "POST /api/orders",
+    "POST /api/orders/cancel",
+    "POST /api/orders/cancel-all",
+    "POST /api/orders/cancel-batch",
+    "POST /api/orders/simulate",
+    "GET /api/orders/urgency-preview",
+    "GET /api/orders/algo/{order_id}/fills",
+    "POST /api/orders/algo/{order_id}/speed-up",
+    "POST /api/orders/modify",
+    "GET /api/orders/algo",
+    "GET /api/orders/algo/{order_id}",
+    "GET /api/orders/by-client-id/{client_order_id}",
+    # Agents
+    "POST /api/agents",
+    "GET /api/agents",
+    "POST /api/agents/register",
+    "POST /api/agents/builder-approval",
+    "POST /api/agents/accept-terms",
+    # Positions
+    "POST /api/account/mode",
+    "POST /api/positions/tpsl",
+    "POST /api/positions/leverage",
+    "POST /api/positions/margin",
+    "POST /api/positions/transfer",
+    # Templates
+    "GET /api/templates",
+    "POST /api/templates",
+    "GET /api/templates/{template_id}",
+    "PUT /api/templates/{template_id}",
+    "DELETE /api/templates/{template_id}",
+    # Triggers
+    "GET /api/triggers",
+    "POST /api/triggers",
+    "GET /api/triggers/{trigger_id}",
+    "DELETE /api/triggers/{trigger_id}",
+    "GET /api/triggers/{trigger_id}/history",
+    # Quests
+    "GET /api/quests",
+    "POST /api/quests/quote",
+    "POST /api/quests/badges/{key}/seen",
+    # Analytics
+    "GET /api/trade-intents",
+    "GET /api/trade-intents/{id}",
+    "GET /api/analytics/execution",
+    "GET /api/analytics/execution/timeline",
+    "GET /api/analytics/volume",
+    "GET /api/analytics/fees",
+    "GET /api/fees/summary",
+    # Funding
+    "GET /api/funding",
+    "GET /api/funding/timeline",
+    "GET /api/funding/history",
+    # Portfolio
+    "GET /api/portfolio/equity",
+    "GET /api/portfolio/equity/latest",
+    # Health
+    "GET /api/info",
+    "GET /health",
+    "GET /ready",
+}
 
 # Prose fixups for the top-level description (which otherwise references
 # excluded endpoints or the terminal-internal Privy credential).
@@ -160,7 +130,7 @@ DESCRIPTION_REPLACEMENTS = [
         "    `/api/news`, and `/api/webhooks/parallel`. The root probes `/health`,\n"
         "    `/ready`, and `/metrics` are unauthenticated.",
         "Routes under `/api/*` require authentication, except the public\n"
-        "    `/api/info`. The root probes `/health`, `/ready`, and `/metrics` are\n"
+        "    `/api/info`. The root probes `/health` and `/ready` are\n"
         "    unauthenticated.",
     ),
 ]
@@ -176,46 +146,23 @@ GLOBAL_TEXT_REPLACEMENTS = [
     # not silently stop matching.
     ("Privy session", "terminal session"),
     ("Privy-session only", "terminal-session only"),
+    # `/metrics` is served on an internal port, not the API host.
+    ("Liveness/readiness probes, info, and Prometheus metrics.",
+     "Liveness and readiness probes, and API info."),
 ]
 
 # Applied as regexes to every string, after the literal replacements above.
 #
-# The public docs never use em dashes (see the docs AGENTS.md style rules), but
-# the backend spec is written without that constraint, so each one has to be
-# rewritten into a colon, a comma, or two sentences depending on what the
-# sentence is doing. Patterns are anchored on a few distinctive words either
-# side and treat whitespace as `\\s+`, so re-wrapping the source line does not
-# stop them matching. If the em dash guard in main() fails, add a rule here.
+# The public docs never use em dashes (see the docs AGENTS.md style rules), so
+# each one the backend spec carries is rewritten into a colon, a comma,
+# parentheses or two sentences, depending on what the sentence is doing.
+# Whitespace is `\\s+` because these are YAML blocks, where a re-wrapped source
+# line puts a line break mid-phrase. If the em dash guard in main() fails, add
+# a rule here.
 GLOBAL_REGEX_REPLACEMENTS = [
-    (r"`code: HL_NOT_FUNDED`\s*—\s*deposit", "`code: HL_NOT_FUNDED`. Deposit"),
-    (r"badges/\{key\}/seen`\s*—\s*use it", "badges/{key}/seen`. Use it"),
-    (r"published ladder\s*—\s*treat", "published ladder. Treat"),
-    (r"published ladder\s*—\s*unknown", "published ladder: unknown"),
-    (r"Attribution only\s*—\s*never", "Attribution only, never"),
-    (r"still accrues\s*—\s*referred", "still accrues: referred"),
-    (r"Present once earned\s*—\s*the completion", "Present once earned: the completion"),
-    (r"taker rate\s*—\s*tier, staking", "taker rate, with tier, staking"),
-    (r"\*\*sell\*\* rate\s*—\s*see", "**sell** rate: see"),
-    (r"Other strategies ignore it\s*—\s*use", "Other strategies ignore it: use"),
-    # Whitespace is `\\s+`: these are YAML folded blocks, so a line break lands
-    # mid-phrase and a literal space silently stops matching.
-    (r"unmodelled\s+here\s*—\s*modelling", "unmodelled here, since modelling"),
-    (r"asked\s+and\s+answered\s*—\s*outside", "asked and answered: outside"),
-    # These five were already in the source spec and had no rules, so this
-    # script exited 1 and wrote nothing. A sync that fails writes no partial
-    # output, which is the safe direction, but it also means the published
-    # reference silently stopped tracking the spec: the trigger `condition`
-    # schema it serves is one nobody can successfully POST (QUO-40).
-    (r"socket\s+streams\s+live\s*—\s*the same projection\s*—\s*so",
-     "socket streams live, the same projection, so"),
-    (r"before\s+rendering\s+the\s+totals\*\*\s*—\s*see the field",
-     "before rendering the totals**. See the field"),
-    (r"`metrics`\s+and\s+`calendar`\s*—\s*who the company",
-     "`metrics` and `calendar`: who the company"),
-    (r"often\s*—\s*the trade page's About panel\s*—\s*and it is",
-     "often, on the trade page's About panel, and it is"),
-    (r"No\s+snapshot\s+for\s+this\s+ticker\s*—\s*the sweep",
-     "No snapshot for this ticker: the sweep"),
+    (r"not\s+two\s+stablecoins\s*—\s*the\s+two\s+schedules\s+Hyperliquid\s+states"
+     r"\s+per\s+wallet\s*—\s*with",
+     "not two stablecoins (the two schedules Hyperliquid states per wallet), with"),
 ]
 
 APIKEY_SCHEME_DESCRIPTION = """\
@@ -353,9 +300,32 @@ def main() -> None:
 
     spec = yaml.safe_load(source.read_text())
 
-    for path in EXCLUDED_PATHS:
-        spec["paths"].pop(path, None)
-    spec["tags"] = [t for t in spec.get("tags", []) if t["name"] not in EXCLUDED_TAGS]
+    operations = {
+        f"{method.upper()} {path}"
+        for path, item in spec["paths"].items()
+        for method in item
+        if method in METHODS
+    }
+    missing = sorted(PUBLISHED_OPERATIONS - operations)
+    if missing:
+        sys.exit(
+            "error: PUBLISHED_OPERATIONS lists operations the backend spec does not have:\n"
+            + "\n".join(f"    {op}" for op in missing)
+        )
+    for path, item in list(spec["paths"].items()):
+        for method in [m for m in item if m in METHODS]:
+            if f"{method.upper()} {path}" not in PUBLISHED_OPERATIONS:
+                del item[method]
+        if not any(m in METHODS for m in item):
+            del spec["paths"][path]
+    published_tags = {
+        tag
+        for item in spec["paths"].values()
+        for method, op in item.items()
+        if method in METHODS
+        for tag in op.get("tags", [])
+    }
+    spec["tags"] = [t for t in spec.get("tags", []) if t["name"] in published_tags]
     schemas = spec.get("components", {}).get("schemas", {})
     pruned = prune_unreachable_schemas(spec, schemas)
 
@@ -412,6 +382,9 @@ def main() -> None:
         fail("adaptive_is mention survived curation", text, "adaptive_is")
     if "—" in text:
         fail("em dash in generated spec; add a GLOBAL_REGEX_REPLACEMENTS rule", text, "—")
+    if "Prometheus" in text:
+        fail("Prometheus mention survived curation; /metrics is not on the API host",
+             text, "Prometheus")
 
     # GitBook's own UI duplicated the spec into .gitbook/assets and repointed
     # every endpoint page at that copy (GITBOOK-71). It is the file the site
@@ -423,7 +396,10 @@ def main() -> None:
 
     check_pages_reference_a_written_spec(repo_root, {target, served})
 
-    print(f"wrote {target} and {served} ({len(spec['paths'])} paths, {len(schemas)} schemas)")
+    print(
+        f"wrote {target} and {served} ({len(PUBLISHED_OPERATIONS)} of {len(operations)} "
+        f"operations, {len(schemas)} schemas)"
+    )
 
 
 if __name__ == "__main__":

@@ -1,5 +1,5 @@
 ---
-description: Liveness/readiness probes, info, and Prometheus metrics.
+description: Liveness and readiness probes, and API info.
 ---
 
 # Health
@@ -19,11 +19,5 @@ description: Liveness/readiness probes, info, and Prometheus metrics.
 ## Readiness probe
 
 {% openapi src="../../.gitbook/assets/openapi.yaml" path="/ready" method="get" %}
-[openapi.yaml](../../.gitbook/assets/openapi.yaml)
-{% endopenapi %}
-
-## Prometheus metrics
-
-{% openapi src="../../.gitbook/assets/openapi.yaml" path="/metrics" method="get" %}
 [openapi.yaml](../../.gitbook/assets/openapi.yaml)
 {% endopenapi %}

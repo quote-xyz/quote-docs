@@ -5,7 +5,8 @@ GitBook renders each operation from an OpenAPI block that points at the spec
 file in this repo. This script writes one page per OpenAPI tag, with one block
 per operation, so the reference tracks the spec instead of being hand-kept.
 
-Run it after scripts/sync-openapi.py, then add any new page to SUMMARY.md.
+Run it after scripts/sync-openapi.py, then add any new page to SUMMARY.md. A
+page whose tag is no longer published is deleted.
 
 Usage:
     scripts/gen-endpoint-pages.py
@@ -75,10 +76,11 @@ def main() -> None:
         entries.append((name, page.relative_to(REPO), len(ops)))
         print(f"wrote {page.relative_to(REPO)} ({len(ops)} operations)")
 
-    stale = [p for p in OUT.glob("*.md") if p.name not in written]
-    for p in stale:
-        print(f"warning: {p.relative_to(REPO)} no longer matches a tag; delete it and its "
-              "SUMMARY.md entry")
+    for p in OUT.glob("*.md"):
+        if p.name not in written:
+            p.unlink()
+            print(f"deleted {p.relative_to(REPO)}: its tag is no longer published; remove "
+                  "any SUMMARY.md entry for it")
 
     print("\nSUMMARY.md entries for these pages:")
     for name, page, _ in entries:
