@@ -106,6 +106,7 @@ EXCLUDED_PATHS = [
     # than reworded.
     "/api/account/wallets",
     "/api/account/profile",
+    "/api/account/type",
 ]
 EXCLUDED_TAGS = [
     # Every path carrying these is excluded above, so the tag itself would
@@ -216,6 +217,8 @@ GLOBAL_REGEX_REPLACEMENTS = [
      "often, on the trade page's About panel, and it is"),
     (r"No\s+snapshot\s+for\s+this\s+ticker\s*—\s*the sweep",
      "No snapshot for this ticker: the sweep"),
+    (r"two\s+stablecoins\s*—\s*the\s+two\s+schedules\s+Hyperliquid\s+states\s+per\s+wallet\s*—\s*with",
+     "two stablecoins (the two schedules Hyperliquid states per wallet), with"),
 ]
 
 APIKEY_SCHEME_DESCRIPTION = """\
