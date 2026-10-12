@@ -10,6 +10,12 @@ description: Order submission, cancellation, modification, and algo-order status
 [openapi.yaml](../../.gitbook/assets/openapi.yaml)
 {% endopenapi %}
 
+## Submit limit orders on one market as one action
+
+{% openapi src="../../.gitbook/assets/openapi.yaml" path="/api/orders/batch" method="post" %}
+[openapi.yaml](../../.gitbook/assets/openapi.yaml)
+{% endopenapi %}
+
 ## Cancel a single order
 
 {% openapi src="../../.gitbook/assets/openapi.yaml" path="/api/orders/cancel" method="post" %}
