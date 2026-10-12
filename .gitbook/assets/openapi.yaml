@@ -125,6 +125,57 @@ paths:
           $ref: '#/components/responses/RateLimited'
         '503':
           $ref: '#/components/responses/ServiceUnavailable'
+  /api/orders/batch:
+    post:
+      tags:
+      - Orders
+      summary: Submit limit orders on one market as one action
+      description: |
+        Place up to 100 limit orders on one market and side (a scale ladder)
+        as a single signed Hyperliquid `order` action.
+
+        **Auth:** API-key scope:
+        `orders:write`.
+
+        One request against the order rate limit and one venue action,
+        instead of one of each per order. Every order gets an outcome in
+        `results`, in request order, and `placed` and `failed` partition that
+        list: an order the venue refuses (for example under $10 notional) is
+        `success: false` with its `error`, and the call is still a `200`.
+
+        An error status means the whole action failed. A `502`
+        `VENUE_UNREACHABLE` may have placed some or all orders; resolve each
+        `clientOrderId` before re-sending, as for `POST /api/orders`.
+
+        Same prerequisites as `POST /api/orders`. Direct accounts only: a
+        Prime account's batch is refused with a `400`; place its orders one
+        at a time through `POST /api/orders`.
+      operationId: submitOrdersBatch
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SubmitOrdersBatchRequest'
+      responses:
+        '200':
+          description: One outcome per order. A partial refusal is still a 200.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SubmitOrdersBatchResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+        '502':
+          $ref: '#/components/responses/BadGateway'
+        '503':
+          $ref: '#/components/responses/ServiceUnavailable'
   /api/orders/cancel:
     post:
       tags:
@@ -909,7 +960,13 @@ paths:
       - Positions
       summary: Update leverage
       description: |
-        Sign and submit an `updateLeverage` action via the agent wallet.
+        On Quote Direct, sign and submit an `updateLeverage` action via the agent wallet.
+
+        On Quote Prime, hold the member's positions in `symbol` at `leverage` in Quote's own
+        margin; nothing is signed, and the pooled account's leverage at the venue is unchanged.
+        `leverage` runs from 1 to the entry gate's cap on that market, `isCross` must be `true`,
+        and lowering it on a held position is refused (400) when the account would no longer
+        cover the position's initial margin. Later orders must cover that initial margin too.
 
         **Auth:** API-key scope: `positions:write`.
       operationId: updateLeverage
@@ -1750,12 +1807,29 @@ paths:
       - Funding
       summary: Funding history
       description: |
-        Detailed per-event funding log over a time range, newest-first.
+        Detailed per-event funding log over a time range, newest-first: one entry per coin per
+        funding hour from 28 Jul 2025, one per coin per UTC day before that.
 
         **Auth:** API-key scope: `orders:read`.
       operationId: fundingHistory
       parameters:
       - $ref: '#/components/parameters/AnalyticsRange'
+      - name: limit
+        in: query
+        required: false
+        description: Maximum entries returned. Default 1000, clamped to 1..5000.
+        schema:
+          type: integer
+          minimum: 1
+          maximum: 5000
+      - name: before
+        in: query
+        required: false
+        description: Only entries strictly older than this epoch-ms timestamp; pass the previous page's
+          oldest to page back.
+        schema:
+          type: integer
+          format: int64
       responses:
         '200':
           description: Funding events, newest-first.
@@ -1970,6 +2044,12 @@ components:
   responses:
     BadRequest:
       description: Invalid request (validation error, malformed body/UUID, etc.).
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    Conflict:
+      description: The request conflicts with the account's current state; the message says what.
       content:
         application/json:
           schema:
@@ -2334,6 +2414,95 @@ components:
           type: array
           items:
             type: string
+    BatchOrderLeg:
+      type: object
+      required:
+      - size
+      - limitPrice
+      properties:
+        size:
+          type: string
+          description: Base-asset size as a decimal string.
+        limitPrice:
+          type: string
+        clientOrderId:
+          type: string
+          nullable: true
+          description: Your own id for this order, unique per order. One is assigned when omitted and
+            echoed in its result.
+    SubmitOrdersBatchRequest:
+      type: object
+      required:
+      - symbol
+      - side
+      - orders
+      properties:
+        symbol:
+          type: string
+          example: ETH
+        side:
+          $ref: '#/components/schemas/Side'
+        reduceOnly:
+          type: boolean
+          nullable: true
+          default: false
+        timeInForce:
+          allOf:
+          - $ref: '#/components/schemas/TimeInForce'
+          nullable: true
+          description: Defaults to GTC.
+        orders:
+          type: array
+          minItems: 1
+          maxItems: 100
+          items:
+            $ref: '#/components/schemas/BatchOrderLeg'
+    BatchOrderResult:
+      type: object
+      required:
+      - success
+      properties:
+        success:
+          type: boolean
+        orderId:
+          type: string
+          description: Venue order id, when the order rests or filled.
+        status:
+          type: string
+        clientOrderId:
+          type: string
+        fill:
+          type: object
+          description: What the order filled at, when it filled on arrival.
+          required:
+          - size
+          - avgPrice
+          properties:
+            size:
+              type: string
+            avgPrice:
+              type: string
+        error:
+          type: string
+          description: Why the venue refused this order. Present only when `success` is false.
+    SubmitOrdersBatchResponse:
+      type: object
+      required:
+      - placed
+      - failed
+      - results
+      properties:
+        placed:
+          type: integer
+          description: Orders the venue accepted.
+        failed:
+          type: integer
+          description: Orders the venue refused.
+        results:
+          type: array
+          description: One entry per requested order, in request order.
+          items:
+            $ref: '#/components/schemas/BatchOrderResult'
     CancelOrderRequest:
       type: object
       required:
@@ -3382,7 +3551,7 @@ components:
               - usd
               default: absolute
               description: |
-                `usd` converts `size` to base units when the trigger fires, at `limit_price` when set, else at the mark, rounded down to the market's size step, so each fire of a recurring trigger spends the same amount. A `usd` size must be at least $11, and a spot or outcome order, or an `iceberg` strategy, is sized in the asset.
+                `usd` converts `size` to base units when the trigger fires, at `limit_price` when set, else at the mark, rounded down to the market's size step, so each fire of a recurring trigger spends the same amount. A `usd` size must be at least $11 plus one size step at the mark, and a market sell $11 over its 5% slippage; an order worth under $10 at the price it is sent at when it fires fails the trigger. A spot or outcome order, or an `iceberg` strategy, is sized in the asset.
             order_type:
               type: string
               enum:
@@ -4015,16 +4184,14 @@ components:
         coin:
           type: string
         usdc:
-          type: number
-          format: double
-          description: Signed USDC delta (HL convention; + received, − paid).
+          type: string
+          description: Signed USDC delta as a decimal string (HL convention; + received, − paid).
         szi:
-          type: number
-          format: double
-          description: Signed position size at funding time.
+          type: string
+          description: Signed position size at funding time, as a decimal string.
         fundingRate:
-          type: number
-          format: double
+          type: string
+          description: Hourly funding rate as a decimal string; a day's average on a day-compacted entry.
     EquityPoint:
       type: object
       required:
