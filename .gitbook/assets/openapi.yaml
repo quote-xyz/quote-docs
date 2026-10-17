@@ -147,9 +147,7 @@ paths:
         `VENUE_UNREACHABLE` may have placed some or all orders; resolve each
         `clientOrderId` before re-sending, as for `POST /api/orders`.
 
-        Same prerequisites as `POST /api/orders`. Direct accounts only: a
-        Prime account's batch is refused with a `400`; place its orders one
-        at a time through `POST /api/orders`.
+        Same prerequisites as `POST /api/orders`.
       operationId: submitOrdersBatch
       requestBody:
         required: true
@@ -960,13 +958,7 @@ paths:
       - Positions
       summary: Update leverage
       description: |
-        On Quote Direct, sign and submit an `updateLeverage` action via the agent wallet.
-
-        On Quote Prime, hold the member's positions in `symbol` at `leverage` in Quote's own
-        margin; nothing is signed, and the pooled account's leverage at the venue is unchanged.
-        `leverage` runs from 1 to the entry gate's cap on that market, `isCross` must be `true`,
-        and lowering it on a held position is refused (400) when the account would no longer
-        cover the position's initial margin. Later orders must cover that initial margin too.
+        Sign and submit an `updateLeverage` action via the agent wallet.
 
         **Auth:** API-key scope: `positions:write`.
       operationId: updateLeverage
@@ -1299,10 +1291,7 @@ paths:
         never evaluated, so arming one answered 201 for a trigger that could
         not fire; it is now refused with 400 like any other unknown type.
 
-        `executionOrder` is the order to place when the condition is met. On
-        Quote Prime it is placed through the pooled account, and what the pool
-        cannot place (a resting reduce-only order, a reduce-only algo, a limit
-        take-profit or stop-loss) is refused with 400.
+        `executionOrder` is the order to place when the condition is met.
 
         **Auth:** API-key scope: `orders:write`.
       operationId: createTrigger
@@ -3576,7 +3565,7 @@ components:
               allOf:
               - $ref: '#/components/schemas/TpslParams'
               description: |
-                Attached when the order is placed, closing what it fills. Market and limit orders only, and never on a reduce-only order; on Quote Prime only `market` mode.
+                Attached when the order is placed, closing what it fills. Market and limit orders only, and never on a reduce-only order.
         expiresAt:
           type: string
           format: date-time
