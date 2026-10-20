@@ -843,8 +843,8 @@ paths:
       summary: Register an agent wallet with Hyperliquid
       description: |
         Submit a signed `approveAgent` action to Hyperliquid for the caller's
-        agent. The signature is produced client-side over the agent address and
-        nonce.
+        agent. The signature is produced client-side over the agent address,
+        the `agentName` returned by `POST /api/agents`, and the nonce.
 
         **Auth:** API-key scope: `agents:write`.
       operationId: registerAgent
@@ -1640,7 +1640,9 @@ paths:
       - Analytics
       summary: Quote-routed fees
       description: |
-        Exchange + builder fees paid on Quote-routed fills over a time range.
+        Exchange + builder fees paid on Quote-routed fills over a time range,
+        summed over every wallet of the caller's account like
+        `/api/analytics/volume`.
 
         **Auth:** API-key scope: `orders:read`.
       operationId: analyticsFees
@@ -3251,6 +3253,10 @@ components:
           type: boolean
         agentAddress:
           type: string
+        agentName:
+          type: string
+          description: The `agentName` to sign in `approveAgent`. Hyperliquid replaces a wallet's agent
+            of the same name, so each Quote deployment has its own.
         error:
           type: string
     RegisterAgentRequest:
@@ -3259,7 +3265,6 @@ components:
       - agentAddress
       - signature
       - nonce
-      - agentName
       properties:
         agentAddress:
           type: string
@@ -3270,8 +3275,6 @@ components:
           type: integer
           format: int64
           description: Nonce used when signing (timestamp in milliseconds).
-        agentName:
-          type: string
     RegisterAgentResponse:
       type: object
       required:
@@ -3312,9 +3315,13 @@ components:
       type: object
       required:
       - success
+      - walletAddress
       properties:
         success:
           type: boolean
+        walletAddress:
+          type: string
+          description: The wallet this answer is for (the request's active wallet).
         agentAddress:
           type: string
         createdAt:
