@@ -105,8 +105,13 @@ EXCLUDED_PATHS = [
     # once, which is why the other terminal-only endpoints are excluded rather
     # than reworded.
     "/api/account/wallets",
+    "/api/account/wallets/{address}",
+    "/api/account/wallets/{address}/archive",
     "/api/account/profile",
     "/api/account/type",
+    # Signed-in people only (terminal session or linked phone), like the other
+    # invite and referral endpoints above.
+    "/api/referrals/claim",
 ]
 EXCLUDED_TAGS = [
     # Every path carrying these is excluded above, so the tag itself would

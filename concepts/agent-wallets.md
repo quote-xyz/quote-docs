@@ -42,16 +42,17 @@ Quote generates a fresh agent keypair server-side. The private key is encrypted 
 {% step %}
 #### Approve on Hyperliquid
 
-Your master wallet signs an `approveAgent` action over the agent address and a nonce (a millisecond timestamp). The terminal handles this signature; then submits it to Hyperliquid.
+Your master wallet signs an `approveAgent` action over the agent address, the agent name returned at creation (`agentName`), and a nonce (a millisecond timestamp). The terminal handles this signature, then submits it to Hyperliquid.
 
 ```json
 {
   "agentAddress": "0x…",
   "signature": "0x…",
-  "nonce": 1752402000000,
-  "agentName": "quote-terminal"
+  "nonce": 1752402000000
 }
 ```
+
+Hyperliquid replaces a wallet's existing agent of the same name, so approving again under the same name swaps the old agent out.
 {% endstep %}
 
 {% step %}
