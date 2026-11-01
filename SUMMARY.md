@@ -29,6 +29,7 @@
 
 ## Your account
 
+* [Subaccounts](account/subaccounts.md)
 * [Fees](account/fees.md)
 * [Rewards Tiers](account/rewards-tiers.md)
 * [Referrals](account/referrals.md)
