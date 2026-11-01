@@ -21,9 +21,3 @@ description: Liveness/readiness probes, info, and Prometheus metrics.
 {% openapi src="../../.gitbook/assets/openapi.yaml" path="/ready" method="get" %}
 [openapi.yaml](../../.gitbook/assets/openapi.yaml)
 {% endopenapi %}
-
-## Prometheus metrics
-
-{% openapi src="../../.gitbook/assets/openapi.yaml" path="/metrics" method="get" %}
-[openapi.yaml](../../.gitbook/assets/openapi.yaml)
-{% endopenapi %}

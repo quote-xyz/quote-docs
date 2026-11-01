@@ -108,7 +108,7 @@ Some endpoints are gated to Privy sessions and return `403` for API-key callers 
 
 ## Public endpoints
 
-A small read-only group requires no authentication (per-IP rate limited): `/api/info` and the root probes `/health`, `/ready`, `/metrics`. Everything else under `/api/*` requires auth.
+A small read-only group requires no authentication (per-IP rate limited): `/api/info` and the root probes `/health` and `/ready`. Everything else under `/api/*` requires auth.
 
 ## MCP connector auth
 

@@ -1,12 +1,12 @@
 ---
-description: Explore the ultra-performant execution stack for CLOBs.
+description: A 24/7 prime brokerage for onchain markets, built on Hyperliquid.
 cover: ../.gitbook/assets/Quote Docs.png
 coverY: 0
 ---
 
 # Welcome to Quote
 
-Quote is a modular execution stack for CLOBs, transforming uninformed trading flow into informed at-source by optimizing trading execution around market microstructure. Trades are routed through an ultra-performant execution engine vertically specialized on HyperCore that limits spread crossing, adverse selection, lowers fees, and reduces overall trade slippage.
+Quote is a prime brokerage that never closes. It gives any trader what a prime broker gives an institution: execution algorithms, transaction-cost analysis and access to every market on one account, 24 hours a day, seven days a week. Trades are routed through an execution engine built for HyperCore that limits spread crossing and adverse selection, lowers fees and reduces slippage.
 
 {% hint style="info" %}
 Quote is in **private Alpha,** and access is invite-only, through an invite code, the Telegram whitelist, or a partner program. See [Access and Restrictions](../account/access-and-restrictions.md).
@@ -23,13 +23,13 @@ The engine minimizes implementation shortfall, the cost of completing a trade, b
 
 ## The problem
 
-Most CLOB (Central Limit Order Book) traders overpay to trade. A market order crosses the spread, pays taker fees, and moves the price against itself. A large one also tells the whole book what you are doing, and the book adjusts before you finish. On most venues, the tools that solve this, execution algorithms and transaction-cost analysis, are sold to institutions and denied to everyone else.
+Most traders overpay to trade. A market order crosses the spread, pays taker fees, and moves the price against itself. A large one also tells the whole book what you are doing, and the book adjusts before you finish. On most venues, the tools that solve this, execution algorithms and transaction-cost analysis, are sold to institutions through prime brokers and denied to everyone else.
 
 Four costs do most of the damage: crossing the spread, slippage and adverse selection, exchange fees, and having no access to professional execution.
 
 ## How it works
 
-Quote was built from first principles, pairing established algorithmic execution logic with a data engine built for HyperCore's data streams. The result is a permissionless trading desk: institutional execution available to anyone, drawing on Hyperliquid's liquidity.
+Quote was built from first principles, pairing established algorithmic execution logic with a data engine built for HyperCore's data streams. The result is a permissionless prime brokerage: institutional execution, open to anyone around the clock, drawing on Hyperliquid's liquidity.
 
 1. **You keep custody.** Trading happens through an [agent wallet](../concepts/agent-wallets.md), a separate key that can sign orders for your account but can never withdraw funds. You approve it once on Hyperliquid, and Quote stores its key encrypted at rest.
 2. **You submit intent, Quote executes.** A plain order goes straight to the venue. An algo order becomes a parent strategy that the engine works over time, slicing it into child orders based on market microstructure. See [Order Lifecycle](../concepts/order-lifecycle.md).
@@ -44,7 +44,7 @@ Orders are routed to Hyperliquid through builder codes, which is what keeps the 
 | [Execution strategies](../strategies/overview.md)   | `passive_twap`, `vwap`, `iceberg`, `participation_rate`, `chase_limit`                |
 | [Plain orders](../guides/placing-orders.md)         | Limit, market (IOC with slippage bound), TP/SL attachment, modify, cancel, cancel-all |
 | [Conditional triggers](../guides/triggers.md)       | Fire an order on price, funding, open-interest, copy-trade, or time conditions        |
-| [Order templates](../guides/templates.md)           | Save and reuse execution presets with urgency and price-discipline dials              |
+| [Order templates](../guides/templates.md)           | Save how an order is worked and reuse it across orders                                |
 | [Execution analytics](../guides/analytics.md)       | Implementation shortfall, slippage, fees, funding, and portfolio equity time-series   |
 | [MCP server](../mcp/overview.md)                    | Read-only analytics for AI agents over the Model Context Protocol                     |
 | [Real-time telemetry](../websockets/algo-status.md) | WebSocket stream of live strategy progress                                            |
@@ -53,7 +53,7 @@ Orders are routed to Hyperliquid through builder codes, which is what keeps the 
 
 ## Markets
 
-Quote trades everything listed on Hyperliquid: spot tokens, crypto perpetuals (`BTC`, `ETH`, `HYPE`, …), builder-DEX equities and commodities (`xyz:HOOD`, `xyz:CL`, …), and HIP-4 prediction markets.
+Quote trades spot tokens, crypto perpetuals (`BTC`, `ETH`, `HYPE`, …) and builder-DEX equities and commodities (`xyz:HOOD`, `xyz:CL`, …). These markets trade 24/7, including equities and commodities outside their home exchange's hours, and so does Quote.
 
 ## Where to go next
 

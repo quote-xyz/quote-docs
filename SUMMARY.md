@@ -71,6 +71,7 @@
 * [Positions](api-reference/endpoints/positions.md)
 * [Templates](api-reference/endpoints/templates.md)
 * [Triggers](api-reference/endpoints/triggers.md)
+* [Alerts](api-reference/endpoints/alerts.md)
 * [Quests](api-reference/endpoints/quests.md)
 * [Analytics](api-reference/endpoints/analytics.md)
 * [Funding](api-reference/endpoints/funding.md)

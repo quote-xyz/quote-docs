@@ -27,5 +27,5 @@ Hyperliquid's contract specifications are simpler than most venues. There are a 
 The venue rules that do shape your orders are covered in [Hyperliquid Constraints](hyperliquid-constraints.md): minimum notional, price and size precision, post-only rejection, and how market orders actually work.
 
 {% hint style="info" %}
-Quote trades everything Hyperliquid lists, not only perpetuals: builder-DEX equities and commodities such as `xyz:HOOD` and `xyz:CL`, and HIP-4 prediction markets. Those follow their own conventions, in particular around trading hours for equities.
+Quote trades more than perpetuals: spot, and builder-DEX equities and commodities such as `xyz:HOOD` and `xyz:CL`. Those follow their own conventions, in particular around trading hours for equities.
 {% endhint %}
