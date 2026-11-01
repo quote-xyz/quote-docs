@@ -22,7 +22,7 @@ A template saves how an order is worked, never what it trades. It holds a strate
 ```
 {% endcode %}
 
-Every `ticket` field is optional. A field you leave out keeps whatever the order already has when you apply the template. Unknown fields are ignored.
+The ticket uses the terminal's order-ticket names (`twap`, `vwap`, `pov`, `iceberg`, `chase`, and so on), not the order API's strategy names, so map them when you build an order. Every `ticket` field is optional. A field you leave out keeps whatever the order already has when you apply the template. Unknown fields are ignored.
 
 Names are unique per wallet regardless of case, so saving under an existing name replaces that template. A wallet holds at most 12 templates; saving a thirteenth name returns `409`.
 

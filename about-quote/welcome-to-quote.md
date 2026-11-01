@@ -6,7 +6,7 @@ coverY: 0
 
 # Welcome to Quote
 
-Quote is a prime brokerage that never closes. It gives any trader what a prime broker gives an institution: execution algorithms, transaction-cost analysis and access to every market on one account, 24 hours a day, seven days a week. Trades are routed through an execution engine built for HyperCore that limits spread crossing and adverse selection, lowers fees and reduces slippage.
+Quote is a prime brokerage that never closes. It gives any trader what a prime broker gives an institution: execution algorithms, transaction-cost analysis, and crypto, equities and commodities on one account, 24 hours a day, seven days a week. Trades are routed through an execution engine built for HyperCore that limits spread crossing and adverse selection, lowers fees and reduces slippage.
 
 {% hint style="info" %}
 Quote is in **private Alpha,** and access is invite-only, through an invite code, the Telegram whitelist, or a partner program. See [Access and Restrictions](../account/access-and-restrictions.md).
@@ -43,7 +43,7 @@ Orders are routed to Hyperliquid through builder codes, which is what keeps the 
 | --------------------------------------------------- | ------------------------------------------------------------------------------------- |
 | [Execution strategies](../strategies/overview.md)   | `passive_twap`, `vwap`, `iceberg`, `participation_rate`, `chase_limit`                |
 | [Plain orders](../guides/placing-orders.md)         | Limit, market (IOC with slippage bound), TP/SL attachment, modify, cancel, cancel-all |
-| [Conditional triggers](../guides/triggers.md)       | Fire an order on price, funding, open-interest, copy-trade, or time conditions        |
+| [Conditional triggers](../guides/triggers.md)       | Fire an order on price, funding, copy-trade, or time conditions                       |
 | [Order templates](../guides/templates.md)           | Save how an order is worked and reuse it across orders                                |
 | [Execution analytics](../guides/analytics.md)       | Implementation shortfall, slippage, fees, funding, and portfolio equity time-series   |
 | [MCP server](../mcp/overview.md)                    | Read-only analytics for AI agents over the Model Context Protocol                     |
