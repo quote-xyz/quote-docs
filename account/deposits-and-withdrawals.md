@@ -59,6 +59,8 @@ This is Hyperliquid margin behavior, not a Quote rule, and it is the single most
 
 ## Withdraw
 
+<figure><img src="../.gitbook/assets/withdraw-window.png" alt="The withdraw window, sending USDC to a wallet on Arbitrum"><figcaption></figcaption></figure>
+
 Click **Withdraw** and choose **To a wallet**. Pick the coin under **Withdraw** and the network it should leave on. The network decides how the money travels:
 
 * **USDC**, through Relay, to a wallet on another chain. Choose the chain and token it should arrive as, and the terminal quotes what will arrive before you sign.
