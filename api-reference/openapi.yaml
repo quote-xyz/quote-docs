@@ -62,9 +62,11 @@ tags:
 - name: Positions
   description: Leverage, margin, and spot/perp transfer actions.
 - name: Templates
-  description: Saved order templates (CRUD).
+  description: Saved order templates (order-ticket presets).
 - name: Triggers
   description: Conditional triggers (CRUD + history).
+- name: Alerts
+  description: One-shot price and prediction-market probability alerts, delivered on Telegram.
 - name: Quests
   description: Tiered new-user quest progress and the favorite-quote submission.
 - name: Analytics
@@ -100,7 +102,10 @@ paths:
         **Prerequisites:** a registered agent wallet AND builder-fee approval
         on the caller's wallet. Quote requires the approval before it will
         trade for a wallet; submissions without it fail. Check
-        `builderFeeApproved` via `GET /api/agents` before trading.
+        `builderFeeApproved` via `GET /api/agents` before trading. An order
+        that can open exposure also needs the terms of service accepted in
+        the app (`403` otherwise); a `reduceOnly` order never asks, so a
+        position can always be closed.
       operationId: submitOrder
       requestBody:
         required: true
@@ -277,42 +282,6 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/CancelOrdersBatchResponse'
-        '400':
-          $ref: '#/components/responses/BadRequest'
-        '401':
-          $ref: '#/components/responses/Unauthorized'
-        '403':
-          $ref: '#/components/responses/Forbidden'
-        '429':
-          $ref: '#/components/responses/RateLimited'
-        '502':
-          $ref: '#/components/responses/BadGateway'
-        '503':
-          $ref: '#/components/responses/ServiceUnavailable'
-  /api/account/mode:
-    post:
-      tags:
-      - Positions
-      summary: Set the account margin mode
-      description: |
-        Switch the Hyperliquid account between standard, unified and
-        portfolio-margin mode.
-
-        **Auth:** API-key scope: `positions:write`.
-      operationId: setAccountMode
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/SetAccountModeRequest'
-      responses:
-        '200':
-          description: Mode applied.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/SetAccountModeResponse'
         '400':
           $ref: '#/components/responses/BadRequest'
         '401':
@@ -1059,13 +1028,13 @@ paths:
       - Templates
       summary: List order templates
       description: |
-        List the caller's saved order templates.
+        List the caller's saved order templates, oldest first.
 
         **Auth:** API-key scope: `templates:read`.
       operationId: listTemplates
       responses:
         '200':
-          description: List of templates.
+          description: The caller's templates.
           content:
             application/json:
               schema:
@@ -1081,22 +1050,23 @@ paths:
     post:
       tags:
       - Templates
-      summary: Create an order template
+      summary: Save an order template
       description: |
-        Create a saved order template. `urgency` and `priceDiscipline` must be
-        between 0 and 100.
+        Save `ticket` under `name`. A name is unique per wallet regardless of
+        case, so saving an existing name replaces that template. A wallet holds
+        at most 12 templates; saving a new name beyond that returns 409.
 
         **Auth:** API-key scope: `templates:write`.
-      operationId: createTemplate
+      operationId: saveTemplate
       requestBody:
         required: true
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/CreateTemplateRequest'
+              $ref: '#/components/schemas/SaveTemplateRequest'
       responses:
-        '201':
-          description: Template created.
+        '200':
+          description: The saved template.
           content:
             application/json:
               schema:
@@ -1107,82 +1077,17 @@ paths:
           $ref: '#/components/responses/Unauthorized'
         '403':
           $ref: '#/components/responses/Forbidden'
+        '409':
+          $ref: '#/components/responses/Conflict'
         '429':
           $ref: '#/components/responses/RateLimited'
         '503':
           $ref: '#/components/responses/ServiceUnavailable'
   /api/templates/{template_id}:
-    get:
-      tags:
-      - Templates
-      summary: Get a template
-      description: |
-        Fetch one of the caller's templates by id (UUID).
-
-        **Auth:** API-key scope: `templates:read`.
-      operationId: getTemplate
-      parameters:
-      - $ref: '#/components/parameters/TemplateId'
-      responses:
-        '200':
-          description: The template.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/TemplateResponse'
-        '400':
-          $ref: '#/components/responses/BadRequest'
-        '401':
-          $ref: '#/components/responses/Unauthorized'
-        '403':
-          $ref: '#/components/responses/Forbidden'
-        '404':
-          $ref: '#/components/responses/NotFound'
-        '429':
-          $ref: '#/components/responses/RateLimited'
-        '503':
-          $ref: '#/components/responses/ServiceUnavailable'
-    put:
-      tags:
-      - Templates
-      summary: Update a template
-      description: |
-        Update one of the caller's templates. Provided `urgency`/`priceDiscipline`
-        must be 0–100.
-
-        **Auth:** API-key scope: `templates:write`.
-      operationId: updateTemplate
-      parameters:
-      - $ref: '#/components/parameters/TemplateId'
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/UpdateTemplateRequest'
-      responses:
-        '200':
-          description: Template updated.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/TemplateResponse'
-        '400':
-          $ref: '#/components/responses/BadRequest'
-        '401':
-          $ref: '#/components/responses/Unauthorized'
-        '403':
-          $ref: '#/components/responses/Forbidden'
-        '404':
-          $ref: '#/components/responses/NotFound'
-        '429':
-          $ref: '#/components/responses/RateLimited'
-        '503':
-          $ref: '#/components/responses/ServiceUnavailable'
     delete:
       tags:
       - Templates
-      summary: Delete a template
+      summary: Delete an order template
       description: |
         Delete one of the caller's templates by id.
 
@@ -1191,12 +1096,8 @@ paths:
       parameters:
       - $ref: '#/components/parameters/TemplateId'
       responses:
-        '200':
+        '204':
           description: Template deleted.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/TemplateResponse'
         '400':
           $ref: '#/components/responses/BadRequest'
         '401':
@@ -1205,6 +1106,132 @@ paths:
           $ref: '#/components/responses/Forbidden'
         '404':
           $ref: '#/components/responses/NotFound'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+        '503':
+          $ref: '#/components/responses/ServiceUnavailable'
+  /api/alerts:
+    get:
+      tags:
+      - Alerts
+      summary: List price and probability alerts
+      description: |
+        The caller's active one-shot alerts. Alerts are delivered through the
+        Telegram account linked to the caller's account and belong to it, so
+        this list includes alerts set with the bot's `/alert` command. Without
+        a linked account the list is empty and `telegramLinked` is `false`;
+        prompt the user to link Telegram.
+
+        **Auth:** API-key scope: `account:read`.
+      operationId: listAlerts
+      responses:
+        '200':
+          description: Active alerts, oldest first.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AlertList'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+        '503':
+          $ref: '#/components/responses/ServiceUnavailable'
+    post:
+      tags:
+      - Alerts
+      summary: Create an alert
+      description: |
+        Create a one-shot alert that sends a Telegram message once the market
+        moves from where it is now to `target`, then stops. The direction is
+        taken from the live price at creation and returned in `direction`, so
+        a target already reached never fires on creation.
+
+        - A perpetual (`BTC`, `xyz:TSLA`) is watched by its mark price, and
+          `target` is a price.
+        - A prediction-market side (`#N`) is watched by its probability, the
+          side's mid, and `target` is a probability strictly between 0 and 1
+          (`0.3` for 30%). If its market settles before the target is reached,
+          the alert ends and the user is told so.
+
+        A market must have a live price when the alert is created; a halted
+        or delisted one is refused with `market_unpriced`.
+
+        **Auth:** API-key scope: `account:write`.
+      operationId: createAlert
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateAlertRequest'
+      responses:
+        '201':
+          description: Alert created.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Alert'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '422':
+          description: |
+            `code` says why:
+
+            | code | meaning |
+            |------|---------|
+            | `telegram_not_linked` | No Telegram account is linked; prompt the user to link one. |
+            | `market_unpriced` | The market has no live price right now (halted, delisted or not yet read). |
+            | `alert_target_reached` | The market is at `target` right now. |
+            | `alert_limit_reached` | The account already has 25 active alerts; cancel one first. |
+
+            A body that is not valid JSON for this schema, including one with
+            an unknown field such as `direction`, is also a 422, with a
+            plain-text body and no `code`.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+        '503':
+          $ref: '#/components/responses/ServiceUnavailable'
+  /api/alerts/{alert_id}:
+    delete:
+      tags:
+      - Alerts
+      summary: Cancel an alert
+      description: |
+        Cancel one of the caller's active alerts.
+
+        **Auth:** API-key scope: `account:write`.
+      operationId: cancelAlert
+      parameters:
+      - $ref: '#/components/parameters/AlertId'
+      responses:
+        '204':
+          description: Alert cancelled.
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '422':
+          description: '`code: telegram_not_linked`: no Telegram account is linked, so there are no alerts
+            to cancel.'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
         '429':
           $ref: '#/components/responses/RateLimited'
         '503':
@@ -1284,8 +1311,14 @@ paths:
           either `max_executions` (1-365) or `until`, and one of
           `interval_secs`, `weekdays` + `time_of_day`, or `day_of_month` +
           `time_of_day`. An unbounded recurring schedule is refused.
-        - `copy_trade`: `target_address` (string), plus optional `action`
+        - `copy_trade`: `target_address` (a `0x` + 40-hex wallet address;
+          anything else is refused with 400), plus optional `action`
           (`buy`/`sell`), `target_asset` and `min_size_usd`.
+
+        Arming a trigger asks what placing its order would: a registered agent (refused with 400 otherwise), and the terms of service accepted and no
+        compliance block or support pause (refused with 403). A trigger
+        already armed fires regardless of the terms, so a stop-loss still
+        protects a position.
 
         `oi_change` was accepted here until it was retired. It was stored and
         never evaluated, so arming one answered 201 for a trigger that could
@@ -1955,25 +1988,6 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ReadinessResponse'
-  /metrics:
-    get:
-      tags:
-      - Health
-      summary: Prometheus metrics
-      description: |
-        Prometheus text-format metrics in local/default mode. In OTLP mode this
-        returns `503` because metrics flow through the OpenTelemetry collector.
-      operationId: metrics
-      security: []
-      responses:
-        '200':
-          description: Prometheus text exposition format.
-          content:
-            text/plain:
-              schema:
-                type: string
-        '503':
-          description: Metrics disabled (OTLP mode).
 components:
   securitySchemes:
     ApiKeyHmac:
@@ -2004,6 +2018,14 @@ components:
         (**Settings → API Keys**). A key carries only the scopes granted at mint
         time.
   parameters:
+    AlertId:
+      name: alert_id
+      in: path
+      required: true
+      description: Alert UUID.
+      schema:
+        type: string
+        format: uuid
     TemplateId:
       name: template_id
       in: path
@@ -2126,7 +2148,9 @@ components:
             Specific codes carry more: `HL_NOT_FUNDED` (422 from
             `POST /api/agents/register`), `builder_fee_not_approved` (403,
             lowercase for historical reasons, carrying the fields needed to sign
-            `ApproveBuilderFee`), and the order-submission codes below.
+            `ApproveBuilderFee`), `account_suspended` (403 from every
+            authenticated endpoint once an operator suspends the account; stop
+            retrying and contact support), and the order-submission codes below.
 
             A **plain** order submission (`POST /api/orders` without `strategy`)
             additionally returns `disposition`, which says whether the order may
@@ -2281,6 +2305,13 @@ components:
         randomize:
           type: boolean
           nullable: true
+          description: Shorthand for `randomizePct` 20 (true) or 0 (false); takes precedence over it when
+            sent.
+        randomizePct:
+          type: integer
+          format: int64
+          nullable: true
+          description: Slice size and timing jitter in percent, 0–50. 0 runs deterministically.
         maxSlippageBps:
           type: string
           nullable: true
@@ -2598,28 +2629,6 @@ components:
           description: One entry per requested order. The three counts above partition this list exactly.
           items:
             $ref: '#/components/schemas/CancelOrderResult'
-    SetAccountModeRequest:
-      type: object
-      required:
-      - mode
-      properties:
-        mode:
-          type: string
-          enum:
-          - standard
-          - unifiedAccount
-          - portfolioMargin
-    SetAccountModeResponse:
-      type: object
-      required:
-      - success
-      properties:
-        success:
-          type: boolean
-        message:
-          type: string
-        error:
-          type: string
     SimulateOrderRequest:
       type: object
       required:
@@ -3380,117 +3389,108 @@ components:
         toPerp:
           type: boolean
           description: Transfer to perp (true) or to spot (false).
-    TemplateInfo:
+    OrderTemplate:
       type: object
       required:
       - id
       - name
-      - urgency
-      - priceDiscipline
+      - ticket
       - createdAt
       - updatedAt
       properties:
         id:
           type: string
+          format: uuid
         name:
           type: string
-        description:
-          type: string
-        icon:
-          type: string
-        urgency:
-          type: integer
-          format: int32
-        priceDiscipline:
-          type: integer
-          format: int32
-        parameters:
-          $ref: '#/components/schemas/StrategyParamsInput'
+        ticket:
+          $ref: '#/components/schemas/TemplateTicket'
         createdAt:
           type: string
           format: date-time
         updatedAt:
           type: string
           format: date-time
-    CreateTemplateRequest:
+    TemplateTicket:
+      type: object
+      description: |
+        How an order is worked, never what: no market, side or price. Every
+        field is optional; one left out leaves the ticket's own value when the
+        template is applied. Unknown fields are ignored.
+      properties:
+        strategy:
+          type: string
+          enum:
+          - limit
+          - market
+          - scale
+          - twap
+          - vwap
+          - pov
+          - iceberg
+          - chase
+        amountUsd:
+          type: string
+          description: Size in USD, a positive decimal.
+        timeInForce:
+          type: string
+          enum:
+          - GTC
+          - ALO
+          - IOC
+        priceProtection:
+          type: boolean
+        durationSecs:
+          type: integer
+          minimum: 0
+        maxDurationSecs:
+          type: integer
+          minimum: 0
+        targetRate:
+          type: string
+          description: Participation rate, percent of volume; a positive decimal.
+        skew:
+          type: integer
+          minimum: 0
+          maximum: 100
+          description: 0 front-loads, 50 is even, 100 back-loads.
+        chaseDeadlineSecs:
+          type: integer
+          minimum: 0
+        guaranteedCompletion:
+          type: boolean
+        completionSlippageBps:
+          type: string
+          description: A non-negative decimal.
+    SaveTemplateRequest:
       type: object
       required:
       - name
-      - urgency
-      - priceDiscipline
+      - ticket
       properties:
         name:
           type: string
-        description:
-          type: string
-          nullable: true
-        icon:
-          type: string
-          nullable: true
-        urgency:
-          type: integer
-          format: int32
-          description: 0–100.
-        priceDiscipline:
-          type: integer
-          format: int32
-          description: 0–100.
-        parameters:
-          allOf:
-          - $ref: '#/components/schemas/StrategyParamsInput'
-          nullable: true
-    UpdateTemplateRequest:
-      type: object
-      description: All fields optional; only provided fields are updated.
-      properties:
-        name:
-          type: string
-          nullable: true
-        description:
-          type: string
-          nullable: true
-        icon:
-          type: string
-          nullable: true
-        urgency:
-          type: integer
-          format: int32
-          nullable: true
-          description: 0–100.
-        priceDiscipline:
-          type: integer
-          format: int32
-          nullable: true
-          description: 0–100.
-        parameters:
-          allOf:
-          - $ref: '#/components/schemas/StrategyParamsInput'
-          nullable: true
+          minLength: 1
+          maxLength: 64
+          description: Trimmed before saving.
+        ticket:
+          $ref: '#/components/schemas/TemplateTicket'
     TemplateResponse:
       type: object
       required:
-      - success
+      - template
       properties:
-        success:
-          type: boolean
         template:
-          $ref: '#/components/schemas/TemplateInfo'
-        error:
-          type: string
+          $ref: '#/components/schemas/OrderTemplate'
     ListTemplatesResponse:
       type: object
       required:
-      - success
       - templates
       properties:
-        success:
-          type: boolean
         templates:
           type: array
           items:
-            $ref: '#/components/schemas/TemplateInfo'
-        error:
-          type: string
+            $ref: '#/components/schemas/OrderTemplate'
     CreateTriggerRequest:
       type: object
       required:
@@ -3648,6 +3648,66 @@ components:
           $ref: '#/components/schemas/TriggerInfo'
         error:
           type: string
+    CreateAlertRequest:
+      type: object
+      required:
+      - symbol
+      - target
+      additionalProperties: false
+      properties:
+        symbol:
+          type: string
+          description: A perpetual (`BTC`, `xyz:TSLA`) or a prediction-market side (`#1230`).
+        target:
+          type: string
+          description: |
+            Decimal (a JSON number is also accepted). A price for a perpetual;
+            a probability strictly between 0 and 1 for a `#N` side.
+    Alert:
+      type: object
+      required:
+      - id
+      - symbol
+      - direction
+      - target
+      - label
+      properties:
+        id:
+          type: string
+          format: uuid
+        symbol:
+          type: string
+        direction:
+          type: string
+          enum:
+          - above
+          - below
+          description: |
+            `above`: the alert fires once the market rises to `target`; it was
+            below when set. `below`: the reverse.
+        target:
+          type: string
+          description: Decimal; a probability for a `#N` side.
+        label:
+          type: string
+          nullable: true
+          description: |
+            A `#N` side's market and answer, as the terminal names them
+            ("2026/2027 UEFA Champions League winner: Barcelona"); `null` for
+            a perpetual, or when the name could not be read.
+    AlertList:
+      type: object
+      required:
+      - alerts
+      - telegramLinked
+      properties:
+        alerts:
+          type: array
+          items:
+            $ref: '#/components/schemas/Alert'
+        telegramLinked:
+          type: boolean
+          description: Whether a Telegram account is linked to deliver alerts to.
     ListTriggersResponse:
       type: object
       required:

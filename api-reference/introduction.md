@@ -4,7 +4,7 @@ description: Base URLs, conventions, and the error envelope. Read this before th
 
 # Trader API Reference
 
-This reference covers the trading surface: orders, agents, positions, templates, triggers, analytics, funding, portfolio, and the [algo status WebSocket](../websockets/algo-status.md). The [MCP server](../mcp/overview.md) is documented in its own section.
+This reference covers the trading surface: orders, agents, positions, templates, triggers, alerts, analytics, funding, portfolio, and the [algo status WebSocket](../websockets/algo-status.md). The [MCP server](../mcp/overview.md) is documented in its own section.
 
 ## Base URL
 

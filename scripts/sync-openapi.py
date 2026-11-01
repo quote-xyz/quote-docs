@@ -112,6 +112,31 @@ EXCLUDED_PATHS = [
     # Signed-in people only (terminal session or linked phone), like the other
     # invite and referral endpoints above.
     "/api/referrals/claim",
+    # Answers `503` unless the backend's `ACCOUNT_ABSTRACTION_TOGGLE_ENABLED`
+    # is on, and it is off in production.
+    "/api/account/mode",
+    # Served on the internal metrics port, never on api.quotemarkets.xyz.
+    "/metrics",
+    # The terminal's signed-in bootstrap: one read bundling the panels it
+    # renders at start-up, including Privy-session-only parts.
+    "/api/session",
+    # The send form's destination check, a terminal surface like
+    # `/api/compliance/status` above.
+    "/api/compliance/destination",
+    # Other venues. Every one needs Lighter, which `LIGHTER_ENABLED` leaves off
+    # in production, and routing is shadow only (see `/api/routing/*` above).
+    "/api/routing/preview",
+    "/api/markets/venue-book",
+    "/api/venues/holdings",
+    "/api/venues/history",
+    "/api/venues/lighter",
+    "/api/venues/lighter/leverage",
+    "/api/venues/lighter/fees",
+    "/api/venues/lighter/connection",
+    "/api/venues/lighter/connection/confirm",
+    "/api/venues/lighter/fee-approval",
+    "/api/venues/lighter/fee-approval/confirm",
+    "/api/venues/lighter/deposit-address",
 ]
 EXCLUDED_TAGS = [
     # Every path carrying these is excluded above, so the tag itself would
@@ -203,6 +228,13 @@ GLOBAL_REGEX_REPLACEMENTS = [
     (r"taker rate\s*—\s*tier, staking", "taker rate, with tier, staking"),
     (r"\*\*sell\*\* rate\s*—\s*see", "**sell** rate: see"),
     (r"Other strategies ignore it\s*—\s*use", "Other strategies ignore it: use"),
+    (r"League winner\s*—\s*Barcelona", "League winner: Barcelona"),
+    # The Prime account type is off in production.
+    (
+        r"would: a Direct account\s+needs a registered agent \(refused with 400 otherwise\), a Prime"
+        r" account\s+pool membership, and either one the terms",
+        "would: a registered agent (refused with 400 otherwise), and the terms",
+    ),
     # Whitespace is `\\s+`: these are YAML folded blocks, so a line break lands
     # mid-phrase and a literal space silently stops matching.
     (r"unmodelled\s+here\s*—\s*modelling", "unmodelled here, since modelling"),
@@ -279,6 +311,25 @@ def replace_everywhere(node, pairs, regex_pairs=()):
             node = re.sub(pattern, new, node)
         return node
     return node
+
+
+def drop_offvenue_fields(node):
+    """Remove every `venue` field that offers Lighter.
+
+    Lighter is off in production (`LIGHTER_ENABLED`), so the only value such a
+    field could take there is Hyperliquid, which is also what its absence means.
+    """
+    if isinstance(node, dict):
+        props = node.get("properties")
+        if isinstance(props, dict) and "lighter" in props.get("venue", {}).get("enum", []):
+            props.pop("venue")
+            if "venue" in node.get("required", []):
+                node["required"].remove("venue")
+        for value in node.values():
+            drop_offvenue_fields(value)
+    elif isinstance(node, list):
+        for value in node:
+            drop_offvenue_fields(value)
 
 
 def fail(message: str, text: str, needle: str) -> None:
@@ -373,6 +424,8 @@ def main() -> None:
     for prop in ("observationMode", "queueImproveThreshold", "distributionSkew"):
         strategy_props.pop(prop, None)
 
+    drop_offvenue_fields(spec)
+
     # The backend spec lists a localhost server for its own development. A
     # public reference has no use for it, and GitBook renders the server list
     # in the "test it" selector, where it is an invitation to call a machine
@@ -416,6 +469,10 @@ def main() -> None:
     # backend spec grows new mentions, extend the replacement lists above.
     if "Privy" in text or "privy" in text:
         fail("Privy mention survived curation; extend the replacement lists", text, "rivy")
+    # Lighter and the Prime account type are both off in production.
+    for needle in ("ighter", "Prime", "Direct account", "Direct order"):
+        if needle in text:
+            fail(f"{needle!r} survived curation; it is off in production", text, needle)
     if "adaptive_is" in text:
         fail("adaptive_is mention survived curation", text, "adaptive_is")
     if "—" in text:

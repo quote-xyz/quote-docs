@@ -25,7 +25,7 @@ The terminal prompts for both the first time you try to trade. You only do this 
 {% step %}
 #### Pick a market
 
-Use the symbol selector at the top of the form. Quote trades everything Hyperliquid lists: spot, perpetuals like `BTC` and `ETH`, builder-DEX equities and commodities like `xyz:HOOD`, and prediction markets.
+Use the symbol selector at the top of the form. Quote trades spot, perpetuals like `BTC` and `ETH`, and builder-DEX equities and commodities like `xyz:HOOD`.
 {% endstep %}
 
 {% step %}

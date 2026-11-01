@@ -1,21 +1,20 @@
 ---
 description: >-
-  Fire an order automatically when a price, funding, open-interest, copy-trade,
-  or time condition is met.
+  Fire an order automatically when a price, funding, copy-trade or time
+  condition is met.
 ---
 
 # Conditional Triggers
 
 <figure><img src="../.gitbook/assets/conditional.gif" alt=""><figcaption></figcaption></figure>
 
-Triggers are server-side conditions that submit an order for you when they fire. Unlike venue-native trigger orders, Quote triggers can watch conditions Hyperliquid cannot express: funding rates, open-interest changes, another wallet's trades, or the clock. The resulting order can be anything the [order API](placing-orders.md) accepts, including a full [algo strategy](algo-orders.md).
+Triggers are server-side conditions that submit an order for you when they fire. Unlike venue-native trigger orders, Quote triggers can watch conditions Hyperliquid cannot express: funding rates, another wallet's trades, or the clock. The resulting order can be anything the [order API](placing-orders.md) accepts, including a full [algo strategy](algo-orders.md).
 
 ## Trigger types
 
 | `price`      | An asset's price crosses a level   |
 | ------------ | ---------------------------------- |
 | `funding`    | A funding-rate condition is met    |
-| `oi_change`  | Open interest moves by a threshold |
 | `copy_trade` | A watched wallet trades            |
 | `time`       | A scheduled time arrives           |
 
