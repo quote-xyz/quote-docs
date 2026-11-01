@@ -8,7 +8,7 @@ coverY: 0
 
 # Welcome to Quote
 
-Quote is a prime brokerage that never closes. It gives any trader what a prime broker gives an institution: execution algorithms, transaction-cost analysis, and crypto, equities and commodities on one account, 24 hours a day, seven days a week. Trades are routed through an execution engine built for HyperCore that limits spread crossing and adverse selection, lowers fees and reduces slippage.
+Quote is a prime brokerage that never closes. It gives any trader what a prime broker gives an institution: execution algorithms, transaction-cost analysis, and crypto, equities and commodities on one account, 24 hours a day, seven days a week. Hyperliquid is Quote's first venue. Trades are routed through an execution engine built for HyperCore that limits spread crossing and adverse selection, lowers fees and reduces slippage.
 
 {% hint style="info" %}
 Quote is in **private Alpha,** and access is invite-only, through an invite code, the Telegram whitelist, or a partner program. See [Access and Restrictions](../account/access-and-restrictions.md).
