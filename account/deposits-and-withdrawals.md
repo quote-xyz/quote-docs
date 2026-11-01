@@ -13,7 +13,7 @@ There are four flows in the terminal, and they do different jobs:
 | Flow         | Moves funds                                    | Use it to                          |
 | ------------ | ---------------------------------------------- | ---------------------------------- |
 | **Deposit**  | A wallet, an exchange, a card or bank, or another of your accounts → your Hyperliquid balance | Fund your account to start trading |
-| **Withdraw** | Your Hyperliquid balance → another chain       | Take money off the venue           |
+| **Withdraw** | Your Hyperliquid balance → a wallet on another chain, HyperEVM, or another Hyperliquid address | Take money off the venue |
 | **Transfer** | Spot balance ↔ perps balance                   | Rebalance inside Hyperliquid       |
 | **Send**     | Your Hyperliquid balance → another address     | Pay someone directly in USDC       |
 
@@ -59,10 +59,21 @@ This is Hyperliquid margin behavior, not a Quote rule, and it is the single most
 
 ## Withdraw
 
-Withdrawing asks one question the deposit flow does not: **which balance the money comes from**.
+Click **Withdraw** and choose **To a wallet**. Pick the coin under **Withdraw** and the network it should leave on. The network decides how the money travels:
+
+* **USDC**, through Relay, to a wallet on another chain. Choose the chain and token it should arrive as, and the terminal quotes what will arrive before you sign.
+* **BTC, ETH, SOL, AVAX and XPL**, natively through Unit, to your address on that coin's own chain. Unit sets its own minimum and network fee, so very small amounts may not be processed.
+* **HyperCore**: sends the coin to another address on Hyperliquid, such as an exchange's deposit address. It stays on the venue.
+* **HyperEVM**: moves a token that has a HyperEVM counterpart from your Hyperliquid balance to the same address on HyperEVM. It needs a wallet that can sign on HyperEVM.
+
+A USDC withdrawal also asks **which balance the money comes from**:
 
 * **Perps**: your cross-margin balance. Only the withdrawable portion is available, so collateral backing open positions is excluded.
 * **Spot**: your spot USDC balance.
+
+{% hint style="warning" %}
+Check the destination address character by character. For a native withdrawal, confirm that the address is yours on that chain: some chains carry no checksum, so a typo cannot always be caught, and funds sent to the wrong address cannot be recovered.
+{% endhint %}
 
 ## Transfer between spot and perps
 
