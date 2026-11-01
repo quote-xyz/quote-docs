@@ -1,7 +1,7 @@
 ---
 description: >-
-  The 24/7 prime broker on Hyperliquid: execution algorithms, transaction-cost
-  analysis, and crypto, equities and commodities in one account.
+  The 24/7 prime broker: execution algorithms, transaction-cost analysis, and
+  crypto, equities and commodities in one account.
 cover: ../.gitbook/assets/Quote Docs.png
 coverY: 0
 ---
