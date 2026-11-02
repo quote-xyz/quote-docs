@@ -51,6 +51,10 @@ The percentage on each row is the provider's processing fee. The rate you are qu
 
 Where those methods are not offered, the window can fall back to **Credit card** and **Bank transfer**. A card purchase there arrives as USDC on Arbitrum: an embedded Quote wallet moves it to Hyperliquid automatically, while from your own wallet you bridge it under **Deposit crypto**. A bank transfer takes 1 to 3 business days and needs a one-time ID check.
 
+{% hint style="info" %}
+Bank transfer runs through Bridge, which decides by the home address you give in the ID check. It is not available in sanctioned jurisdictions (such as Cuba, Iran, North Korea, Russia and Syria), in Algeria, Burundi, China, Japan and Tunisia, or in New York State, and Bridge is not onboarding new users from South Korea. See Bridge's [supported countries list](https://apidocs.bridge.xyz/platform/customers/compliance/supported-countries-list) for every country.
+{% endhint %}
+
 ### Where a deposit goes if you are already in a position
 
 A deposit credits your perps balance, but that does not always mean it is available to trade. If you hold cross-margin positions with negative unrealized PnL, incoming funds are absorbed as collateral for those positions first. Your available balance can therefore rise by less than you deposited, or not at all.
