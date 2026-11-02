@@ -1,16 +1,16 @@
 # Access and Restrictions
 
-Quote is in **private Alpha**. Access is invite-only, and until that changes, you will need an invite wall before you can reach the application. This ensures that we scale infrastructure safely and gradually.
+Quote is in **private Alpha**. Access is invite-only, and until that changes, you pass an invite wall before you can reach the application. This ensures that we scale infrastructure safely and gradually.
 
 <figure><img src="../.gitbook/assets/screenshot_1.5x_postspark_2026-07-30_12-52-13.png" alt=""><figcaption></figcaption></figure>
 
 ### Invite codes
 
-Every existing user has a referral code, and it doubles as an invite. Ask someone already on Quote for theirs.
+Users earn invite codes as they trade. Ask someone already on Quote to share one.
 
 Enter it on the landing page. You can do this before connecting a wallet: the code is checked immediately and redeemed once you sign in, so the order of those two steps does not matter.
 
-Codes admit a limited number of people. A code whose seats are used up will tell you so rather than letting you through, and its owner has to earn another seat before it works again. Joining with a code also records you as that person's referral, which starts the [invited-user rebate](referrals.md#the-invited-user-rebate) on your own fees.
+Each code works once: it admits one person, and a code that has already been used tells you so rather than letting you through. Joining with someone's code also records you as their referral, which starts the [invited-user rebate](referrals.md#the-invited-user-rebate) on your own fees.
 
 ### The Telegram whitelist
 
@@ -50,7 +50,7 @@ Coming in through a program can carry a benefit into your account, such as a flo
 
 Join the waitlist with your email address. No wallet is needed.
 
-The waitlist puts you in the queue for when access opens up. If someone gives you a code in the meantime, use the code.
+The waitlist puts you in the queue. When you are admitted from it, you receive a single-use code by email, with a link that fills it in at the invite wall. If someone gives you a code in the meantime, use that.
 
 ## Compliance screening
 
@@ -69,4 +69,4 @@ The geofence is evaluated per request, so it applies to API clients as well as t
 
 ## After you are admitted
 
-Trading needs two one-time signatures from your main wallet, both taken in the terminal: registering an [agent wallet](../concepts/agent-wallets.md), and approving Quote's [builder fee](fees.md#the-quote-builder-fee). API keys cannot produce either signature, so complete onboarding in the terminal before integrating. Then [place your first trade](../guides/first-trade.md).
+Trading needs a balance of at least 5 USDC and two one-time signatures from your main wallet, both taken in the terminal: approving an [agent wallet](../concepts/agent-wallets.md), and approving Quote's [builder fee](fees.md#the-quote-builder-fee). API keys cannot produce either signature, so complete onboarding in the terminal before integrating. Then [place your first trade](../guides/first-trade.md).

@@ -8,77 +8,66 @@ description: >-
 
 <figure><img src="../.gitbook/assets/conditional.gif" alt=""><figcaption></figcaption></figure>
 
-Triggers are server-side conditions that submit an order for you when they fire. Unlike venue-native trigger orders, Quote triggers can watch conditions Hyperliquid cannot express: funding rates, another wallet's trades, or the clock. The resulting order can be anything the [order API](placing-orders.md) accepts, including a full [algo strategy](algo-orders.md).
-
-## Trigger types
-
-| `price`      | An asset's price crosses a level   |
-| ------------ | ---------------------------------- |
-| `funding`    | A funding-rate condition is met    |
-| `copy_trade` | A watched wallet trades            |
-| `time`       | A scheduled time arrives           |
+Triggers are conditions Quote watches for you. When one is met, Quote places your order. Unlike the venue's own trigger orders, Quote triggers can watch things Hyperliquid cannot express: funding rates, another wallet's trades, or the clock. The order a trigger places can be anything the order form can place, including a full [algo strategy](../strategies/overview.md).
 
 ## Creating a trigger
 
-{% code title="POST /api/triggers" %}
-```json
-{
-  "name": "ETH breakout entry",
-  "triggerType": "price",
-  "condition": {
-    "symbol": "ETH",
-    "direction": "above",
-    "price": "3500"
-  },
-  "executionOrder": {
-    "symbol": "ETH",
-    "side": "buy",
-    "size": "1.0",
-    "orderType": "market",
-    "slippageBps": 50
-  },
-  "expiresAt": "2026-08-01T00:00:00Z"
-}
-```
-{% endcode %}
+1. Set up the order in the order form as usual: market, side, size, and order type.
+2. Turn on **Trigger** and pick a trigger type.
+3. Configure the condition, then click **Create Trigger** and confirm.
 
-Returns `201` with the trigger (UUID `id`, `status: "active"`).
+Triggers are not available with **Scale** orders.
 
-* `condition` and `executionOrder` are JSON payloads interpreted by the trigger evaluator for the given `triggerType`; the shapes above follow the terminal's usage.
-* `expiresAt` is optional; an un-fired trigger flips to `expired` after it.
-* Scope: `orders:write` to create/cancel, `orders:read` to list/read.
+## Trigger types
 
-## Lifecycle
+| Type | Places the order when |
+| --- | --- |
+| **Price** | A market's price is above or below a level you set |
+| **Funding** | A market's funding rate is above or below a level you set |
+| **Wallet** | A wallet you name trades |
+| **Time** | A date and time you set arrives, once or on a schedule |
 
-```
-active ──fires──▶ triggered
-   │──you cancel──▶ cancelled
-   │──expiresAt───▶ expired
-   └──eval error──▶ failed
-```
+#### Price
 
-List with optional filtering:
+Pick the market to watch, **Above** or **Below**, and the price. The market you watch can be a different one from the market you trade. The form tells you if the condition would fire now.
 
-```bash
-GET /api/triggers?status=active&limit=50
-```
+Turn on **Require the level to hold** to fire only once the price has stayed past your level for a period you set, from 2 minutes to 24 hours in whole minutes. The hold is measured on traded prices from the moment you arm the trigger, and the fire is still confirmed on the live mark.
 
-Inspect one, or its full event history (evaluations, firing, order submission results):
+#### Funding
 
-```bash
-GET /api/triggers/{trigger_id}
-GET /api/triggers/{trigger_id}/history
-```
+Pick the market, **Above** or **Below**, and the rate. The form shows what the rate would come to over a year if it held.
 
-Cancel an active trigger:
+Turn on **Require the rate to hold** to fire only once the rate has stayed past your level for a number of hours. Funding is published hourly, so the window is a whole number of hours, from 2 to 500.
 
-```bash
-DELETE /api/triggers/{trigger_id}
-```
+#### Wallet
+
+Enter the wallet address to copy. You can limit it to the wallet's buys or its sells, and set a **Minimum size** so small trades are ignored.
+
+#### Time
+
+Pick a **Date** and **Time**, and a timezone. **Repeats** sets a schedule: hourly, daily, weekly, monthly or a custom cadence. A repeating trigger needs an end: after a number of executions (up to 365), or on a date.
+
+Turn on **Only while a market condition holds** to attach a price or funding condition to a schedule, for example "buy $500 every hour while BTC is below 80,000". A period in which the condition is false is skipped, and does not use up an execution.
+
+## Managing triggers
+
+Your triggers appear in the **Triggers** tab of the positions panel, with their condition and status. Cancel one there.
+
+A trigger is in one of these states:
+
+| State | Meaning |
+| --- | --- |
+| Active | Watching its condition |
+| Triggered | It fired and placed its order |
+| Canceled | You canceled it |
+| Expired | It reached its expiry without firing |
+| Failed | It could not place its order |
+
+To create and manage triggers over the API, see the [Triggers endpoints](../api-reference/endpoints/triggers.md).
 
 ## Semantics worth knowing
 
-* **One-shot.** A trigger fires once, submits its execution order, and moves to `triggered`. Recreate it if you want it re-armed.
-* **The order still has to pass.** When a trigger fires, the execution order goes through the normal order path: agent signing, venue constraints, minimum notional. A failed submission is recorded in the trigger's history.
-* **Triggers survive restarts.** They're durable server-side state, not a client session feature.
-* **Ownership.** Like everything else, triggers are [wallet-scoped](../concepts/wallet-scoped-api.md): you only ever see and manage your own.
+* **One-off triggers fire once.** A price, funding or wallet trigger fires once, places its order, and becomes **Triggered**. Create it again if you want it re-armed. A repeating time trigger stays active until it has used its executions or reached its end date.
+* **The order still has to pass.** When a trigger fires, its order goes through the normal order path: agent signing, venue constraints, minimum notional. A failed order is recorded in the trigger's history.
+* **Triggers survive restarts.** They are stored server-side, not in your browser, so they keep watching while you are away.
+* **Ownership.** Triggers belong to your wallet, and only you can see and manage them.

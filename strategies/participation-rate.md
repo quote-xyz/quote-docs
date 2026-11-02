@@ -8,50 +8,34 @@ description: >-
 
 <figure><img src="../.gitbook/assets/POV.gif" alt=""><figcaption></figcaption></figure>
 
-`participation_rate` (POV, percentage of volume) keys your execution to **live** market activity. It observes traded volume in real time and submits clips sized to keep you at a target fraction of it. Busy tape → you trade more; quiet tape → you slow down. This bounds your footprint as a share of the market rather than as a schedule.
+**POV** (percentage of volume) keys your execution to **live** market activity. It watches the volume that actually trades and places orders sized to keep you at a target share of it. When the tape is busy you trade more; when it is quiet you slow down. This bounds your footprint as a share of the market rather than as a schedule.
 
 <figure><img src="../.gitbook/assets/Quote Docs (3).png" alt=""><figcaption></figcaption></figure>
 
-## Example
+## Setting it up
 
-{% code title="POST /api/orders" %}
-```json
-{
-  "symbol": "ETH",
-  "side": "sell",
-  "size": "12",
-  "orderType": "limit",
-  "strategy": "participation_rate",
-  "params": {
-    "participationRate": "0.15",
-    "maxDurationSecs": 7200
-  }
-}
-```
-{% endcode %}
+Pick **POV** in the order type selector, then set:
 
-This targets 15% of observed ETH volume until 12 ETH is done or two hours elapse.
+| Setting | What it does |
+| --- | --- |
+| **Percent of volume** | Your target share of traded volume, from 1% to 50%. The default is 10% |
+| **Time limit** | How long the order may run. When it expires, any remainder is swept at market |
+| Randomization | Click to cycle between **no**, **light** and **strong** randomization of each order's size and timing |
 
-## Parameters
-
-| Parameter           | Type           | Default        | Description                                                              |
-| ------------------- | -------------- | -------------- | ------------------------------------------------------------------------ |
-| `participationRate` | decimal string | `0.10`         | Target fraction of observed market volume (e.g. `"0.15"` = 15%)          |
-| `maxDurationSecs`   | integer        | `3600`         | Hard stop; remaining size is left unexecuted after this                  |
-| `clipSizePct`       | decimal        | `5`            | Max single-clip size as a percent of total order size                    |
-| `passivePct`        | integer 0–100  | `80`           | Percent of each clip's life spent passive before the aggressive fallback |
-| `limitOffsetBps`    | decimal        | `0`            | Offset from the touch for passive placement                              |
-| `minIntervalMs`     | integer        | server default | Minimum spacing between clips                                            |
-| `reduceOnly`        | boolean        | `false`        | Clips only reduce an existing position                                   |
+The form estimates how long the order will take **to fill** at the rate you chose. If that runs past your time limit, it warns you that the remainder will be swept at market, so you can raise the rate or the limit and stay passive.
 
 ## Behavior notes
 
-* **Completion is volume-dependent.** If the market goes quiet, so do you. A strategy at 10% participation in a dead market may not finish inside `maxDurationSecs`. Check `filledQty` at terminal state.
-* **Rate vs. footprint.** Higher participation finishes faster but moves the market more. A common institutional range is 10–20%; above \~25% your own flow starts dominating the tape you're measuring.
-* Clips run the standard [passive → aggressive cycle](overview.md#the-passive-aggressive-cycle), so you're still capturing spread within the volume budget.
+* **Completion depends on volume.** If the market goes quiet, so do you. A low rate in a dead market can reach its time limit with much of the order left, and that remainder is then swept at market.
+* **Rate against footprint.** A higher rate finishes faster but moves the market more. Above roughly 25%, your own flow starts to dominate the tape you are measuring.
+* **No volume, no pacing.** If a market has no volume data, the order paces on time alone and its page tells you so.
+* Orders still run the standard [passive to aggressive cycle](overview.md#the-passive-aggressive-cycle), so you capture spread within the volume budget.
+* **You can speed it up.** While it runs, **Speed up 2×** on the **Algos** tab raises the participation rate.
+
+To submit a POV order over the API, see [Algo Orders](../guides/algo-orders.md#participation_rate).
 
 ## When to use something else
 
-* You must finish by a time regardless of volume → [Passive TWAP](passive-twap.md) with `guaranteedCompletion`.
-* You want the historical volume curve, not live tape → [VWAP](vwap.md).
-* Stealth matters more than pace → [Iceberg](iceberg.md) (which also supports a participation cap).
+* You must finish by a time regardless of volume: [Passive TWAP](passive-twap.md) with **Guarantee completion**.
+* You want the historical volume curve, not the live tape: [VWAP](vwap.md).
+* Stealth matters more than pace: [Iceberg](iceberg.md).

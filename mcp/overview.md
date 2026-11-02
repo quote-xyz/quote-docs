@@ -17,9 +17,9 @@ The MCP server is **strictly read-only**. Its tools fetch data (prices, books, a
 
 ## What agents can do with it
 
-- **Market research**: live prices, candles, order-book microstructure, funding history, market screeners, earnings, and prediction markets.
+- **Market research**: live prices, candles, order-book microstructure, funding history, market screeners, fundamentals, news, earnings, scheduled catalysts, and prediction markets.
 - **Pre-trade analysis**: estimate the cost of a trade or stress-test a position against the live book before you commit.
-- **Account review**: your execution-quality report, portfolio report, funding carry, triggers, and fee tier.
+- **Account review**: your execution-quality report, portfolio report, funding carry, triggers, algo orders, referral summary, and fee tier.
 
 See the [tools reference](tools.md) for the full catalog.
 
@@ -30,7 +30,7 @@ Access is governed by two scopes, granted during the OAuth consent flow:
 | Scope | Grants |
 |---|---|
 | `analytics:read` | Market-wide data; nothing about your account |
-| `account:read` | Your wallet's analytics: execution, portfolio, funding, triggers, fees |
+| `account:read` | Your wallet's analytics: execution, portfolio, funding, triggers, algo orders, referrals, fees |
 
 Two properties worth knowing:
 
@@ -47,6 +47,6 @@ Symbols are venue-prefixed, and common names are resolved for you (`"oil"` → `
 
 ## Conventions
 
-Execution analytics follow the platform-wide [benchmark convention](../guides/analytics.md#the-benchmark-convention): signed bps, **positive = worse**. Prices are live snapshots at call time and may differ slightly from the terminal's WebSocket-fed views.
+Execution analytics follow the platform-wide [benchmark convention](../api-reference/introduction.md#analytics-conventions): signed bps, **positive = worse**. Prices are live snapshots at call time and may differ slightly from the terminal's WebSocket-fed views.
 
 <table data-view="cards"><thead><tr><th></th><th></th><th data-hidden data-card-target data-type="content-ref"></th></tr></thead><tbody><tr><td><strong>Connect a client</strong></td><td>Claude, Claude Code, Cursor, and any Streamable-HTTP MCP client.</td><td><a href="connect.md">connect.md</a></td></tr><tr><td><strong>Tools reference</strong></td><td>Every tool, its scope, and what it returns.</td><td><a href="tools.md">tools.md</a></td></tr></tbody></table>

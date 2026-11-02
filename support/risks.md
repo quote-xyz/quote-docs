@@ -28,7 +28,7 @@ Two venue rules limit the damage on less liquid assets: open interest caps, and 
 
 ## Execution risk
 
-Working an order over time trades one risk for another. Passive execution captures spread but takes time, and price can move against you while it runs. Strategies without a completion guarantee, such as [Iceberg](../strategies/iceberg.md), may end unfilled or partly filled. Check `filledQty` at terminal state rather than assuming a strategy completed.
+Working an order over time trades one risk for another. Passive execution captures spread but takes time, and price can move against you while it runs. Strategies without a completion guarantee, such as [Iceberg](../strategies/iceberg.md), may end unfilled or partly filled. Check how much actually filled when an order ends, rather than assuming it completed.
 
 ## Custody
 

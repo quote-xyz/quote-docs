@@ -2,35 +2,34 @@
 
 <figure><img src="../.gitbook/assets/image (1).png" alt=""><figcaption></figcaption></figure>
 
-Every perpetual market on Quote carries a liquidity score: a live 0-to-10 measure of current execution conditions. Quote computes a weighted average of liquidity and order flow across all markets, so a score tells you how a market compares with every other market on the venue right now, not in absolute terms.
+Every perpetual market on Quote carries a liquidity score: a live 1-to-10 measure of what it costs to trade that market right now, ranked against every other perpetual on the venue. 10 is the cheapest tier to trade. The score tells you how a market compares with the rest of the venue at this moment, not how it compares with its own past.
 
 ### Where scores appear
 
-Scores sit in the **Liquidity** column of the market selector, alongside price, funding, volume, and open interest. Each score is shown to one decimal with a color-coded ring around the value: the ring stays green near the top of the scale and shifts as conditions deteriorate, so thin markets stand out before you open the order form.
+* **The market selector**, in the **Liquidity** column alongside price, funding, volume and open interest.
+* **The market header**, under **Liquidity**. Hover it to see the market's rank among all ranked assets, and whether it is cheaper or more expensive to trade than usual for this time of day.
+* **The Discover page**, whose **Liquidity** widget offers three views: **Movers** (how far each book sits from its own normal), **Ladder** (cheapest to cross, ranked across the venue) and **Mismatch** (where trading flow and book depth disagree).
 
-Scores update continuously as books and flow change. The number you see when you pick a market is the number the engine is working with at that moment.
+The color around a score encodes absolute cost, not rank, so two markets with the same score can still differ.
 
 ### What a score tells you
 
-* **10** is the best execution conditions on the venue right now: deep books and steady flow, where size can be worked with minimal impact.
-* **0** is the worst: thin, one-sided, or stale conditions where even small orders move the price.
-* Because the scale is relative to every other market on the venue, a score is a ranking, not an absolute grade. A 9 means the market is among the most liquid on the venue at this moment; it says nothing about how that compares with last week.
+* **10** is the cheapest tier to trade on the venue right now: deep books where size can be worked with little impact.
+* **1** is the most expensive: thin books where even small orders move the price.
+* Because the scale ranks every market against every other, a score is a ranking, not an absolute grade. A 9 means the market is among the cheapest to trade on the venue at this moment; it says nothing about how that compares with last week.
 
 A high score is not a guarantee of a good fill, and a low score is not a reason a strategy will fail. It is a snapshot of the backdrop your order will execute against.
 
 ### How scores are computed
 
-Each score blends two inputs across all markets:
+A score measures the cost of crossing the book: the round-trip spread you would pay to buy and sell a fixed amount at once, as Hyperliquid reports it for each perpetual. Scores cover perpetuals only. A market that trades in sessions, such as an equity or commodity, is scored only while its session is open.
 
-* **Liquidity**: the depth and resilience of the order book.
-* **Order flow**: the rate and balance of trading activity.
-
-The exact inputs and weights are engine internals and are deliberately not documented, for the same reason child-order mechanics are not: publishing them would make the measure gameable. See Strategies Overview for how the engine uses this kind of microstructure data during execution.
+The "usual" a market is compared with in the header is its own history at the same hour of day, so a market that is always quieter overnight is not flagged for it.
 
 ### Using scores
 
 * **Choosing a market.** When two markets would both express your view, the higher-scoring one will usually cost less to trade, especially at size.
-* **Sizing an order.** A strategy working a large order in a low-scoring market has less depth to hide in. Consider smaller size, a longer window, or a more passive execution strategy.
-* **Timing.** Scores move with conditions. A market that scores poorly mid-session may score well when its main trading hours come around, and a high score can decay fast in stressed markets. Check the score when you trade, not when you plan.
+* **Sizing an order.** A strategy working a large order in a low-scoring market has less depth to hide in. Consider smaller size, a longer window, or a more passive [execution strategy](../strategies/overview.md).
+* **Timing.** Scores move with conditions. A market that scores poorly at a quiet hour may score well when its main trading hours come round, and a high score can decay fast in stressed markets. Check the score when you trade, not when you plan.
 
-Scores describe conditions; they do not measure what your execution achieved. That is what Analytics is for: implementation shortfall, slippage, and fee benchmarks computed on your own fills.
+Scores describe conditions; they do not measure what your execution achieved. That is what [Analytics](../guides/analytics.md) is for: benchmarks, slippage and fees computed on your own fills.

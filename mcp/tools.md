@@ -26,15 +26,24 @@ GET /api/mcp/guide    # an operating guide written for agents (markdown)
 | `estimate_trade_cost` | Pre-trade cost estimate (spread + impact) for a hypothetical order |
 | `stress_test` | Liquidation/PnL stress scenarios against the live book |
 | `navigate_symbol` | Resolve a name/ticker to the canonical venue symbol |
+| `search_assets` | Find listed markets by what they are: underlying name, sector, or theme |
+| `get_fundamentals` | One market's fundamentals: market cap, supply, revenue and valuation ratios |
+| `get_contract_terms` | A trade[XYZ] (`xyz:`) market's contract terms and current oracle state |
+| `compare_markets` | How up to three perps moved against each other over 7 or 30 days |
+| `search_wire` | Quote's breaking-news wire, newest first, filterable by asset, phrase and time |
+| `get_catalysts` | Scheduled catalysts: token unlocks, macro events and commodity reports |
 
 ## Account tools (`account:read`)
 
 | Tool | What it returns |
 |---|---|
-| `get_execution_report` | Your execution quality: benchmarks, slippage, savings ([conventions](../guides/analytics.md#the-benchmark-convention)) |
+| `get_execution_report` | Your execution quality: benchmarks, slippage, savings ([conventions](../api-reference/introduction.md#analytics-conventions)) |
 | `get_portfolio_report` | Portfolio analytics: equity, PnL decomposition |
 | `get_funding_carry` | Funding economics of your current positions |
 | `list_triggers` | Your conditional triggers |
+| `get_algo_orders` | Your algo orders, with live progress on the ones still working |
+| `get_algo_order` | One algo order in depth: benchmarks, fees and child fills |
+| `get_order` | One order of any kind: fills, average price, maker share and fees |
 | `get_fee_info` | Your fee tier and builder-fee status |
 | `get_referral_summary` | Referral rewards and discount status |
 

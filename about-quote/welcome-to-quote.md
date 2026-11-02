@@ -43,7 +43,7 @@ Orders are routed to Hyperliquid through builder codes, which is what keeps the 
 
 | Capability                                          | Description                                                                           |
 | --------------------------------------------------- | ------------------------------------------------------------------------------------- |
-| [Execution strategies](../strategies/overview.md)   | `passive_twap`, `vwap`, `iceberg`, `participation_rate`, `chase_limit`                |
+| [Execution strategies](../strategies/overview.md)   | TWAP, VWAP, Iceberg, POV and Chase                                                    |
 | [Plain orders](../guides/placing-orders.md)         | Limit, market (IOC with slippage bound), TP/SL attachment, modify, cancel, cancel-all |
 | [Conditional triggers](../guides/triggers.md)       | Fire an order on price, funding, copy-trade, or time conditions                       |
 | [Order templates](../guides/templates.md)           | Save how an order is worked and reuse it across orders                                |

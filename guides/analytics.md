@@ -8,7 +8,7 @@ description: >-
 
 <figure><img src="../.gitbook/assets/screenshot_1.5x_postspark_2026-08-02_18-31-11.png" alt=""><figcaption></figcaption></figure>
 
-Quote measures every execution so you can hold the engine (and yourself) to account. All analytics endpoints are [wallet-scoped](../concepts/wallet-scoped-api.md), require `orders:read` for API-key callers, and take a common `range` query parameter: `1d`, `7d`, `30d`, or `all`.
+Quote measures every execution so you can hold the engine, and yourself, to account. You find the results in two places: each algo order's own page, and the analytics panel on your profile.
 
 ## The benchmark convention
 
@@ -17,99 +17,37 @@ All benchmark values are **signed basis points**:
 * **Positive = worse**: you paid more (buys) or received less (sells) than the benchmark.
 * **Negative = better**: you beat the benchmark.
 
-Three benchmarks are computed per execution:
+Three benchmarks are computed for every algo order:
 
 | Benchmark             | Question it answers                                                               |
 | --------------------- | --------------------------------------------------------------------------------- |
-| vs. **arrival price** | How much did price drift from when I decided to trade? (implementation shortfall) |
+| vs. **arrival price** | How far did price drift from when I decided to trade? (implementation shortfall) |
 | vs. **market VWAP**   | Did I beat the average trade in the market during my window?                      |
-| vs. **market order**  | What did working the order save me vs. sweeping the book immediately?             |
+| vs. **market order**  | What did working the order save me against sweeping the book at once?            |
 
-The "vs. market order" benchmark (a simulated L2 sweep at each fill time) is the most actionable: it isolates spread capture from market drift.
+The "vs. market order" benchmark (a simulated sweep of the book at each fill time) is the most actionable: it separates spread capture from market drift.
 
-## Execution quality
+## An algo order's page
 
-```bash
-GET /api/analytics/execution?range=7d
-```
+Open an order from the **Algos** tab of the positions panel to see its page. Alongside its progress, it shows:
 
-```json
-{
-  "isBps": -2.4,
-  "isSavingsDollars": 184.2,
-  "volumeTraded": 1250000.0,
-  "totalFills": 342,
-  "fillsAtOrBetterPct": 87.4,
-  "avgSlippageBps": 1.1
-}
-```
+* **Benchmarks**: your execution VWAP against **Arrival**, **Market VWAP** and **Market order**, in basis points and dollars. Where available, a TWAP is also compared with Hyperliquid's own native TWAP (**HL native TWAP**).
+* **Slippage vs arrival** and **Fees**, with the fee split into the venue's share and Quote's **Builder fee**.
+* **Execution vs plan**: cumulative fills against the planned trajectory.
+* **Markouts**: how the mid moved 1, 5 and 30 seconds after your fills. Here positive means the price moved in your favor. The **Maker only** view isolates resting fills, where persistently negative markouts mean your resting orders are being picked off.
+* **Cost to finish now**: what sweeping the live book for the unfilled remainder would cost.
 
-* `isBps`: notional-weighted implementation shortfall vs. arrival (negative = you beat arrival).
-* `isSavingsDollars`: dollars saved vs. naive market orders (positive = saved).
+## Your profile
 
-A time-bucketed view comparing cumulative naive-Hyperliquid cost vs. Quote's realized cost (slippage and fees split out):
+The analytics panel on your profile has four views:
 
-```bash
-GET /api/analytics/execution/timeline?range=30d
-```
+* **PnL**: your account value over time, shown as **Equity** or **PnL**, for perps alone or for all assets.
+* **Calendar**: profit and loss by day.
+* **Funding**: funding paid and received. Funding is synced from Hyperliquid into a per-wallet record.
+* **Heatmap**: your positions at a glance.
 
-## Volume and fees
+Deposits and withdrawals change your account value without being performance, so profit and loss is measured net of them.
 
-```bash
-GET /api/analytics/volume?range=30d   # { "cumulativeVolume": 1250000.0 }
-GET /api/analytics/fees?range=30d     # { "totalFee": 312.5, "builderFee": 25.0 }
-```
+## Over the API and MCP
 
-`totalFee` is exchange + builder fees on Quote-routed fills; `builderFee` breaks out Quote's [builder fee](../concepts/hyperliquid-constraints.md#builder-fee) so the platform's cut is always visible.
-
-## Funding
-
-Funding payments are synced from Hyperliquid into a durable per-wallet ledger.
-
-```bash
-GET /api/funding?range=7d
-```
-
-```json
-{
-  "totalPaid": 42.1,
-  "totalReceived": 58.3,
-  "net": 16.2,
-  "paymentCount": 168,
-  "byCoin": [ { "coin": "ETH", "net": 12.9, "paid": 20.0, "received": 32.9, "count": 84 } ]
-}
-```
-
-Sign convention: `net = received − paid`; `totalPaid`/`totalReceived` are positive magnitudes.
-
-* `GET /api/funding/timeline`: cumulative net/paid/received, bucketed hourly for `1d` and daily otherwise.
-* `GET /api/funding/history`: the raw per-event log, newest first, with position size and rate at each payment.
-
-## Portfolio equity
-
-Hourly account-value samples (perp + spot), with margin, unrealized PnL, and per-hour external net flow:
-
-```bash
-GET /api/portfolio/equity?range=30d
-GET /api/portfolio/equity/latest
-```
-
-```json
-{
-  "timestamp": 1752402000000,
-  "accountValue": 25431.2,
-  "perpEquity": 21200.5,
-  "spotEquity": 4230.7,
-  "unrealizedPnl": 312.4,
-  "netFlow": 0.0
-}
-```
-
-Two things to handle when charting:
-
-* `accountValue` may be `null`. That is a **gap** in sampling, never a zero. Skip the point; don't draw it to the axis.
-* PnL over a window is `Δ accountValue − Σ netFlow`: subtract deposits and withdrawals so transfers don't masquerade as performance.
-
-## Programmatic access for AI agents
-
-All of the above is also exposed as read-only tools over the [MCP connector](../mcp/overview.md), so an AI agent can pull your execution report or funding carry without handling HMAC signing.
+The same figures are available over the API: see the [Analytics](../api-reference/endpoints/analytics.md), [Funding](../api-reference/endpoints/funding.md) and [Portfolio](../api-reference/endpoints/portfolio.md) endpoints, and the [analytics conventions](../api-reference/introduction.md#analytics-conventions). They are also exposed as read-only tools over the [MCP connector](../mcp/overview.md), so an AI agent can pull your execution report or funding carry.

@@ -83,7 +83,7 @@ Transfer moves USDC between your Hyperliquid spot and perps balances. Nothing le
 
 You need this whenever a balance is in the wrong place: spot trading draws on the spot balance, perp margin draws on the perps balance.
 
-Over the API this is `POST /api/positions/transfer`, which requires the `positions:write` scope. See the [Trader API reference](../api-reference/endpoints/positions.md).
+To transfer over the API, see the [Positions endpoints](../api-reference/endpoints/positions.md).
 
 ## Send
 

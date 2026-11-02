@@ -45,7 +45,7 @@ This matters in fast markets: a thin book can print a price far from fair value 
 
 ## Reducing the risk
 
-- Attach a stop loss when you open the position. Both plain orders and [algo strategies](../guides/algo-orders.md) accept TP/SL at submission time.
+- Attach a stop loss when you open the position. The order form's **Take Profit / Stop Loss** setting works on plain orders and [algo orders](../strategies/overview.md) alike.
 - Watch funding on leveraged positions held for a long time. See [Funding Rate](funding-rate.md).
 - Use isolated margin to contain the blast radius of a position you are less sure about.
 - Prefer adding margin over letting a position drift toward the threshold, since a backstop costs you the buffer as well as the position.

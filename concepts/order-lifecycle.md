@@ -9,7 +9,7 @@ description: 'The async-accept model: what a 200 actually means, how algo parent
 
 `POST /api/orders` returns `200` when your order (or strategy) is **accepted into the execution engine**, *not* when it fills.
 
-- For a **plain order**, `orderId` is the venue order ID and the order is live on Hyperliquid.
+- For a **plain order**, `orderId` is the venue order ID and `status` is what the venue reported (`open`, `partial`, `filled`, and so on).
 - For an **algo strategy** (`strategy` set), `orderId` is the **parent strategy ID**. Fills arrive asynchronously as the engine works the order; track progress via [`GET /api/orders/algo`](../guides/algo-orders.md) or the [algo status WebSocket](../websockets/algo-status.md).
 
 {% code title="Response" %}
@@ -17,8 +17,8 @@ description: 'The async-accept model: what a 200 actually means, how algo parent
 {
   "success": true,
   "orderId": "01HZX…",
-  "status": "accepted",
-  "provider": "hyperliquid"
+  "status": "active",
+  "provider": "quote"
 }
 ```
 {% endcode %}
@@ -78,8 +78,9 @@ Plain (non-algo) orders cancel synchronously: `200` means the venue confirmed th
 
 | Status | Meaning |
 |---|---|
-| `accepted` / working | The engine is actively executing the strategy |
-| `completed` | Full size executed |
+| `active` | The engine is executing the strategy |
+| `paused` | The strategy is live but not placing new orders |
+| `completed` | The strategy finished its run. It may have filled less than the full size, for example when it reached its time limit or stayed at your limit price |
 | `cancelled` | Cancel requested and all children reconciled closed |
 | `failed` | The strategy hit an unrecoverable error; remaining size was not executed |
 

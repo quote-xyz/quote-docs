@@ -10,7 +10,7 @@ Every strategy runs under the same set of protections. This page states what the
 
 Child orders are bounded by a fair-price benchmark, so the engine will not cross far beyond fair value to fill you. The bound applies to aggressive and resting orders alike.
 
-Market orders get a second layer. In fast markets they are converted to limit orders carrying a price allowance, so a violent move cannot fill you at an arbitrary price. This is also why `orderType: "market"` still requires a `limitPrice`, as described in [Hyperliquid Constraints](../concepts/hyperliquid-constraints.md#market-orders-are-ioc-limits-with-a-slippage-bound).
+Market orders get a second layer. Every market order is sent as a limit carrying a price allowance, so a violent move cannot fill you at an arbitrary price. See [Hyperliquid Constraints](../concepts/hyperliquid-constraints.md#market-orders-are-ioc-limits-with-a-slippage-bound).
 
 ## Overfill protection
 
@@ -28,7 +28,7 @@ The engine reconciles against the venue after a disconnect or restart, retrievin
 
 A strategy that falls behind schedule does not chase to catch up. If the market moves outside your limit price, the engine stays at your levels and finishes short rather than paying up to hit the original timetable.
 
-That is a deliberate choice about which promise to keep: you get the price you asked for, not the completion. When completion is what you need, set `guaranteedCompletion` on [Passive TWAP](passive-twap.md), which sweeps the remainder at the end of the window within a slippage tolerance you set. Otherwise, check `filledQty` at terminal state.
+That is a deliberate choice about which promise to keep: you get the price you asked for, not the completion. When completion is what you need, turn on **Guarantee completion** on [Passive TWAP](passive-twap.md), which takes the remainder at the end of the window within a bounded slippage. Otherwise, check how much filled when the order ends.
 
 ## Error handling
 

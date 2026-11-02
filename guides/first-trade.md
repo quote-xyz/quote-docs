@@ -31,7 +31,7 @@ Use the symbol selector at the top of the form. Quote trades spot, perpetuals li
 {% step %}
 #### Choose buy or sell
 
-The **Buy** and **Sell** toggle sets the side. On perpetuals, selling with no position opens a short.
+The **Buy / Long** and **Sell / Short** toggle sets the side (on spot it reads **Buy** and **Sell**). On perpetuals, selling with no position opens a short.
 {% endstep %}
 
 {% step %}
@@ -43,7 +43,7 @@ Leverage runs from 1x to the asset's maximum, and you choose **cross** or **isol
 {% step %}
 #### Enter a size
 
-Size is in the base asset. The form shows your available balance and buying power, so you can see what the position will consume.
+Enter the size in the asset or in USDC. The form shows your available balance and buying power, so you can see what the position will consume.
 
 Mind the floor: Hyperliquid rejects anything under roughly $10 notional, and for the algorithmic order types each individual slice has to clear it too.
 {% endstep %}
@@ -67,15 +67,11 @@ A confirmation means the order was **accepted**, not that it filled. Watch the p
 
 The selector offers eight, and the first three behave like order types anywhere:
 
-<table><thead><tr><th width="157.421875">Type</th><th>What it does</th></tr></thead><tbody><tr><td><strong>Limit</strong></td><td>Rests on the book at your price</td></tr><tr><td><strong>Market</strong></td><td>Fills right away by sweeping the book</td></tr><tr><td><strong>Scale</strong></td><td>Spreads limit orders across a price range (<a href="placing-orders.md#scale-orders">more</a>)</td></tr></tbody></table>
+<table><thead><tr><th width="157.421875">Type</th><th>What it does</th></tr></thead><tbody><tr><td><strong>Limit</strong></td><td>Rests on the book at your price</td></tr><tr><td><strong>Market</strong></td><td>Fills right away by sweeping the book</td></tr><tr><td><strong>Scale</strong></td><td>Spreads limit orders across a price range (<a href="#scale-orders">more</a>)</td></tr></tbody></table>
 
 The other five hand the order to the execution engine, which works it over time instead of sending it to the book in one piece. This is what Quote is for, and on any size that would move the market it is usually cheaper.
 
-<table><thead><tr><th width="153.859375">Type</th><th>What it does</th><th>Read more</th></tr></thead><tbody><tr><td><strong>TWAP</strong></td><td>Slices into steady parts over a set time</td><td><a href="../strategies/passive-twap.md">Passive TWAP</a></td></tr><tr><td><strong>VWAP</strong></td><td>Follows market volume to reduce impact</td><td><a href="../strategies/vwap.md">VWAP</a></td></tr><tr><td><strong>POV</strong></td><td>Paces at a target share of market volume</td><td><a href="../strategies/participation-rate.md">Participation Rate</a></td></tr><tr><td><strong>Iceberg</strong></td><td>Shows only a small slice of your true size</td><td><a href="../strategies/iceberg.md">Iceberg</a></td></tr><tr><td><strong>Chase</strong></td><td>Follows the best bid/ask toward a fill</td><td><a href="../strategies/chase-limit.md">Chase Limit</a></td></tr></tbody></table>
-
-{% hint style="info" %}
-The terminal and the API use different names for the same strategies. **TWAP** is `passive_twap`, **POV** is `participation_rate`, and **Chase** is `chase_limit`. VWAP and Iceberg match. See [Strategies Overview](../strategies/overview.md).
-{% endhint %}
+<table><thead><tr><th width="153.859375">Type</th><th>What it does</th><th>Read more</th></tr></thead><tbody><tr><td><strong>TWAP</strong></td><td>Slices into steady parts over a set time</td><td><a href="../strategies/passive-twap.md">Passive TWAP</a></td></tr><tr><td><strong>VWAP</strong></td><td>Follows market volume to reduce impact</td><td><a href="../strategies/vwap.md">VWAP</a></td></tr><tr><td><strong>POV</strong></td><td>Paces at a target share of market volume</td><td><a href="../strategies/participation-rate.md">Percentage of Volume</a></td></tr><tr><td><strong>Iceberg</strong></td><td>Shows only a small slice of your true size</td><td><a href="../strategies/iceberg.md">Iceberg</a></td></tr><tr><td><strong>Chase</strong></td><td>Follows the best bid/ask toward a fill</td><td><a href="../strategies/chase-limit.md">Chase Limit</a></td></tr></tbody></table>
 
 ### A rule of thumb
 
@@ -89,11 +85,28 @@ The terminal and the API use different names for the same strategies. **TWAP** i
 
 "Large" here means large relative to the book, not to your account. On a thin market, a few thousand dollars is enough to move the price against you.
 
+## Scale orders
+
+A scale order spreads a set of limit orders across a price range instead of resting the whole size at one price. It is a way to build a position into a move without picking a single level.
+
+In the order form you set four things:
+
+| Field | What it does |
+|---|---|
+| **Start Price** | One end of the range |
+| **End Price** | The other end |
+| **Orders** | How many limit orders to spread across it |
+| **Size Skew** | Puts more of the size at the start or at the end of the range, rather than splitting it evenly |
+
+Skew is what makes it more than a loop. Weight size towards the far end and you buy more the further price falls, which lowers your average entry if it keeps going and leaves you smaller if it does not.
+
+Two things to watch. Each individual order still has to clear the roughly $10 [minimum notional](../concepts/hyperliquid-constraints.md#minimum-order-notional-10), and the form tells you when the smallest one falls short. And a scale order is a set of resting limits, not a worked strategy: nothing repositions them if the market leaves the range. If you want the engine to adapt, use an [execution strategy](../strategies/overview.md) instead.
+
 ## Optional settings
 
 * **Take profit and stop loss**, attached to the order so they are placed against the resulting position.
 * **Reduce only**, which stops an order from accidentally opening or increasing a position.
-* **Time in force** for plain limit orders: `GTC` rests, `ALO` is post-only and rejected if it would cross, `IOC` fills what it can and cancels the rest.
+* **Time in force** for plain limit orders: **GTC** rests until filled or canceled, **ALO** is post-only and rejected if it would cross, **IOC** fills what it can and cancels the rest.
 
 ## After the order
 
@@ -105,4 +118,3 @@ Once you have a few executions behind you, [Analytics](analytics.md) tells you w
 
 * Understand what you are trading: [Margin](../concepts/margin.md), [Liquidation](../concepts/liquidation.md), and [Funding Rate](../concepts/funding-rate.md).
 * Automate an entry: [Conditional Triggers](triggers.md) fire an order when a price, funding, or time condition is met.
-* Save an execution style you like as an [Order Template](templates.md).

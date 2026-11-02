@@ -31,6 +31,6 @@ This is why funding is worth tracking as its own line rather than being folded i
 
 ## Tracking your funding
 
-Quote keeps a per-wallet funding ledger synced from Hyperliquid, with totals, a timeline, and the raw per-payment log. See [Analytics](../guides/analytics.md#funding) for the endpoints and the sign convention.
+Quote keeps a per-wallet funding record synced from Hyperliquid. The **Funding** view of the analytics panel on your profile shows what you have paid and received, and the **Funding History** tab of the positions panel lists each payment. See [Analytics](../guides/analytics.md#your-profile).
 
 <figure><img src="../.gitbook/assets/screenshot_1.5x_postspark_2026-08-02_19-14-37.png" alt=""><figcaption></figcaption></figure>

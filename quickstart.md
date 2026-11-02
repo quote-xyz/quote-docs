@@ -10,7 +10,7 @@ This guide takes you from zero to a filled order over the API. You need a Quote 
 {% step %}
 #### Mint an API key
 
-API keys are minted from a logged-in terminal session; they cannot mint each other (see [Authentication](authentication.md)). In the terminal, open **Settings → API Keys**, or call the endpoint directly with your Privy session token:
+API keys are minted from a logged-in terminal session; they cannot mint each other (see [Authentication](authentication.md)). In the terminal, open **Connections** from the account menu and click **Create API key**, or call the endpoint directly with your Privy session token:
 
 ```bash
 curl -X POST https://api.quotemarkets.xyz/api/keys \
@@ -124,7 +124,7 @@ const agent = await res.json();
 
 Two things must be true before you can trade:
 
-* an `agentAddress` is present and not `expired`: the agent signs your orders;
+* an `agentAddress` is present and not `expired`: the agent signs your orders (a wallet with no agent returns `success: true` and no `agentAddress`);
 * `builderFeeApproved` is `true`. This is **required**: every Quote-routed order carries Quote's builder code, and Quote will not trade for a wallet that has not approved the fee.
 
 If either is missing, complete agent setup in the terminal first (both steps require a signature from your main wallet, which API keys can't produce).
@@ -145,7 +145,7 @@ const res = await quoteFetch("POST", "/api/orders", {
   timeInForce: "GTC",
 });
 const result = await res.json();
-// { success: true, orderId: "...", status: "accepted", provider: "hyperliquid" }
+// { success: true, orderId: "...", status: "open", provider: "hyperliquid", clientOrderId: "..." }
 ```
 
 Or hand the same size to the execution engine as a [TWAP](strategies/passive-twap.md) worked over 15 minutes:
