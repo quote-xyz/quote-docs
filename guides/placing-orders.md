@@ -24,14 +24,14 @@ This guide covers plain (non-algo) orders. For execution strategies, see [Algo O
 
 - `size` and `limitPrice` are decimal **strings**, never floats. Quote normalizes them to the asset's [precision rules](../concepts/hyperliquid-constraints.md#price-and-size-precision).
 - `timeInForce`: `GTC` (default), `ALO` (post-only), or `IOC`.
-- `clientOrderId` (optional) lets you tag the order with your own identifier.
+- `clientOrderId` (optional) is your own id for the order and its idempotency key. Reuse it when you retry a submit that timed out: a duplicate is refused rather than placed twice. Omit it and one is assigned and returned to you, which lets you look the order up later with `GET /api/orders/by-client-id/{client_order_id}` but does not make a retry safe.
 - `reduceOnly: true` restricts the order to reducing an existing position.
 
 The response returns the venue `orderId`:
 
 {% code title="Response" %}
 ```json
-{ "success": true, "orderId": "1234567890", "status": "resting", "provider": "hyperliquid" }
+{ "success": true, "orderId": "1234567890", "status": "open", "provider": "hyperliquid", "clientOrderId": "…" }
 ```
 {% endcode %}
 
@@ -57,22 +57,25 @@ Compute the bound from the best opposing quote. Buy: `bestAsk × (1 + slippage)`
 Anchor to the best **opposing quote**, not mid. On wide-spread books (prediction markets especially), a mid-anchored bound can sit inside the spread, so the IOC crosses nothing and silently fills zero. See [Hyperliquid constraints](../concepts/hyperliquid-constraints.md#market-orders-are-ioc-limits-with-a-slippage-bound).
 {% endhint %}
 
-## Scale orders
+## Scale orders (batches)
 
-A scale order spreads a set of limit orders evenly across a price range instead of resting the whole size at one price. It is a way to build a position into a move without picking a single level.
+A scale order in the terminal is a ladder of limit orders on one market and side. Over the API, send it as one batch with `POST /api/orders/batch`: up to 100 legs, each with its own `size` and `limitPrice`, signed as a single Hyperliquid action.
 
-In the terminal you set four things:
+{% code title="POST /api/orders/batch" %}
+```json
+{
+  "symbol": "ETH",
+  "side": "buy",
+  "orders": [
+    { "size": "0.1", "limitPrice": "3100" },
+    { "size": "0.2", "limitPrice": "3050" },
+    { "size": "0.3", "limitPrice": "3000" }
+  ]
+}
+```
+{% endcode %}
 
-| Field | What it does |
-|---|---|
-| **Start price** | One end of the range |
-| **End price** | The other end |
-| **Total orders** | How many limit orders to spread across it |
-| **Size skew** | How size is weighted across the range, rather than split evenly |
-
-Skew is what makes it more than a loop. Weight size toward the far end and you buy more the further price falls, which lowers your average entry if it keeps going and leaves you smaller if it does not.
-
-Two things to watch. Each individual order still has to clear the roughly $10 [minimum notional](../concepts/hyperliquid-constraints.md), so a small order split many ways will have levels skipped. And a scale order is a set of resting limits, not a worked strategy: nothing repositions them if the market leaves the range. If you want the engine to adapt, use an [execution strategy](../strategies/overview.md) instead.
+Every leg gets its own outcome in `results`, in request order. A leg the venue refuses (for example under the $10 minimum notional) comes back `success: false` with its `error`, and the call is still a `200`. An error status means the whole action failed. See the [Orders endpoints](../api-reference/endpoints/orders.md).
 
 ## Attaching TP/SL
 

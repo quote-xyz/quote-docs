@@ -6,35 +6,16 @@ description: Save how an order is worked (strategy, size, time in force, strateg
 
 A template saves how an order is worked, never what it trades. It holds a strategy, a USD size, a time in force and the strategy's settings, but no market, side or price. You pick those each time.
 
-## Save
+## What a template holds
 
-{% code title="POST /api/templates" %}
-```json
-{
-  "name": "Patient accumulator",
-  "ticket": {
-    "strategy": "twap",
-    "amountUsd": "5000",
-    "durationSecs": 3600,
-    "priceProtection": true
-  }
-}
-```
-{% endcode %}
+Every setting in a template is optional. A setting the template leaves out keeps whatever the order already has when you apply it.
 
-The ticket uses the terminal's order-ticket names (`twap`, `vwap`, `pov`, `iceberg`, `chase`, and so on), not the order API's strategy names, so map them when you build an order. Every `ticket` field is optional. A field you leave out keeps whatever the order already has when you apply the template. Unknown fields are ignored.
+Names are unique per wallet regardless of case, so saving under an existing name replaces that template. A wallet holds at most 12 templates.
 
-Names are unique per wallet regardless of case, so saving under an existing name replaces that template. A wallet holds at most 12 templates; saving a thirteenth name returns `409`.
+Templates belong to your wallet. Nobody else can see or use yours.
 
-## List and delete
+## Using templates
 
-```bash
-GET    /api/templates                 # list yours, oldest first
-DELETE /api/templates/{template_id}
-```
+Templates are a convenience for building orders: read a template, combine its settings with the market, side and price, and submit. A template never constrains what you can submit.
 
-Scopes: `templates:read` for the list, `templates:write` to save or delete. Templates are [wallet-scoped](../concepts/wallet-scoped-api.md); another wallet's template UUID is a `404` to you.
-
-## Using a template
-
-Templates are a client-side convenience: read the template, carry its `ticket` settings into the [order submission](algo-orders.md) along with the market, side and price, and send. The order API takes explicit fields (there is no `templateId` on `POST /api/orders`), so a template never constrains what you can submit.
+Templates are managed over the API. To save, list and delete them, see the [Templates endpoints](../api-reference/endpoints/templates.md), and to turn one into an order, see [Algo Orders](algo-orders.md).

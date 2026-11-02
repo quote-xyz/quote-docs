@@ -62,7 +62,7 @@ Decimals are strings; `timestamp` is epoch milliseconds.
 | `parent_completed` | `Done` / `Cancelled` | Strategy reached a terminal success/cancel state | `{ status }` |
 | `parent_failed` | `Failed` / `Expired` | Terminal failure. `Expired` means it ended with no fill (benign for no-deadline strategies) | `{ error, expired }` |
 
-Frames may also carry an optional `benchmark` snapshot with provisional execution-quality numbers as the strategy runs (same [conventions](../guides/analytics.md#the-benchmark-convention) as the analytics API).
+Frames may also carry an optional `benchmark` snapshot with provisional execution-quality numbers as the strategy runs (same [conventions](../api-reference/introduction.md#analytics-conventions) as the analytics API).
 
 ## Client pattern
 

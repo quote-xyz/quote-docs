@@ -91,7 +91,8 @@ API keys carry only the scopes granted at mint time. Each endpoint's required sc
 | `account:read` | Read quest and badge progress; account tools over the MCP REST surface |
 | `account:write` | Submit a quest quote, acknowledge a badge unlock |
 | `analytics:read` | Market-wide tools over the MCP REST surface |
-| `bridge:write` | Request a bridge quote for a deposit or withdrawal |
+| `bridge:read` | Read bridge transfer status and history |
+| `bridge:write` | Request a bridge quote for a deposit or withdrawal, and submit a transfer step |
 
 Requests missing a required scope return `403` with the standard [error envelope](api-reference/introduction.md#error-envelope).
 

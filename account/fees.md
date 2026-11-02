@@ -34,11 +34,11 @@ Hyperliquid's staking levels share names with Quote's [rewards tiers](rewards-ti
 
 Quote earns through Hyperliquid's builder-code mechanism rather than through subscriptions or spread markup. Every Quote-routed order carries Quote's builder code, and the fee is attached server-side.
 
-The rate is **2 bps (0.02%) on perpetuals and 4 bps (0.04%) on spot**. There are no fixed subscriptions and no monthly minimums: if you do not trade, you pay Quote nothing. The rate sits on top of [Hyperliquid's own fees](https://hyperliquid.gitbook.io/hyperliquid-docs/trading/fees), as the builder-code design intends.
+The rate is **2 bps (0.02%) on perpetuals and 4 bps (0.04%) on spot sells**. A spot buy pays no builder fee: Hyperliquid collects builder fees in USDC, which a spot buy never yields. The fee is charged only on filled orders. There are no fixed subscriptions and no monthly minimums: if you do not trade, you pay Quote nothing. The rate sits on top of [Hyperliquid's own fees](https://hyperliquid.gitbook.io/hyperliquid-docs/trading/fees), as the builder-code design intends.
 
-Two conditions decide whether it is actually charged on a given fill: fee collection has to be switched on for the deployment, and your wallet has to have approved the builder fee on Hyperliquid. Approval is a one-time signature during [agent setup](../concepts/agent-wallets.md), and Quote will not trade for a wallet that has not given it.
+Your wallet has to approve the builder fee on Hyperliquid before Quote will trade for it. Approval is a one-time signature when you [enable trading](../concepts/agent-wallets.md#setting-it-up).
 
-The builder fee is never hidden. [Execution analytics](../guides/analytics.md) report it separately from exchange fees, so you can always see Quote's share of what a fill cost.
+The builder fee is never hidden. The order form's cost breakdown shows it as **Builder fee**, and each [algo order's page](../guides/analytics.md#an-algo-orders-page) reports it separately from the venue's fee, so you can always see Quote's share of what a fill cost.
 
 ## Rebates
 
@@ -57,8 +57,6 @@ Anything you earn from other people's trading, as a referrer, is not part of thi
 
 The all-in rate is the Hyperliquid fee plus the builder fee, minus what rewards hand back. The terminal computes this server-side so that every surface showing you a fee number is showing the same number.
 
-Look for the fee schedule in the terminal to see your current stack: your net Hyperliquid taker and maker rates for perps and spot, your volume tier and the volume that would reach the next one, your staking and referral discounts, the builder fee and whether it is being charged, and your tier's cashback.
+To see your current stack, click **Fees (Taker / Maker):** in the order details of the order form. The **Fee Schedule** shows your net Hyperliquid taker and maker rates for perps and spot, your Hyperliquid volume tier and the volume that would reach the next one, your HYPE staking and Hyperliquid referral discounts, the builder fee for perps and spot and whether it is being charged, and your cashback and invite rebate.
 
-{% hint style="info" %}
-[`GET /api/analytics/fees`](../api-reference/endpoints/analytics.md) reports fees you have **already paid** over a range, split into total and builder. It does not return your rate card. The assembled rate stack is a separate surface and is not yet in the Trader API reference.
-{% endhint %}
+To read the fees you have already paid over the API, see the [Analytics endpoints](../api-reference/endpoints/analytics.md).

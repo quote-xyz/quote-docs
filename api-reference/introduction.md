@@ -16,7 +16,7 @@ The active network (Hyperliquid mainnet vs. testnet) is reported by the public `
 
 ## Authentication
 
-Every request carries an HMAC API key in three headers: `X-Quote-Key`, `X-Quote-Timestamp` (milliseconds), and `X-Quote-Signature`. A key holds only the scopes granted at mint time, and each endpoint page notes the scope it requires. Mint, list, and revoke keys in the [terminal](https://quotemarkets.xyz) under **Settings → API Keys**.
+Every request carries an HMAC API key in three headers: `X-Quote-Key`, `X-Quote-Timestamp` (milliseconds), and `X-Quote-Signature`. A key holds only the scopes granted at mint time, and each endpoint page notes the scope it requires. Mint, list, and revoke keys in the [terminal](https://quotemarkets.xyz) on the **Connections** page, under **API keys**.
 
 A few endpoints are **public** and need no key: `/api/info` and the health probes.
 
@@ -37,6 +37,29 @@ Verify both with `GET /api/agents`: you need an `agentAddress` with `expired: fa
 - **Request/response keys are camelCase**, with a handful of documented snake_case exceptions (noted per schema).
 - **Timestamps** are epoch milliseconds in analytics payloads and RFC 3339 strings on resource records; each field documents its shape.
 - **IDs**: templates and triggers use UUIDs; algo parents use engine-issued IDs; plain orders use the venue's numeric order ID.
+
+## Analytics conventions
+
+The analytics, funding and portfolio endpoints take a common `range` query parameter: `1d`, `7d`, `30d`, or `all`. API-key callers need `orders:read`.
+
+- **Benchmarks are signed basis points: positive = worse**, negative = better. `isBps` on `GET /api/analytics/execution` is notional-weighted implementation shortfall against arrival (negative = you beat arrival); `isSavingsDollars` is dollars saved against naive market orders (positive = saved).
+- **Fees.** `totalFee` on `GET /api/analytics/fees` is the whole cost of Quote-routed fills, inclusive of the builder fee; `builderFee` is the part of it that went to Quote, never an addition to it.
+- **Funding.** On `GET /api/funding`, `net = totalReceived − totalPaid`, and both totals are positive magnitudes. `GET /api/funding/timeline` buckets hourly for `1d` and daily otherwise; `GET /api/funding/history` is the raw per-payment log, newest first.
+- **Equity gaps are null, never zero.** On `GET /api/portfolio/equity`, `accountValue` may be `null`: a gap in sampling. Skip the point rather than drawing it to the axis.
+- **PnL excludes transfers.** PnL over a window is `Δ accountValue − Σ netFlow`, where `netFlow` is each hour's external net flow (+ in, − out), so deposits and withdrawals do not read as performance.
+
+{% code title="GET /api/portfolio/equity?range=30d (one sample)" %}
+```json
+{
+  "timestamp": 1752402000000,
+  "accountValue": 25431.2,
+  "perpEquity": 21200.5,
+  "spotEquity": 4230.7,
+  "unrealizedPnl": 312.4,
+  "netFlow": 0.0
+}
+```
+{% endcode %}
 
 ## The async-accept model
 

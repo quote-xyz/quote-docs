@@ -36,4 +36,4 @@ If the figure looks short, check you selected the right source and that your pos
 
 ## Still stuck
 
-If none of the above explains it, bring the transaction hash and the approximate time to the [Telegram community](https://t.me/quotemarkets). See [Contact Us](contact-us.md).
+If none of the above explains it, bring the transaction hash and the approximate time to the [Telegram community](https://t.me/quotemarketsxyz). See [Contact Us](contact-us.md).

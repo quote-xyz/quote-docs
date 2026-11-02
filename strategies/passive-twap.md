@@ -1,52 +1,41 @@
 ---
 description: >-
-  Time-sliced execution that rests passively at the touch and falls back to
-  aggressive orders to stay on schedule. Guaranteed completion.
+  Time-sliced execution that rests passively at the touch and crosses the
+  spread when a slice falls behind.
 ---
 
 # Passive TWAP
 
 <figure><img src="../.gitbook/assets/Brave Browser.gif" alt=""><figcaption></figcaption></figure>
 
-`passive_twap` splits your order into equal slices over a fixed window. Each slice first rests as a post-only (ALO) order at the best bid/offer, capturing the spread and earning maker fees. If a slice has not filled by its deadline, it converts to an aggressive IOC order. The result is TWAP scheduling at better prices than naive market-order slicing, with completion by end of window when `guaranteedCompletion` is set.
+**TWAP** splits your order into slices and works them at a steady pace over a window you set. Each slice first rests passively at the best bid or offer, capturing the spread and paying the maker fee. A slice that has not filled in its time crosses the spread to keep the order on schedule. The result is TWAP scheduling at better prices than slicing with market orders.
 
 <figure><img src="../.gitbook/assets/Quote Docs (1).png" alt=""><figcaption></figcaption></figure>
 
-## Example
+## Setting it up
 
-{% code title="POST /api/orders" %}
-```json
-{
-  "symbol": "ETH",
-  "side": "buy",
-  "size": "2.5",
-  "orderType": "limit",
-  "strategy": "passive_twap",
-  "params": {
-    "durationSecs": 1800,
-    "numSlices": 30,
-    "passivePct": 80,
-    "guaranteedCompletion": true
-  }
-}
-```
-{% endcode %}
+Pick **TWAP** in the order type selector, then set:
 
-This works 2.5 ETH over 30 minutes in 30 slices, spending 80% of each minute resting passively before taking liquidity.
+| Setting | What it does |
+| --- | --- |
+| **Duration** | The window the order is worked over |
+| **Execution** | One slider from patient to fast. Lower settings rest more of each slice on the book; higher settings cross the spread more often to stay on schedule |
+| Execution shape | Click to cycle between **front** load, **even** load and **back** load: how size is weighted across the window |
+| Randomization | Click to cycle between **no**, **light** and **strong** randomization of each slice's size and timing |
+| **Guarantee completion** | Off by default. When on, any size still unfilled at the end is taken in one final cross, up to 1% past the best price |
 
-## Parameters
-
-<table><thead><tr><th width="217.578125">Parameter</th><th>Type</th><th width="139.3515625">Default</th><th>Description</th></tr></thead><tbody><tr><td><code>durationSecs</code></td><td>integer</td><td><code>300</code></td><td>Total execution window in seconds</td></tr><tr><td><code>numSlices</code></td><td>integer</td><td><code>10</code></td><td>Number of equal child slices</td></tr><tr><td><code>passivePct</code></td><td>integer 0–100</td><td><code>80</code></td><td>Percent of each slice interval spent resting passively before the IOC fallback</td></tr><tr><td><code>limitOffsetBps</code></td><td>decimal</td><td><code>0</code></td><td>Offset from the touch for passive placement (0 = at BBO)</td></tr><tr><td><code>randomize</code></td><td>boolean</td><td><code>false</code></td><td>Jitter slice timing/sizing to avoid a detectable cadence</td></tr><tr><td><code>minSpreadBps</code></td><td>decimal</td><td>none</td><td>Skip passive placement when the spread is tighter than this (go straight to schedule)</td></tr><tr><td><code>guaranteedCompletion</code></td><td>boolean</td><td><code>false</code></td><td>Sweep all remaining size with one wide-tolerance IOC at the end of the window</td></tr><tr><td><code>completionSlippageBps</code></td><td>decimal</td><td><code>100</code></td><td>Slippage tolerance for the guaranteed-completion sweep</td></tr><tr><td><code>reduceOnly</code></td><td>boolean</td><td><code>false</code></td><td>Children only reduce an existing position</td></tr><tr><td><code>attachedTpsl</code></td><td>object</td><td>none</td><td>Attach TP/SL to the resulting position</td></tr></tbody></table>
-
-How passive orders are placed, repriced, and converted is managed by the engine and varies with market conditions; those mechanics are deliberately not specified here.
+As you move the **Execution** slider, the form shows the number of intervals and the passive share it resolves to, and a summary of the runtime, the number of slices and the size of each.
 
 ## Behavior notes
 
-* **Slice sizing vs. the $10 minimum.** Slices below Hyperliquid's \~$10 minimum notional are skipped. Choose `numSlices` so each slice clears the minimum comfortably; see [Hyperliquid constraints](../concepts/hyperliquid-constraints.md#minimum-order-notional-10).
-* **Behind schedule?** If passive fills lag, the aggressive fallback per slice keeps the schedule. With `guaranteedCompletion`, any final remainder is swept at window end within `completionSlippageBps`.
-* **Restart-safe.** Slice state is reconstructed on engine restart; resting children are recovered from the venue rather than duplicated.
+* **Slices and the $10 minimum.** Every slice has to clear Hyperliquid's roughly $10 [minimum notional](../concepts/hyperliquid-constraints.md#minimum-order-notional-10). On a small order the form caps the number of slices so each one clears it, and says so above the submit button.
+* **Without a guarantee, it can end short.** If the market moves beyond your limit price, the order stays at your levels and finishes with what it filled. Turn on **Guarantee completion** when finishing matters more than price.
+* **You can speed it up.** While it runs, **Speed up 2×** on the **Algos** tab compresses the remaining schedule. **Finish now** sweeps the remainder at market.
+* **Restart-safe.** The engine recovers a running TWAP after a restart rather than duplicating its child orders. See [Execution Safeguards](safeguards.md).
+
+To submit a TWAP over the API, see [Algo Orders](../guides/algo-orders.md#passive_twap).
 
 ## When to use something else
 
-* You're benchmarked to volume, not time → [VWAP](vwap.md).
-* No deadline, and hiding size matters most → [Iceberg](iceberg.md).
+* You are benchmarked to volume, not time: [VWAP](vwap.md).
+* No deadline, and hiding size matters most: [Iceberg](iceberg.md).

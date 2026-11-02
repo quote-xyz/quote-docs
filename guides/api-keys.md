@@ -12,6 +12,8 @@ Key management is **Privy-session only**: you mint, list, and revoke keys from a
 
 ## Minting a key
 
+In the terminal, open **Connections** from the account menu and click **Create API key** under **API keys**. Over the API, mint with a Privy session token:
+
 ```bash
 POST /api/keys
 Authorization: Bearer <privy-jwt>
@@ -46,7 +48,11 @@ Grant the minimum the client needs (see the [scope table](../authentication.md#s
 | Trading bot | `orders:read`, `orders:write`, `agents:read` |
 | Full account automation | add `positions:write`, `templates:read`, `templates:write` |
 
-`expiresInDays` is optional; omit it for a non-expiring key (you can still revoke it anytime).
+`expiresInDays` is optional, from 1 to 365. Omit it for a non-expiring key (you can still revoke it anytime).
+
+`ipAllowlist` optionally restricts the key to up to 32 IP addresses or CIDR blocks (IPv4 or IPv6). A request signed with the key from any other IP is rejected with `403`. Omit it, or send an empty array, to allow any IP.
+
+Minting requires the terms of service to have been accepted in the terminal (`403` otherwise). A wallet holds at most 10 unrevoked, unexpired keys; past that, minting returns `422` with `code` `api_key_limit`, so revoke one first.
 
 ## Listing keys
 

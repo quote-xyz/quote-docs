@@ -4,7 +4,7 @@ description: Cross and isolated margin, how much a position locks up, and when i
 
 # Margin
 
-Margin on Quote is Hyperliquid's margin. Quote routes your orders to the venue and does not add a margin layer of its own, so the rules below are the venue's and apply identically whether you trade from the terminal or the API.
+Margin on Quote is Hyperliquid's margin. Quote routes your orders to the venue and does not add a margin layer of its own, so the rules below are the venue's.
 
 ## Margin modes
 
@@ -15,13 +15,13 @@ You choose a mode when you open a position.
 | **Cross** (default) | Shared across all your cross positions | Best capital efficiency. A loss on one position can pull down the others |
 | **Isolated** | Confined to the one position | A liquidation there does not touch anything else, and losses elsewhere do not touch it |
 
+Some markets support isolated margin only, and the order form tells you when that applies.
+
 ## Initial margin and leverage
 
 Leverage runs from 1x up to the asset's maximum. The margin a position requires is:
 
-```
-position size × mark price ÷ leverage
-```
+> position size × mark price ÷ leverage
 
 In cross margin that amount is locked and cannot be withdrawn. In isolated margin you can add or remove margin after the position is open.
 
@@ -40,9 +40,7 @@ Maintenance margin is the floor your equity has to stay above. It is **50% of th
 
 Fall below it and the position is liquidated. See [Liquidation](liquidation.md).
 
-## Margin over the API
-
-`POST /api/positions/leverage` sets leverage and `POST /api/positions/margin` adjusts isolated margin. Both need the `positions:write` scope. See the [Positions endpoints](../api-reference/endpoints/positions.md).
+To set leverage or adjust isolated margin over the API, see the [Positions endpoints](../api-reference/endpoints/positions.md).
 
 ## Unified accounts
 
