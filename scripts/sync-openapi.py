@@ -137,6 +137,12 @@ EXCLUDED_PATHS = [
     "/api/venues/lighter/fee-approval",
     "/api/venues/lighter/fee-approval/confirm",
     "/api/venues/lighter/deposit-address",
+    # Trade plans (the terminal's Strategies canvas). In this release a plan is
+    # a draft that only Quentin creates and nothing arms or fires, and "strategy"
+    # in these docs already means an algo order. Publish them once plans can be
+    # armed through the API.
+    "/api/trade-plans",
+    "/api/trade-plans/{plan_id}",
 ]
 EXCLUDED_TAGS = [
     # Every path carrying these is excluded above, so the tag itself would
@@ -153,6 +159,7 @@ EXCLUDED_TAGS = [
     "Bridge",
     "API Keys",
     "Invites & Referrals",
+    "Trade Plans",
 ]
 
 # Prose fixups for the top-level description (which otherwise references
@@ -401,6 +408,21 @@ def prune_unreachable_schemas(spec, schemas):
     return pruned
 
 
+def prune_unreachable_parameters(spec):
+    """Drop every shared path parameter no kept path still uses, and say which.
+
+    Schemas are pruned by reachability above; parameters need the same rule,
+    or excluding a path leaves its `components.parameters` entry published.
+    """
+    ref = re.compile(r"#/components/parameters/([A-Za-z0-9_]+)")
+    parameters = spec.get("components", {}).get("parameters", {})
+    used = set(ref.findall(yaml.safe_dump(spec.get("paths", {}))))
+    pruned = sorted(set(parameters) - used)
+    for name in pruned:
+        parameters.pop(name, None)
+    return pruned
+
+
 def main() -> None:
     repo_root = Path(__file__).resolve().parent.parent
     source = Path(
@@ -417,6 +439,7 @@ def main() -> None:
     spec["tags"] = [t for t in spec.get("tags", []) if t["name"] not in EXCLUDED_TAGS]
     schemas = spec.get("components", {}).get("schemas", {})
     pruned = prune_unreachable_schemas(spec, schemas)
+    prune_unreachable_parameters(spec)
 
     # Hide strategy knobs whose names hint at undocumented engine mechanics
     # (and at the undocumented adaptive_is strategy).
