@@ -409,7 +409,7 @@ def prune_unreachable_schemas(spec, schemas):
 
 
 def prune_unreachable_parameters(spec):
-    """Drop every shared path parameter no kept path still uses, and say which.
+    """Drop every shared parameter no kept path still uses, and say which.
 
     Schemas are pruned by reachability above; parameters need the same rule,
     or excluding a path leaves its `components.parameters` entry published.
@@ -438,8 +438,9 @@ def main() -> None:
         spec["paths"].pop(path, None)
     spec["tags"] = [t for t in spec.get("tags", []) if t["name"] not in EXCLUDED_TAGS]
     schemas = spec.get("components", {}).get("schemas", {})
+    # Parameters first: schema reachability is seeded from the parameters that remain.
+    pruned_parameters = prune_unreachable_parameters(spec)
     pruned = prune_unreachable_schemas(spec, schemas)
-    prune_unreachable_parameters(spec)
 
     # Hide strategy knobs whose names hint at undocumented engine mechanics
     # (and at the undocumented adaptive_is strategy).
@@ -488,6 +489,9 @@ def main() -> None:
     for name in pruned:
         if f"#/components/schemas/{name}" in text:
             sys.exit(f"error: dangling $ref to pruned schema {name}")
+    for name in pruned_parameters:
+        if f"#/components/parameters/{name}" in text:
+            sys.exit(f"error: dangling $ref to pruned parameter {name}")
     # The public reference must never mention Privy or use em dashes. If the
     # backend spec grows new mentions, extend the replacement lists above.
     if "Privy" in text or "privy" in text:
