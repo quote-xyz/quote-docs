@@ -137,6 +137,15 @@ EXCLUDED_PATHS = [
     "/api/venues/lighter/fee-approval",
     "/api/venues/lighter/fee-approval/confirm",
     "/api/venues/lighter/deposit-address",
+    # Fixed funding (Hestia). `HESTIA_ENABLED` leaves it off in production, and it
+    # serves whitelisted Direct accounts only; publish it when it launches.
+    "/api/hestia/markets",
+    "/api/hestia/quote",
+    "/api/hestia/contracts",
+    "/api/hestia/contracts/{id}",
+    "/api/hestia/contracts/{id}/exit-quote",
+    "/api/hestia/contracts/{id}/exit",
+    "/api/hestia/settlements",
 ]
 EXCLUDED_TAGS = [
     # Every path carrying these is excluded above, so the tag itself would
@@ -153,6 +162,7 @@ EXCLUDED_TAGS = [
     "Bridge",
     "API Keys",
     "Invites & Referrals",
+    "Hestia",
 ]
 
 # Prose fixups for the top-level description (which otherwise references
