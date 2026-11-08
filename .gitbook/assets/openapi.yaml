@@ -2115,10 +2115,6 @@ components:
         application/json:
           schema:
             $ref: '#/components/schemas/ErrorResponse'
-    PayloadTooLarge:
-      description: |
-        Request body exceeds the 4 MiB limit enforced by the body-buffering
-        layer. The response body is not the standard JSON error envelope.
   schemas:
     ErrorResponse:
       type: object
@@ -2150,7 +2146,8 @@ components:
             lowercase for historical reasons, carrying the fields needed to sign
             `ApproveBuilderFee`), `account_suspended` (403 from every
             authenticated endpoint once an operator suspends the account; stop
-            retrying and contact support), and the order-submission codes below.
+            retrying and contact support), and the
+            order-submission codes below.
 
             A **plain** order submission (`POST /api/orders` without `strategy`)
             additionally returns `disposition`, which says whether the order may
@@ -3017,6 +3014,13 @@ components:
         error:
           type: string
           description: Why the order failed. Present only for failed orders.
+        failureReason:
+          type: string
+          enum:
+          - agent_unusable
+          description: 'A failure the client answers with its own flow. `agent_unusable`: Hyperliquid
+            no longer recognises the agent the user approved, so the user re-enables trading. Absent for
+            any other end.'
         alreadySpedUp:
           type: boolean
           description: Whether this order has used its one in-flight speed-up. Speeding up an order for
@@ -3359,6 +3363,7 @@ components:
         leverage:
           type: integer
           format: int32
+          minimum: 1
         isCross:
           type: boolean
           default: false
