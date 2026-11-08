@@ -3017,6 +3017,13 @@ components:
         error:
           type: string
           description: Why the order failed. Present only for failed orders.
+        failureReason:
+          type: string
+          enum:
+          - agent_unusable
+          description: 'A failure the client answers with its own flow. `agent_unusable`: Hyperliquid
+            no longer recognises the agent the user approved, so the user re-enables trading. Absent for
+            any other end.'
         alreadySpedUp:
           type: boolean
           description: Whether this order has used its one in-flight speed-up. Speeding up an order for

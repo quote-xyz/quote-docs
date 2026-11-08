@@ -137,6 +137,19 @@ EXCLUDED_PATHS = [
     "/api/venues/lighter/fee-approval",
     "/api/venues/lighter/fee-approval/confirm",
     "/api/venues/lighter/deposit-address",
+    # Trade plans (the terminal's Strategies canvas): arming is behind backend
+    # flags that are off in production, and "strategy" in these docs already
+    # means an algo order. Publish them once plans are on for API callers.
+    "/api/trade-plans",
+    "/api/trade-plans/{plan_id}",
+    "/api/trade-plans/{plan_id}/amend",
+    "/api/trade-plans/{plan_id}/amend/preview",
+    "/api/trade-plans/{plan_id}/arm",
+    "/api/trade-plans/{plan_id}/arm/preview",
+    "/api/trade-plans/{plan_id}/pause",
+    "/api/trade-plans/{plan_id}/resume",
+    "/api/trade-plans/{plan_id}/stop",
+    "/api/ws/trade-plans",
 ]
 EXCLUDED_TAGS = [
     # Every path carrying these is excluded above, so the tag itself would
@@ -153,6 +166,7 @@ EXCLUDED_TAGS = [
     "Bridge",
     "API Keys",
     "Invites & Referrals",
+    "Trade Plans",
 ]
 
 # Prose fixups for the top-level description (which otherwise references
@@ -401,6 +415,36 @@ def prune_unreachable_schemas(spec, schemas):
     return pruned
 
 
+def prune_unreachable_parameters(spec):
+    """Drop every shared parameter no kept path still uses, and say which.
+
+    Schemas are pruned by reachability above; parameters need the same rule,
+    or excluding a path leaves its `components.parameters` entry published.
+    """
+    ref = re.compile(r"#/components/parameters/([A-Za-z0-9_]+)")
+    parameters = spec.get("components", {}).get("parameters", {})
+    used = set(ref.findall(yaml.safe_dump(spec.get("paths", {}))))
+    pruned = sorted(set(parameters) - used)
+    for name in pruned:
+        parameters.pop(name, None)
+    return pruned
+
+
+def prune_unreachable_responses(spec):
+    """Drop every shared response no kept path still uses, and say which.
+
+    Same rule as parameters: a response kept only for an excluded path would
+    publish its schemas through the reachability seed.
+    """
+    ref = re.compile(r"#/components/responses/([A-Za-z0-9_]+)")
+    responses = spec.get("components", {}).get("responses", {})
+    used = set(ref.findall(yaml.safe_dump(spec.get("paths", {}))))
+    pruned = sorted(set(responses) - used)
+    for name in pruned:
+        responses.pop(name, None)
+    return pruned
+
+
 def main() -> None:
     repo_root = Path(__file__).resolve().parent.parent
     source = Path(
@@ -416,6 +460,9 @@ def main() -> None:
         spec["paths"].pop(path, None)
     spec["tags"] = [t for t in spec.get("tags", []) if t["name"] not in EXCLUDED_TAGS]
     schemas = spec.get("components", {}).get("schemas", {})
+    # Parameters and responses first: schema reachability is seeded from what remains.
+    pruned_parameters = prune_unreachable_parameters(spec)
+    pruned_responses = prune_unreachable_responses(spec)
     pruned = prune_unreachable_schemas(spec, schemas)
 
     # Hide strategy knobs whose names hint at undocumented engine mechanics
@@ -465,6 +512,12 @@ def main() -> None:
     for name in pruned:
         if f"#/components/schemas/{name}" in text:
             sys.exit(f"error: dangling $ref to pruned schema {name}")
+    for name in pruned_parameters:
+        if f"#/components/parameters/{name}" in text:
+            sys.exit(f"error: dangling $ref to pruned parameter {name}")
+    for name in pruned_responses:
+        if f"#/components/responses/{name}" in text:
+            sys.exit(f"error: dangling $ref to pruned response {name}")
     # The public reference must never mention Privy or use em dashes. If the
     # backend spec grows new mentions, extend the replacement lists above.
     if "Privy" in text or "privy" in text:
