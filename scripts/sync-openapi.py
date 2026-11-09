@@ -137,6 +137,28 @@ EXCLUDED_PATHS = [
     "/api/venues/lighter/fee-approval",
     "/api/venues/lighter/fee-approval/confirm",
     "/api/venues/lighter/deposit-address",
+    # Trade plans: arming is off in production (`TRADE_PLANS_ARMING_ENABLED`
+    # unset), and the live feed authenticates with a terminal or device token,
+    # never an API key. Publish them when they launch.
+    "/api/trade-plans",
+    "/api/trade-plans/{plan_id}",
+    "/api/trade-plans/{plan_id}/arm/preview",
+    "/api/trade-plans/{plan_id}/arm",
+    "/api/trade-plans/{plan_id}/pause",
+    "/api/trade-plans/{plan_id}/resume",
+    "/api/trade-plans/{plan_id}/stop",
+    "/api/ws/trade-plans",
+    # The news feed's writer health, under the excluded News surface.
+    "/api/news/freshness",
+    # Fixed funding (Hestia). `HESTIA_ENABLED` leaves it off in production, and it
+    # serves whitelisted Direct accounts only; publish it when it launches.
+    "/api/hestia/markets",
+    "/api/hestia/quote",
+    "/api/hestia/contracts",
+    "/api/hestia/contracts/{id}",
+    "/api/hestia/contracts/{id}/exit-quote",
+    "/api/hestia/contracts/{id}/exit",
+    "/api/hestia/settlements",
 ]
 EXCLUDED_TAGS = [
     # Every path carrying these is excluded above, so the tag itself would
@@ -153,6 +175,8 @@ EXCLUDED_TAGS = [
     "Bridge",
     "API Keys",
     "Invites & Referrals",
+    "Hestia",
+    "Trade Plans",
 ]
 
 # Prose fixups for the top-level description (which otherwise references
@@ -188,7 +212,7 @@ DESCRIPTION_REPLACEMENTS = [
     ),
     (
         "Routes under `/api/*` require authentication, except `/api/info`,\n"
-        "    `/api/news`, and `/api/webhooks/parallel`. The root probes `/health`,\n"
+        "    `/api/news`, `/api/news/freshness`, and `/api/webhooks/parallel`. The root probes `/health`,\n"
         "    `/ready`, and `/metrics` are unauthenticated.",
         "Routes under `/api/*` require authentication, except the public\n"
         "    `/api/info`. The root probes `/health`, `/ready`, and `/metrics` are\n"
@@ -229,11 +253,20 @@ GLOBAL_REGEX_REPLACEMENTS = [
     (r"\*\*sell\*\* rate\s*—\s*see", "**sell** rate: see"),
     (r"Other strategies ignore it\s*—\s*use", "Other strategies ignore it: use"),
     (r"League winner\s*—\s*Barcelona", "League winner: Barcelona"),
+    (r"Strategies\s*—\s*multi-leg", "Strategies: multi-leg"),
+    # Hestia is excluded above; its codes stay out of the shared error description.
+    (r",\s+the\s+`HESTIA_\*`\s+codes\s+on\s+the\s+Hestia\s+routes\s+\(`HESTIA_DISABLED`,\s+503,\s+when\s+Hestia\s+is\s+not\s+enabled\),\s+and", ", and"),
     # The Prime account type is off in production.
     (
         r"would: a Direct account\s+needs a registered agent \(refused with 400 otherwise\), a Prime"
         r" account\s+pool membership, and either one the terms",
         "would: a registered agent (refused with 400 otherwise), and the terms",
+    ),
+    (
+        r"`arming_disabled`,\s+`prime_not_supported`\s+\(a\s+Quote\s+Prime\s+wallet\s+while\s+Prime\s+plans"
+        r"\s+are\s+off\),\s+the\s+Prime\s+findings\s+\(`prime_isolated_margin`,\s+`prime_leverage_above_cap`,"
+        r"\s+`prime_market_not_pooled`\)\s+and",
+        "`arming_disabled` and",
     ),
     # Whitespace is `\\s+`: these are YAML folded blocks, so a line break lands
     # mid-phrase and a literal space silently stops matching.
@@ -366,6 +399,19 @@ def check_pages_reference_a_written_spec(repo_root, written):
             "Fix: write that path here, or point SRC in gen-endpoint-pages.py at one we do."
         )
 
+def prune_unreferenced(spec, kind):
+    """Drop the `components.<kind>` entries no path refers to any more.
+
+    Schema pruning seeds from every response and parameter, so one left behind
+    by an excluded path keeps its schemas published too.
+    """
+    entries = spec.get("components", {}).get(kind, {})
+    ref = re.compile(rf"#/components/{kind}/([A-Za-z0-9_]+)")
+    used = set(ref.findall(yaml.safe_dump(spec.get("paths", {}))))
+    for name in [n for n in entries if n not in used]:
+        entries.pop(name)
+
+
 def prune_unreachable_schemas(spec, schemas):
     """Drop every schema nothing left in the spec still points at, and say which.
 
@@ -415,6 +461,8 @@ def main() -> None:
     for path in EXCLUDED_PATHS:
         spec["paths"].pop(path, None)
     spec["tags"] = [t for t in spec.get("tags", []) if t["name"] not in EXCLUDED_TAGS]
+    for kind in ("responses", "parameters"):
+        prune_unreferenced(spec, kind)
     schemas = spec.get("components", {}).get("schemas", {})
     pruned = prune_unreachable_schemas(spec, schemas)
 
