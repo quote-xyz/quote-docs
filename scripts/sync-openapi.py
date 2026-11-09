@@ -137,6 +137,9 @@ EXCLUDED_PATHS = [
     "/api/venues/lighter/fee-approval",
     "/api/venues/lighter/fee-approval/confirm",
     "/api/venues/lighter/deposit-address",
+    "/api/venues/lighter/transfers/prepare",
+    "/api/venues/lighter/transfers/confirm",
+    "/api/venues/lighter/transfers/{id}",
     # Trade plans: arming is off in production (`TRADE_PLANS_ARMING_ENABLED`
     # unset), and the live feed authenticates with a terminal or device token,
     # never an API key. Publish them when they launch.
