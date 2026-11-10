@@ -594,6 +594,33 @@ paths:
           $ref: '#/components/responses/RateLimited'
         '503':
           $ref: '#/components/responses/ServiceUnavailable'
+  /api/compliance/preflight:
+    post:
+      tags:
+      - Positions
+      summary: Verify trading eligibility
+      description: |
+        Requires recorded Terms and permitted geography, then screens missing or
+        stale holder evidence within the provider budget. It does not create
+        membership or move funds. Mutations independently enforce eligibility.
+
+        **Auth:** API-key scope: `orders:write`.
+      operationId: preflightEligibility
+      responses:
+        '200':
+          description: Explicit eligibility decision and screening metadata.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ComplianceStatusResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+        '503':
+          $ref: '#/components/responses/ServiceUnavailable'
   /api/orders/modify:
     post:
       tags:
@@ -1935,8 +1962,8 @@ paths:
       - Health
       summary: API/network info
       description: |
-        Small network/config debug endpoint reporting the active network and
-        Hyperliquid API URL.
+        Small network/config endpoint reporting the active network, the
+        Hyperliquid API URL and whether trade plans are switched on.
 
         **Auth:** public (no auth).
       operationId: getInfo
@@ -2920,6 +2947,96 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/TacticSummary'
+    EligibilityDecision:
+      oneOf:
+      - type: object
+        required:
+        - state
+        - basis
+        properties:
+          state:
+            type: string
+            enum:
+            - allowed
+          basis:
+            type: string
+            enum:
+            - screening
+            - operator_override
+            - embedded_wallet
+            - geo_disabled
+            - country
+      - type: object
+        required:
+        - state
+        - reason
+        properties:
+          state:
+            type: string
+            enum:
+            - blocked
+          reason:
+            type: string
+            enum:
+            - compliance_flagged
+            - geo_restricted
+      - type: object
+        required:
+        - state
+        properties:
+          state:
+            type: string
+            enum:
+            - checking
+      - type: object
+        required:
+        - state
+        - reason
+        properties:
+          state:
+            type: string
+            enum:
+            - unavailable
+          reason:
+            type: string
+            enum:
+            - screening_disabled
+            - screening_failed
+            - budget_exhausted
+            - screening_cooldown
+            - country_unresolved
+            - storage_unavailable
+      discriminator:
+        propertyName: state
+    ComplianceStatusResponse:
+      type: object
+      required:
+      - walletAddress
+      - status
+      - flagged
+      - decision
+      properties:
+        decision:
+          $ref: '#/components/schemas/EligibilityDecision'
+        walletAddress:
+          type: string
+        status:
+          type: string
+          description: Provider verdict, or the operator override when one is set.
+        flagged:
+          type: boolean
+          description: Explicit provider or operator flag; use decision for permission.
+        riskLevel:
+          type: string
+          nullable: true
+        reason:
+          type: string
+          nullable: true
+        lastCheckedAt:
+          type: integer
+          format: int64
+          nullable: true
+          description: Epoch seconds.
     ModifyOrderRequest:
       type: object
       required:
@@ -4341,6 +4458,7 @@ components:
       required:
       - network
       - api_url
+      - trade_plans_enabled
       description: Field keys are snake_case.
       properties:
         network:
@@ -4350,3 +4468,7 @@ components:
           - testnet
         api_url:
           type: string
+        trade_plans_enabled:
+          type: boolean
+          description: Whether trade plans (Strategies) are switched on; while false every `/api/trade-plans`
+            route answers 422 `TRADE_PLANS_DISABLED`.

@@ -10,6 +10,12 @@ description: Leverage, margin, and spot/perp transfer actions.
 [openapi.yaml](../../.gitbook/assets/openapi.yaml)
 {% endopenapi %}
 
+## Verify trading eligibility
+
+{% openapi src="../../.gitbook/assets/openapi.yaml" path="/api/compliance/preflight" method="post" %}
+[openapi.yaml](../../.gitbook/assets/openapi.yaml)
+{% endopenapi %}
+
 ## Update leverage
 
 {% openapi src="../../.gitbook/assets/openapi.yaml" path="/api/positions/leverage" method="post" %}
