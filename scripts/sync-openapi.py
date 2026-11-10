@@ -142,6 +142,8 @@ EXCLUDED_PATHS = [
     # never an API key. Publish them when they launch.
     "/api/trade-plans",
     "/api/trade-plans/{plan_id}",
+    "/api/trade-plans/{plan_id}/amend/preview",
+    "/api/trade-plans/{plan_id}/amend",
     "/api/trade-plans/{plan_id}/arm/preview",
     "/api/trade-plans/{plan_id}/arm",
     "/api/trade-plans/{plan_id}/pause",
